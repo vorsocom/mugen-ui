@@ -121,7 +121,7 @@ class UserAdminController extends _$UserAdminController {
       roles: <UserRoleEntity>[],
       total: 0,
       page: 1,
-      pageSize: 5,
+      pageSize: 15,
       searchTerm: '',
       isLoadingUsers: false,
       isLoadingRoles: false,

@@ -42,7 +42,7 @@ void main() {
 
       await tester.tap(find.byTooltip('Last page'));
       await tester.pumpAndSettle();
-      expect(repository.fetchUsersQueries.last.pageRequest.page, 12);
+      expect(repository.fetchUsersQueries.last.pageRequest.page, 4);
 
       await tester.tap(find.byTooltip('First page'));
       await tester.pumpAndSettle();
@@ -56,11 +56,41 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.expand_more).first);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('10').last);
+      await tester.tap(find.text('25').last);
       await tester.pumpAndSettle();
-      expect(repository.fetchUsersQueries.last.pageRequest.pageSize, 10);
+      expect(repository.fetchUsersQueries.last.pageRequest.pageSize, 25);
     },
   );
+
+  testWidgets('LocalUserPanel table scrolls when rows per page is 50', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeUserAdminRepository();
+
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.expand_more).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('50').last);
+    await tester.pumpAndSettle();
+    expect(repository.fetchUsersQueries.last.pageRequest.pageSize, 50);
+
+    final tableFinder = find.byType(DataTable).first;
+    final tableViewport = find
+        .ancestor(of: tableFinder, matching: find.byType(ClipRRect))
+        .first;
+    final tableBottom = tester.getBottomLeft(tableViewport).dy;
+    final targetRow = find.text('user50').first;
+    final initialTargetY = tester.getTopLeft(targetRow).dy;
+    expect(initialTargetY, greaterThan(tableBottom));
+
+    await tester.drag(tableViewport, const Offset(0, -2200));
+    await tester.pumpAndSettle();
+
+    final scrolledTargetY = tester.getTopLeft(targetRow).dy;
+    expect(scrolledTargetY, lessThan(tableBottom));
+  });
 
   testWidgets('register dialog validates input and submits success/failure', (
     WidgetTester tester,

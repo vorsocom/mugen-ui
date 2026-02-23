@@ -243,16 +243,16 @@ void main() {
 
       expect(
         fixture.client.requests[0].path,
-        'core/acp/v1/Tenants/tenant-1/TenantDomains',
+        'core/acp/v1/tenants/tenant-1/TenantDomains',
       );
       expect(fixture.client.requests[0].queryParameters[r'$top'], 100);
       expect(
         fixture.client.requests[1].path,
-        'core/acp/v1/Tenants/tenant-1/TenantInvitations',
+        'core/acp/v1/tenants/tenant-1/TenantInvitations',
       );
       expect(
         fixture.client.requests[2].path,
-        'core/acp/v1/Tenants/tenant-1/TenantMemberships',
+        'core/acp/v1/tenants/tenant-1/TenantMemberships',
       );
     });
 
@@ -434,11 +434,11 @@ void main() {
         );
         expect(
           fixture.client.requests[4].path,
-          'core/acp/v1/Tenants/tenant-1/TenantDomains',
+          'core/acp/v1/tenants/tenant-1/TenantDomains',
         );
         expect(
           fixture.client.requests[5].path,
-          'core/acp/v1/Tenants/tenant-1/TenantDomains/d-1',
+          'core/acp/v1/tenants/tenant-1/TenantDomains/d-1',
         );
         expect(fixture.client.requests[5].body, <String, dynamic>{
           'Domain': 'beta.example.com',
@@ -451,23 +451,23 @@ void main() {
         });
         expect(
           fixture.client.requests[8].path,
-          r'core/acp/v1/Tenants/tenant-1/TenantInvitations/i-1/$action/resend',
+          r'core/acp/v1/tenants/tenant-1/TenantInvitations/i-1/$action/resend',
         );
         expect(
           fixture.client.requests[9].path,
-          r'core/acp/v1/Tenants/tenant-1/TenantInvitations/i-1/$action/revoke',
+          r'core/acp/v1/tenants/tenant-1/TenantInvitations/i-1/$action/revoke',
         );
         expect(
           fixture.client.requests[12].path,
-          r'core/acp/v1/Tenants/tenant-1/TenantMemberships/m-1/$action/suspend',
+          r'core/acp/v1/tenants/tenant-1/TenantMemberships/m-1/$action/suspend',
         );
         expect(
           fixture.client.requests[13].path,
-          r'core/acp/v1/Tenants/tenant-1/TenantMemberships/m-1/$action/unsuspend',
+          r'core/acp/v1/tenants/tenant-1/TenantMemberships/m-1/$action/unsuspend',
         );
         expect(
           fixture.client.requests[14].path,
-          r'core/acp/v1/Tenants/tenant-1/TenantMemberships/m-1/$action/remove',
+          r'core/acp/v1/tenants/tenant-1/TenantMemberships/m-1/$action/remove',
         );
         expect(fixture.client.requests[11].body, <String, dynamic>{
           'RoleInTenant': 'owner',

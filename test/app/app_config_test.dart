@@ -50,7 +50,7 @@ void main() {
     expect(defaults.api.endpoints.tenant, 'core/acp/v1/Tenants');
     expect(
       defaults.api.endpoints.tenantMembershipActionSuspend,
-      'core/acp/v1/Tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/suspend',
+      'core/acp/v1/tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/suspend',
     );
     expect(
       merged.api.endpoints.tenantMembershipActionSuspend,

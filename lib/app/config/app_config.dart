@@ -301,19 +301,19 @@ class AppConfig {
               'core/acp/v1/Tenants/{tenant_id}/\$action/deactivate',
           tenantActionReactivate:
               'core/acp/v1/Tenants/{tenant_id}/\$action/reactivate',
-          tenantDomain: 'core/acp/v1/Tenants/{tenant_id}/TenantDomains',
-          tenantInvitation: 'core/acp/v1/Tenants/{tenant_id}/TenantInvitations',
+          tenantDomain: 'core/acp/v1/tenants/{tenant_id}/TenantDomains',
+          tenantInvitation: 'core/acp/v1/tenants/{tenant_id}/TenantInvitations',
           tenantInvitationActionResend:
-              'core/acp/v1/Tenants/{tenant_id}/TenantInvitations/{invitation_id}/\$action/resend',
+              'core/acp/v1/tenants/{tenant_id}/TenantInvitations/{invitation_id}/\$action/resend',
           tenantInvitationActionRevoke:
-              'core/acp/v1/Tenants/{tenant_id}/TenantInvitations/{invitation_id}/\$action/revoke',
-          tenantMembership: 'core/acp/v1/Tenants/{tenant_id}/TenantMemberships',
+              'core/acp/v1/tenants/{tenant_id}/TenantInvitations/{invitation_id}/\$action/revoke',
+          tenantMembership: 'core/acp/v1/tenants/{tenant_id}/TenantMemberships',
           tenantMembershipActionRemove:
-              'core/acp/v1/Tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/remove',
+              'core/acp/v1/tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/remove',
           tenantMembershipActionSuspend:
-              'core/acp/v1/Tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/suspend',
+              'core/acp/v1/tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/suspend',
           tenantMembershipActionUnsuspend:
-              'core/acp/v1/Tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/unsuspend',
+              'core/acp/v1/tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/unsuspend',
           user: 'core/acp/v1/Users',
           userRole: 'core/acp/v1/GlobalRoles',
           webMessages: 'core/web/v1/messages',

@@ -6,6 +6,7 @@ const String acpNamespace = 'com.vorsocomputing.mugen.acp';
 
 class ApiEndpointsConfig {
   const ApiEndpointsConfig({
+    required this.authTenantInvitationRedeem,
     required this.authDisableUser,
     required this.authEnableUser,
     required this.authJwks,
@@ -17,6 +18,17 @@ class ApiEndpointsConfig {
     required this.authResetPasswordAdmin,
     required this.authUpdateProfile,
     required this.authUpdateRolesAdmin,
+    required this.tenant,
+    required this.tenantActionDeactivate,
+    required this.tenantActionReactivate,
+    required this.tenantDomain,
+    required this.tenantInvitation,
+    required this.tenantInvitationActionResend,
+    required this.tenantInvitationActionRevoke,
+    required this.tenantMembership,
+    required this.tenantMembershipActionRemove,
+    required this.tenantMembershipActionSuspend,
+    required this.tenantMembershipActionUnsuspend,
     required this.user,
     required this.userRole,
     required this.webMessages,
@@ -24,6 +36,7 @@ class ApiEndpointsConfig {
     required this.webMediaBase,
   });
 
+  final String authTenantInvitationRedeem;
   final String authDisableUser;
   final String authEnableUser;
   final String authJwks;
@@ -35,6 +48,17 @@ class ApiEndpointsConfig {
   final String authResetPasswordAdmin;
   final String authUpdateProfile;
   final String authUpdateRolesAdmin;
+  final String tenant;
+  final String tenantActionDeactivate;
+  final String tenantActionReactivate;
+  final String tenantDomain;
+  final String tenantInvitation;
+  final String tenantInvitationActionResend;
+  final String tenantInvitationActionRevoke;
+  final String tenantMembership;
+  final String tenantMembershipActionRemove;
+  final String tenantMembershipActionSuspend;
+  final String tenantMembershipActionUnsuspend;
   final String user;
   final String userRole;
   final String webMessages;
@@ -47,6 +71,8 @@ class ApiEndpointsConfig {
     }
 
     return ApiEndpointsConfig(
+      authTenantInvitationRedeem:
+          override.authTenantInvitationRedeem ?? authTenantInvitationRedeem,
       authDisableUser: override.authDisableUser ?? authDisableUser,
       authEnableUser: override.authEnableUser ?? authEnableUser,
       authJwks: override.authJwks ?? authJwks,
@@ -60,6 +86,26 @@ class ApiEndpointsConfig {
       authUpdateProfile: override.authUpdateProfile ?? authUpdateProfile,
       authUpdateRolesAdmin:
           override.authUpdateRolesAdmin ?? authUpdateRolesAdmin,
+      tenant: override.tenant ?? tenant,
+      tenantActionDeactivate:
+          override.tenantActionDeactivate ?? tenantActionDeactivate,
+      tenantActionReactivate:
+          override.tenantActionReactivate ?? tenantActionReactivate,
+      tenantDomain: override.tenantDomain ?? tenantDomain,
+      tenantInvitation: override.tenantInvitation ?? tenantInvitation,
+      tenantInvitationActionResend:
+          override.tenantInvitationActionResend ?? tenantInvitationActionResend,
+      tenantInvitationActionRevoke:
+          override.tenantInvitationActionRevoke ?? tenantInvitationActionRevoke,
+      tenantMembership: override.tenantMembership ?? tenantMembership,
+      tenantMembershipActionRemove:
+          override.tenantMembershipActionRemove ?? tenantMembershipActionRemove,
+      tenantMembershipActionSuspend:
+          override.tenantMembershipActionSuspend ??
+          tenantMembershipActionSuspend,
+      tenantMembershipActionUnsuspend:
+          override.tenantMembershipActionUnsuspend ??
+          tenantMembershipActionUnsuspend,
       user: override.user ?? user,
       userRole: override.userRole ?? userRole,
       webMessages: override.webMessages ?? webMessages,
@@ -71,6 +117,7 @@ class ApiEndpointsConfig {
 
 class ApiEndpointsOverride {
   const ApiEndpointsOverride({
+    this.authTenantInvitationRedeem,
     this.authDisableUser,
     this.authEnableUser,
     this.authJwks,
@@ -82,6 +129,17 @@ class ApiEndpointsOverride {
     this.authResetPasswordAdmin,
     this.authUpdateProfile,
     this.authUpdateRolesAdmin,
+    this.tenant,
+    this.tenantActionDeactivate,
+    this.tenantActionReactivate,
+    this.tenantDomain,
+    this.tenantInvitation,
+    this.tenantInvitationActionResend,
+    this.tenantInvitationActionRevoke,
+    this.tenantMembership,
+    this.tenantMembershipActionRemove,
+    this.tenantMembershipActionSuspend,
+    this.tenantMembershipActionUnsuspend,
     this.user,
     this.userRole,
     this.webMessages,
@@ -89,6 +147,7 @@ class ApiEndpointsOverride {
     this.webMediaBase,
   });
 
+  final String? authTenantInvitationRedeem;
   final String? authDisableUser;
   final String? authEnableUser;
   final String? authJwks;
@@ -100,6 +159,17 @@ class ApiEndpointsOverride {
   final String? authResetPasswordAdmin;
   final String? authUpdateProfile;
   final String? authUpdateRolesAdmin;
+  final String? tenant;
+  final String? tenantActionDeactivate;
+  final String? tenantActionReactivate;
+  final String? tenantDomain;
+  final String? tenantInvitation;
+  final String? tenantInvitationActionResend;
+  final String? tenantInvitationActionRevoke;
+  final String? tenantMembership;
+  final String? tenantMembershipActionRemove;
+  final String? tenantMembershipActionSuspend;
+  final String? tenantMembershipActionUnsuspend;
   final String? user;
   final String? userRole;
   final String? webMessages;
@@ -126,7 +196,10 @@ class ApiConfig {
 }
 
 class ApiConfigOverride {
-  const ApiConfigOverride({this.baseUrl, this.endpoints}); // coverage:ignore-line
+  const ApiConfigOverride({ // coverage:ignore-line
+    this.baseUrl,
+    this.endpoints,
+  }); // coverage:ignore-line
 
   final String? baseUrl;
   final ApiEndpointsOverride? endpoints;
@@ -206,6 +279,8 @@ class AppConfig {
       api: const ApiConfig(
         baseUrl: 'https://localdev.vorsocomputing.com:8081/api',
         endpoints: ApiEndpointsConfig(
+          authTenantInvitationRedeem:
+              'core/acp/v1/auth/tenants/{tenant_id}/invitations/{invitation_id}/redeem',
           authDisableUser: 'core/acp/v1/Users/{user_id}/\$action/lock',
           authEnableUser: 'core/acp/v1/Users/{user_id}/\$action/unlock',
           authJwks: 'core/acp/v1/auth/.well-known/jwks.json',
@@ -221,6 +296,24 @@ class AppConfig {
               'core/acp/v1/Users/{user_id}/\$action/updateprofile',
           authUpdateRolesAdmin:
               'core/acp/v1/Users/{user_id}/\$action/updateroles',
+          tenant: 'core/acp/v1/Tenants',
+          tenantActionDeactivate:
+              'core/acp/v1/Tenants/{tenant_id}/\$action/deactivate',
+          tenantActionReactivate:
+              'core/acp/v1/Tenants/{tenant_id}/\$action/reactivate',
+          tenantDomain: 'core/acp/v1/Tenants/{tenant_id}/TenantDomains',
+          tenantInvitation: 'core/acp/v1/Tenants/{tenant_id}/TenantInvitations',
+          tenantInvitationActionResend:
+              'core/acp/v1/Tenants/{tenant_id}/TenantInvitations/{invitation_id}/\$action/resend',
+          tenantInvitationActionRevoke:
+              'core/acp/v1/Tenants/{tenant_id}/TenantInvitations/{invitation_id}/\$action/revoke',
+          tenantMembership: 'core/acp/v1/Tenants/{tenant_id}/TenantMemberships',
+          tenantMembershipActionRemove:
+              'core/acp/v1/Tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/remove',
+          tenantMembershipActionSuspend:
+              'core/acp/v1/Tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/suspend',
+          tenantMembershipActionUnsuspend:
+              'core/acp/v1/Tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/unsuspend',
           user: 'core/acp/v1/Users',
           userRole: 'core/acp/v1/GlobalRoles',
           webMessages: 'core/web/v1/messages',
@@ -251,6 +344,13 @@ class AppConfig {
           section: 'Platform Configuration',
           roles: <String>['$acpNamespace:administrator'],
         ),
+        DrawerItemConfig(
+          title: 'Tenant Management',
+          icon: Icons.apartment_outlined,
+          route: RouteIds.tenantManagement,
+          section: 'Platform Configuration',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
       ],
       settingsPanels: const <SettingsPanelConfig>[
         SettingsPanelConfig(
@@ -264,6 +364,10 @@ class AppConfig {
       spaRoutes: const <SpaRouteConfig>[
         SpaRouteConfig(id: RouteIds.chat, title: 'AI Assist'),
         SpaRouteConfig(id: RouteIds.localUsers, title: 'Local Users'),
+        SpaRouteConfig(
+          id: RouteIds.tenantManagement,
+          title: 'Tenant Management',
+        ),
       ],
     );
   }

@@ -80,6 +80,8 @@ Rules enforced by `tool/architecture/check_dependencies.dart`:
 - `lib/features/auth` auth/session domain/application/infrastructure/presentation
 - `lib/features/chat` single-conversation web chat (REST + SSE + media) domain/application/infrastructure/presentation
 - `lib/features/user_admin` user management domain/application/infrastructure/presentation
+- `lib/features/tenant_admin` tenant/domain/invitation/membership administration domain/application/infrastructure/presentation
+- `lib/features/tenant_invite` authenticated tenant invitation redeem flow (login-first) domain/infrastructure/presentation
 - `lib/features/shell` drawer/settings/shell presentation state and pages
 - `lib/extension` typed configuration overrides and Riverpod provider overrides
 
@@ -91,6 +93,12 @@ Chat requests now support explicit structured composition when attachments are p
 - `attachment_with_caption`: attachment parts only, with a required caption per attachment
 
 The UI serializes these through structured multipart fields (`composition_mode`, JSON `parts`, and `files[<attachment_id>]`).
+
+## Tenant Management + Invite Redeem
+
+- Admin-only `Tenant Management` SPA route under `Platform Configuration`.
+- Tenant lifecycle and membership lifecycle use ACP action endpoints with `RowVersion` (`deactivate/reactivate`, `suspend/unsuspend/remove`) instead of status patching.
+- Invite links use `/invite/{tenant_id}/{invitation_id}?token=...` with login-first redirect and authenticated redeem via ACP.
 
 ## Extension Surface
 

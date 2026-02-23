@@ -1056,6 +1056,459 @@ void main() {
     },
   );
 
+  testWidgets('assistant media rows trigger ensure/retry/download callbacks', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 1400));
+    addTearDown(() async {
+      await tester.binding.setSurfaceSize(null);
+    });
+
+    final controller = _TestChatController(
+      initialState: ChatControllerState(
+        conversationId: 'conv-test',
+        messages: <ChatMessageEntity>[
+          ChatMessageEntity(
+            id: 'assistant-load',
+            role: ChatMessageRole.assistant,
+            type: ChatMessageType.file,
+            status: ChatMessageStatus.delivered,
+            createdAt: DateTime.utc(2026, 1, 1, 12, 10),
+            media: const ChatMediaEntity(
+              url: '/api/core/web/v1/media/load',
+              mimeType: 'application/pdf',
+              filename: 'load.pdf',
+            ),
+          ),
+          ChatMessageEntity(
+            id: 'assistant-error',
+            role: ChatMessageRole.assistant,
+            type: ChatMessageType.file,
+            status: ChatMessageStatus.delivered,
+            createdAt: DateTime.utc(2026, 1, 1, 12, 11),
+            media: const ChatMediaEntity(
+              url: '/api/core/web/v1/media/error',
+              mimeType: 'application/pdf',
+              filename: 'error.pdf',
+            ),
+          ),
+          ChatMessageEntity(
+            id: 'assistant-ready',
+            role: ChatMessageRole.assistant,
+            type: ChatMessageType.file,
+            status: ChatMessageStatus.delivered,
+            createdAt: DateTime.utc(2026, 1, 1, 12, 12),
+            media: const ChatMediaEntity(
+              url: '/api/core/web/v1/media/ready',
+              mimeType: 'application/pdf',
+              filename: 'report.pdf',
+            ),
+          ),
+        ],
+        mediaResources: const <String, ChatMediaResourceState>{
+          'assistant-error': ChatMediaResourceState(
+            isLoading: false,
+            errorMessage: 'load failed',
+          ),
+          'assistant-ready': ChatMediaResourceState(
+            isLoading: false,
+            objectUrl: 'blob://ready',
+            mimeType: 'application/pdf',
+            filename: 'report.pdf',
+            pdfPageAspectRatio: 1.2,
+          ),
+        },
+        attachments: const <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          chatControllerProvider.overrideWith(() => controller),
+        ],
+        child: const MaterialApp(home: Scaffold(body: ChatPage())),
+      ),
+    );
+    await tester.pump();
+
+    expect(controller.ensureMediaLoadedCallCount, 1);
+    expect(controller.lastEnsureMediaLoadedMessageId, 'assistant-load');
+    expect(find.text('load failed'), findsOneWidget);
+
+    final retryButton = tester.widget<TextButton>(
+      find.widgetWithText(TextButton, 'Retry'),
+    );
+    retryButton.onPressed!.call();
+    await tester.pump();
+    expect(controller.retryMediaLoadCallCount, 1);
+    expect(controller.lastRetryMediaLoadMessageId, 'assistant-error');
+
+    final downloadButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, 'Download report.pdf'),
+    );
+    downloadButton.onPressed!.call();
+    await tester.pump();
+    expect(controller.downloadMediaCallCount, 1);
+    expect(controller.lastDownloadMediaMessageId, 'assistant-ready');
+  });
+
+  testWidgets(
+    'system/error role labels and markdown user statuses render expected indicators',
+    (tester) async {
+      final controller = _TestChatController(
+        initialState: ChatControllerState(
+          conversationId: 'conv-test',
+          messages: <ChatMessageEntity>[
+            ChatMessageEntity(
+              id: 'system-1',
+              role: ChatMessageRole.system,
+              type: ChatMessageType.text,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 0),
+              text: '**Maintenance** active',
+            ),
+            ChatMessageEntity(
+              id: 'error-1',
+              role: ChatMessageRole.error,
+              type: ChatMessageType.text,
+              status: ChatMessageStatus.failed,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 1),
+              text: '`Failure` detail',
+            ),
+            ChatMessageEntity(
+              id: 'user-pending-md',
+              role: ChatMessageRole.user,
+              type: ChatMessageType.text,
+              status: ChatMessageStatus.pending,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 2),
+              text: '- pending',
+            ),
+            ChatMessageEntity(
+              id: 'user-accepted-md',
+              role: ChatMessageRole.user,
+              type: ChatMessageType.text,
+              status: ChatMessageStatus.accepted,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 3),
+              text: '- accepted',
+            ),
+            ChatMessageEntity(
+              id: 'user-failed-md',
+              role: ChatMessageRole.user,
+              type: ChatMessageType.text,
+              status: ChatMessageStatus.failed,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 4),
+              text: '- failed',
+            ),
+          ],
+          mediaResources: const <String, ChatMediaResourceState>{},
+          attachments: const <ChatAttachmentDraft>[],
+          compositionMode: ChatCompositionMode.messageWithAttachments,
+          isConnected: true,
+          isConnecting: false,
+          isSending: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            chatControllerProvider.overrideWith(() => controller),
+          ],
+          child: const MaterialApp(home: Scaffold(body: ChatPage())),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('System'), findsOneWidget);
+      expect(find.text('Error'), findsOneWidget);
+      expect(find.byIcon(Icons.schedule), findsOneWidget);
+      expect(find.byIcon(Icons.done), findsOneWidget);
+      expect(find.byIcon(Icons.error_outline), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'user and assistant file previews render summary, type cues, and fallback cards',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 2600));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+
+      final controller = _TestChatController(
+        initialState: ChatControllerState(
+          conversationId: 'conv-test',
+          messages: <ChatMessageEntity>[
+            ChatMessageEntity(
+              id: 'user-summary',
+              role: ChatMessageRole.user,
+              type: ChatMessageType.file,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 20),
+              media: const ChatMediaEntity(
+                url: '',
+                mimeType: 'application/msword',
+                filename: 'draft.docx',
+              ),
+            ),
+            ChatMessageEntity(
+              id: 'user-audio',
+              role: ChatMessageRole.user,
+              type: ChatMessageType.audio,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 21),
+              media: const ChatMediaEntity(
+                url: 'blob://audio',
+                mimeType: 'audio/wav',
+              ),
+            ),
+            ChatMessageEntity(
+              id: 'user-video',
+              role: ChatMessageRole.user,
+              type: ChatMessageType.video,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 22),
+              media: const ChatMediaEntity(
+                url: 'blob://video',
+                mimeType: 'video/mp4',
+              ),
+            ),
+            ChatMessageEntity(
+              id: 'user-file',
+              role: ChatMessageRole.user,
+              type: ChatMessageType.file,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 23),
+              media: const ChatMediaEntity(
+                url: 'blob://bin',
+                mimeType: 'application/octet-stream',
+              ),
+            ),
+            ChatMessageEntity(
+              id: 'user-text-with-media',
+              role: ChatMessageRole.user,
+              type: ChatMessageType.text,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 24),
+              media: const ChatMediaEntity(
+                url: 'blob://text',
+                mimeType: 'application/octet-stream',
+              ),
+            ),
+            ChatMessageEntity(
+              id: 'assistant-text-null',
+              role: ChatMessageRole.assistant,
+              type: ChatMessageType.file,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 25),
+              media: const ChatMediaEntity(
+                url: '/media/text-null',
+                mimeType: 'text/plain',
+                filename: 'notes.txt',
+              ),
+            ),
+            ChatMessageEntity(
+              id: 'assistant-sheet-null',
+              role: ChatMessageRole.assistant,
+              type: ChatMessageType.file,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 26),
+              media: const ChatMediaEntity(
+                url: '/media/sheet-null',
+                mimeType:
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                filename: 'null.xlsx',
+              ),
+            ),
+            ChatMessageEntity(
+              id: 'assistant-sheet-empty',
+              role: ChatMessageRole.assistant,
+              type: ChatMessageType.file,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 27),
+              media: const ChatMediaEntity(
+                url: '/media/sheet-empty',
+                mimeType:
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                filename: 'empty.xlsx',
+              ),
+            ),
+            ChatMessageEntity(
+              id: 'assistant-sheet-trim',
+              role: ChatMessageRole.assistant,
+              type: ChatMessageType.file,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 28),
+              media: const ChatMediaEntity(
+                url: '/media/sheet-trim',
+                mimeType:
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                filename: 'trim.xlsx',
+              ),
+            ),
+            ChatMessageEntity(
+              id: 'assistant-unsupported',
+              role: ChatMessageRole.assistant,
+              type: ChatMessageType.file,
+              status: ChatMessageStatus.delivered,
+              createdAt: DateTime.utc(2026, 1, 1, 12, 29),
+              media: const ChatMediaEntity(
+                url: '/media/unsupported',
+                mimeType: 'application/octet-stream',
+              ),
+            ),
+          ],
+          mediaResources: const <String, ChatMediaResourceState>{
+            'assistant-text-null': ChatMediaResourceState(
+              isLoading: false,
+              objectUrl: 'blob://text-null',
+              mimeType: 'text/plain',
+              filename: 'notes.txt',
+              textPreview: null,
+            ),
+            'assistant-sheet-null': ChatMediaResourceState(
+              isLoading: false,
+              objectUrl: 'blob://sheet-null',
+              mimeType:
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              filename: 'null.xlsx',
+              spreadsheetPreview: null,
+            ),
+            'assistant-sheet-empty': ChatMediaResourceState(
+              isLoading: false,
+              objectUrl: 'blob://sheet-empty',
+              mimeType:
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              filename: 'empty.xlsx',
+              spreadsheetPreview: ChatSpreadsheetPreview(
+                sheetName: 'Sheet1',
+                rows: <List<String>>[],
+                truncatedRows: false,
+                truncatedColumns: false,
+              ),
+            ),
+            'assistant-sheet-trim': ChatMediaResourceState(
+              isLoading: false,
+              objectUrl: 'blob://sheet-trim',
+              mimeType:
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              filename: 'trim.xlsx',
+              spreadsheetPreview: ChatSpreadsheetPreview(
+                sheetName: 'Sheet1',
+                rows: <List<String>>[
+                  <String>['ColA'],
+                  <String>['Value'],
+                ],
+                truncatedRows: true,
+                truncatedColumns: false,
+              ),
+            ),
+            'assistant-unsupported': ChatMediaResourceState(
+              isLoading: false,
+              objectUrl: 'blob://unsupported',
+              mimeType: 'application/octet-stream',
+            ),
+          },
+          attachments: const <ChatAttachmentDraft>[],
+          compositionMode: ChatCompositionMode.messageWithAttachments,
+          isConnected: true,
+          isConnecting: false,
+          isSending: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            chatControllerProvider.overrideWith(() => controller),
+          ],
+          child: const MaterialApp(home: Scaffold(body: ChatPage())),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('draft.docx'), findsWidgets);
+      expect(find.text('Attached audio'), findsOneWidget);
+      expect(find.text('Attached video'), findsOneWidget);
+      expect(find.text('Attached file'), findsOneWidget);
+      expect(find.text('Attached attachment'), findsOneWidget);
+      expect(
+        find.text('No inline preview: application/octet-stream'),
+        findsWidgets,
+      );
+      expect(
+        find.text('Inline preview unavailable in secure mode.'),
+        findsWidgets,
+      );
+      expect(find.text('(empty sheet)'), findsOneWidget);
+      expect(find.text('Showing a trimmed worksheet preview.'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'long assistant response uses job-id anchor when client id is absent',
+    (tester) async {
+      final transcript = _buildScrollableTranscript();
+      transcript.add(
+        ChatMessageEntity(
+          id: 'user-job-anchor',
+          role: ChatMessageRole.user,
+          type: ChatMessageType.text,
+          status: ChatMessageStatus.delivered,
+          createdAt: DateTime.utc(2026, 1, 1, 14, 0),
+          text: 'Job anchored prompt',
+          jobId: 'job-anchor',
+        ),
+      );
+
+      final controller = _TestChatController(
+        initialState: ChatControllerState(
+          conversationId: 'conv-test',
+          messages: transcript,
+          mediaResources: const <String, ChatMediaResourceState>{},
+          attachments: const <ChatAttachmentDraft>[],
+          compositionMode: ChatCompositionMode.messageWithAttachments,
+          isConnected: true,
+          isConnecting: false,
+          isSending: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            chatControllerProvider.overrideWith(() => controller),
+          ],
+          child: const MaterialApp(home: Scaffold(body: ChatPage())),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      controller.appendMessage(
+        ChatMessageEntity(
+          id: 'assistant-job-anchor',
+          role: ChatMessageRole.assistant,
+          type: ChatMessageType.text,
+          status: ChatMessageStatus.delivered,
+          createdAt: DateTime.utc(2026, 1, 1, 14, 1),
+          text: List<String>.generate(220, (index) => 'Line $index').join('\n'),
+          jobId: 'job-anchor',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final transcriptRect = tester.getRect(find.byType(ListView));
+      final promptRect = tester.getRect(find.text('Job anchored prompt'));
+      expect(promptRect.top, greaterThanOrEqualTo(transcriptRect.top - 2));
+      expect(promptRect.top, lessThanOrEqualTo(transcriptRect.top + 120));
+    },
+  );
+
   testWidgets('clear transcript requires confirmation and can be cancelled', (
     tester,
   ) async {
@@ -1200,6 +1653,12 @@ class _TestChatController extends ChatController {
   final ChatControllerState initialState;
   int _counter = 0;
   int clearTranscriptCallCount = 0;
+  int ensureMediaLoadedCallCount = 0;
+  int retryMediaLoadCallCount = 0;
+  int downloadMediaCallCount = 0;
+  String? lastEnsureMediaLoadedMessageId;
+  String? lastRetryMediaLoadMessageId;
+  String? lastDownloadMediaMessageId;
 
   @override
   ChatControllerState build() {
@@ -1254,7 +1713,22 @@ class _TestChatController extends ChatController {
   }
 
   @override
-  Future<void> downloadMediaToDevice(String messageId) async {}
+  Future<void> ensureMediaLoaded(String messageId) async {
+    ensureMediaLoadedCallCount += 1;
+    lastEnsureMediaLoadedMessageId = messageId;
+  }
+
+  @override
+  Future<void> retryMediaLoad(String messageId) async {
+    retryMediaLoadCallCount += 1;
+    lastRetryMediaLoadMessageId = messageId;
+  }
+
+  @override
+  Future<void> downloadMediaToDevice(String messageId) async {
+    downloadMediaCallCount += 1;
+    lastDownloadMediaMessageId = messageId;
+  }
 
   @override
   void clearTranscript() {

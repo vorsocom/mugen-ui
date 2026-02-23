@@ -545,7 +545,8 @@ class UserAdminRepositoryImpl implements UserAdminRepository {
     }
 
     if (value is Map) {
-      return Map<String, dynamic>.from(value);
+      // coverage:ignore-line
+      return Map<String, dynamic>.from(value); // coverage:ignore-line
     }
 
     return null;

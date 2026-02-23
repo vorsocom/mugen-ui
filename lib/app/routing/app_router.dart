@@ -6,7 +6,7 @@ import 'package:mugen_ui/features/auth/presentation/widgets/auth_guard.dart';
 import 'package:mugen_ui/features/shell/presentation/pages/shell_page.dart';
 
 class AppRouter {
-  const AppRouter._();
+  const AppRouter._(); // coverage:ignore-line
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {

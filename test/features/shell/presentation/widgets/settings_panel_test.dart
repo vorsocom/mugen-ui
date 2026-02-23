@@ -112,7 +112,10 @@ void main() {
                 accessToken: 'a',
                 refreshToken: 'r',
                 userId: 'u1',
-                roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+                roles: <String>[
+                  'com.vorsocomputing.mugen.acp:administrator',
+                  'com.vorsocomputing.mugen.acp:authenticated',
+                ],
               ),
             ),
           ),
@@ -126,12 +129,16 @@ void main() {
 
     await tester.pumpAndSettle();
     expect(find.text('New User'), findsNothing);
+    expect(find.byType(Divider), findsWidgets);
 
     await tester.tap(find.text('Local Users'));
     await tester.pumpAndSettle();
 
     expect(find.text('New User'), findsOneWidget);
     expect(find.byTooltip('Close'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
   });
 }
 

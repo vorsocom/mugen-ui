@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
@@ -1428,6 +1429,919 @@ void main() {
       expect(repository.streamCalls.length >= 2, isTrue);
     },
   );
+
+  test(
+    'draft/resource copyWith APIs apply overrides and clear optional fields',
+    () {
+      final draft = ChatAttachmentDraft(
+        id: 'att-1',
+        filename: 'report.pdf',
+        mimeType: 'application/pdf',
+        bytes: Uint8List.fromList(<int>[1, 2, 3]),
+        caption: 'Initial',
+        metadata: const <String, dynamic>{'a': 1},
+      );
+      final updatedDraft = draft.copyWith(
+        caption: 'Updated',
+        metadata: const <String, dynamic>{'b': 2},
+      );
+      expect(updatedDraft.caption, 'Updated');
+      expect(updatedDraft.metadata, const <String, dynamic>{'b': 2});
+      expect(updatedDraft.filename, 'report.pdf');
+
+      final mediaState = ChatMediaResourceState(
+        isLoading: true,
+        objectUrl: 'blob://1',
+        mimeType: 'text/plain',
+        filename: 'note.txt',
+        textPreview: 'hello',
+        pdfPageAspectRatio: 1.4,
+        spreadsheetPreview: const ChatSpreadsheetPreview(
+          sheetName: 'Sheet1',
+          rows: <List<String>>[
+            <String>['A'],
+          ],
+          truncatedRows: false,
+          truncatedColumns: false,
+        ),
+        errorMessage: 'failed',
+      );
+      final cleared = mediaState.copyWith(
+        isLoading: false,
+        clearObjectUrl: true,
+        clearMimeType: true,
+        clearFilename: true,
+        clearTextPreview: true,
+        clearPdfPageAspectRatio: true,
+        clearSpreadsheetPreview: true,
+        clearErrorMessage: true,
+      );
+      expect(cleared.isLoading, isFalse);
+      expect(cleared.objectUrl, isNull);
+      expect(cleared.mimeType, isNull);
+      expect(cleared.filename, isNull);
+      expect(cleared.textPreview, isNull);
+      expect(cleared.pdfPageAspectRatio, isNull);
+      expect(cleared.spreadsheetPreview, isNull);
+      expect(cleared.errorMessage, isNull);
+    },
+  );
+
+  test(
+    'PlatformChatFilePicker returns empty list on canceled selection',
+    () async {
+      final previous = _captureFilePickerPlatform();
+      FilePicker.platform = _FakePlatformFilePicker(null);
+      addTearDown(() {
+        if (previous != null) {
+          FilePicker.platform = previous;
+        }
+      });
+
+      final picker = PlatformChatFilePicker();
+      final files = await picker.pickFiles();
+      expect(files, isEmpty);
+    },
+  );
+
+  test(
+    'PlatformChatFilePicker maps extensions and skips null/empty byte entries',
+    () async {
+      final previous = _captureFilePickerPlatform();
+      FilePicker.platform = _FakePlatformFilePicker(
+        FilePickerResult(<PlatformFile>[
+          _platformFile('photo.jpg'),
+          _platformFile('photo.jpeg'),
+          _platformFile('photo.png'),
+          _platformFile('photo.gif'),
+          _platformFile('photo.webp'),
+          _platformFile('photo.bmp'),
+          _platformFile('vector.svg'),
+          _platformFile('song.mp3'),
+          _platformFile('song.wav'),
+          _platformFile('song.ogg'),
+          _platformFile('song.m4a'),
+          _platformFile('movie.mp4'),
+          _platformFile('movie.webm'),
+          _platformFile('movie.mov'),
+          _platformFile('movie.mkv'),
+          _platformFile('doc.pdf'),
+          _platformFile('doc.txt'),
+          _platformFile('doc.json'),
+          _platformFile('sheet.xlsx'),
+          _platformFile('sheet.xlsm'),
+          _platformFile('README'),
+          _platformFile('unknown.bin'),
+          _platformFile('skip-empty', bytes: Uint8List(0)),
+          PlatformFile(name: 'skip-null', size: 1, bytes: null),
+        ]),
+      );
+      addTearDown(() {
+        if (previous != null) {
+          FilePicker.platform = previous;
+        }
+      });
+
+      final picker = PlatformChatFilePicker();
+      final files = await picker.pickFiles();
+      final mapped = Map<String, String>.fromEntries(
+        files.map((file) => MapEntry(file.filename, file.mimeType)),
+      );
+
+      expect(files.length, 22);
+      expect(mapped['photo.jpg'], 'image/jpeg');
+      expect(mapped['photo.jpeg'], 'image/jpeg');
+      expect(mapped['photo.png'], 'image/png');
+      expect(mapped['photo.gif'], 'image/gif');
+      expect(mapped['photo.webp'], 'image/webp');
+      expect(mapped['photo.bmp'], 'image/bmp');
+      expect(mapped['vector.svg'], 'image/svg+xml');
+      expect(mapped['song.mp3'], 'audio/mpeg');
+      expect(mapped['song.wav'], 'audio/wav');
+      expect(mapped['song.ogg'], 'audio/ogg');
+      expect(mapped['song.m4a'], 'audio/mp4');
+      expect(mapped['movie.mp4'], 'video/mp4');
+      expect(mapped['movie.webm'], 'video/webm');
+      expect(mapped['movie.mov'], 'video/quicktime');
+      expect(mapped['movie.mkv'], 'video/x-matroska');
+      expect(mapped['doc.pdf'], 'application/pdf');
+      expect(mapped['doc.txt'], 'text/plain');
+      expect(mapped['doc.json'], 'application/json');
+      expect(
+        mapped['sheet.xlsx'],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      expect(
+        mapped['sheet.xlsm'],
+        'application/vnd.ms-excel.sheet.macroenabled.12',
+      );
+      expect(mapped['README'], 'application/octet-stream');
+      expect(mapped['unknown.bin'], 'application/octet-stream');
+      expect(mapped.containsKey('skip-empty'), isFalse);
+      expect(mapped.containsKey('skip-null'), isFalse);
+    },
+  );
+
+  test(
+    'attachment mutators enforce max limit, update caption, and clear/remove values',
+    () async {
+      final repository = _FakeChatRepository();
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+        filePicker: _FixedChatFilePicker(
+          List<ChatPickedFile>.generate(kMaxComposerAttachments + 2, (index) {
+            return ChatPickedFile(
+              filename: 'file-$index.txt',
+              mimeType: 'text/plain',
+              bytes: Uint8List.fromList(<int>[index + 1]),
+            );
+          }),
+        ),
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(chatControllerProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      await notifier.attachFromPicker();
+
+      var state = container.read(chatControllerProvider);
+      expect(state.attachments.length, kMaxComposerAttachments);
+      expect(
+        state.errorMessage,
+        'You can attach up to $kMaxComposerAttachments files per message.',
+      );
+      expect(notifier.composerValidationError(''), isNull);
+
+      final firstId = state.attachments.first.id;
+      final secondId = state.attachments[1].id;
+      notifier.updateAttachmentCaption(
+        attachmentId: firstId,
+        caption: 'updated caption',
+      );
+      notifier.removeAttachment(secondId);
+      state = container.read(chatControllerProvider);
+      expect(
+        state.attachments
+            .firstWhere((attachment) => attachment.id == firstId)
+            .caption,
+        'updated caption',
+      );
+      expect(
+        state.attachments.where((attachment) => attachment.id == secondId),
+        isEmpty,
+      );
+
+      notifier.clearError();
+      notifier.setCompositionMode(ChatCompositionMode.messageWithAttachments);
+      notifier.setCompositionMode(ChatCompositionMode.attachmentWithCaption);
+      state = container.read(chatControllerProvider);
+      expect(state.errorMessage, isNull);
+      expect(state.compositionMode, ChatCompositionMode.attachmentWithCaption);
+
+      notifier.clearAttachment();
+      state = container.read(chatControllerProvider);
+      expect(state.attachments, isEmpty);
+    },
+  );
+
+  test(
+    'clearTranscript clears state and revokes retained media object URLs',
+    () async {
+      final repository = _FakeChatRepository();
+      final mediaPlatform = _RecordingMediaPlatform();
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+        mediaPlatform: mediaPlatform,
+        filePicker: _FixedChatFilePicker(<ChatPickedFile>[
+          ChatPickedFile(
+            filename: 'inline.png',
+            mimeType: 'image/png',
+            bytes: Uint8List.fromList(<int>[1, 2, 3, 4]),
+          ),
+        ]),
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(chatControllerProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      await notifier.attachFromPicker();
+      final sent = await notifier.sendMessage('image');
+      expect(sent, isTrue);
+
+      var state = container.read(chatControllerProvider);
+      expect(state.messages, isNotEmpty);
+      expect(state.mediaResources, isNotEmpty);
+
+      notifier.clearTranscript();
+      state = container.read(chatControllerProvider);
+      expect(state.messages, isEmpty);
+      expect(state.mediaResources, isEmpty);
+      expect(state.attachments, isEmpty);
+      expect(mediaPlatform.revokedUrls, isNotEmpty);
+    },
+  );
+
+  test(
+    'sendMessage marks optimistic row failed when sendText returns failure',
+    () async {
+      final repository = _FakeChatRepository();
+      repository.sendTextResponse =
+          const Result<ChatSendAcceptedEntity>.failure(
+            NetworkFailure('send failed'),
+          );
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(chatControllerProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      final sent = await notifier.sendMessage('hello');
+      expect(sent, isFalse);
+
+      final state = container.read(chatControllerProvider);
+      expect(state.messages.length, 1);
+      expect(state.messages.single.status, ChatMessageStatus.failed);
+      expect(state.messages.single.errorMessage, 'send failed');
+      expect(state.errorMessage, 'send failed');
+    },
+  );
+
+  test(
+    'ensureMediaLoaded records failure and skips duplicate fetch when error is already cached',
+    () async {
+      final repository = _FakeChatRepository();
+      repository.downloadMediaResponse =
+          const Result<ChatMediaDownloadEntity>.failure(
+            ApiFailure(500, 'download failed'),
+          );
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(chatControllerProvider.notifier);
+      container.read(chatControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'media-1',
+            event: 'message',
+            data: <String, dynamic>{
+              'message': <String, dynamic>{
+                'type': 'file',
+                'content': <String, dynamic>{
+                  'url': '/api/core/web/v1/media/1',
+                  'mime_type': 'text/plain',
+                  'filename': 'note.txt',
+                },
+              },
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      final state = container.read(chatControllerProvider);
+      final assistantId = state.messages.last.id;
+      expect(
+        state.mediaResources[assistantId]?.errorMessage,
+        'download failed',
+      );
+      expect(repository.downloadMediaCallCount, 1);
+
+      await notifier.ensureMediaLoaded(assistantId);
+      expect(repository.downloadMediaCallCount, 1);
+    },
+  );
+
+  test(
+    'retryMediaLoad revokes previous object URL and downloadMediaToDevice triggers browser download',
+    () async {
+      final repository = _FakeChatRepository();
+      repository.downloadMediaResponse =
+          Result<ChatMediaDownloadEntity>.success(
+            ChatMediaDownloadEntity(
+              bytes: Uint8List.fromList(utf8.encode('hello world')),
+              mimeType: 'text/plain; charset=utf-8',
+              filename: '   ',
+            ),
+          );
+      final mediaPlatform = _RecordingMediaPlatform();
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+        mediaPlatform: mediaPlatform,
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(chatControllerProvider.notifier);
+      container.read(chatControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      await notifier.downloadMediaToDevice('missing-id');
+      expect(mediaPlatform.downloads, isEmpty);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'media-2',
+            event: 'message',
+            data: <String, dynamic>{
+              'message': <String, dynamic>{
+                'type': 'file',
+                'content': <String, dynamic>{
+                  'url': '/api/core/web/v1/media/2',
+                  'mime_type': 'text/plain',
+                  'filename': 'server-name.txt',
+                },
+              },
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      var state = container.read(chatControllerProvider);
+      final assistantId = state.messages.last.id;
+      final previousUrl = state.mediaResources[assistantId]?.objectUrl;
+      expect(previousUrl, isNotNull);
+
+      await notifier.retryMediaLoad(assistantId);
+      state = container.read(chatControllerProvider);
+      final reloadedUrl = state.mediaResources[assistantId]?.objectUrl;
+      expect(reloadedUrl, isNotNull);
+      expect(reloadedUrl, isNot(previousUrl));
+      expect(mediaPlatform.revokedUrls, contains(previousUrl));
+      expect(repository.downloadMediaCallCount, greaterThanOrEqualTo(2));
+
+      await notifier.downloadMediaToDevice(assistantId);
+      expect(mediaPlatform.downloads, hasLength(1));
+      expect(mediaPlatform.downloads.single.url, reloadedUrl);
+      expect(mediaPlatform.downloads.single.filename, 'download');
+    },
+  );
+
+  test(
+    'stream unauthorized failure stops loop and surfaces auth error',
+    () async {
+      final repository = _FakeChatRepository();
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(container.dispose);
+
+      container.read(chatControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.streamControllers, isNotEmpty);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.failure(UnauthorizedFailure()),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(chatControllerProvider);
+      expect(state.isConnected, isFalse);
+      expect(state.isConnecting, isFalse);
+      expect(state.errorMessage, 'Unauthorized request.');
+    },
+  );
+
+  test(
+    '404 stream open failures reconnect without surfacing generic error',
+    () async {
+      final repository = _FakeChatRepository();
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(container.dispose);
+
+      container.read(chatControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.streamControllers.length, 1);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.failure(
+          ApiFailure(404, 'conversation missing'),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+
+      final state = container.read(chatControllerProvider);
+      expect(state.errorMessage, isNull);
+      expect(repository.streamCalls.length, greaterThanOrEqualTo(2));
+    },
+  );
+
+  test(
+    'system fallback text and media payload parsing handle mixed event shapes',
+    () async {
+      final repository = _FakeChatRepository();
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(container.dispose);
+
+      container.read(chatControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'sys-json',
+            event: 'system',
+            data: <String, dynamic>{'foo': 'bar'},
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      var state = container.read(chatControllerProvider);
+      expect(state.messages.last.role, ChatMessageRole.system);
+      expect(state.messages.last.text, contains('"foo":"bar"'));
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'img-int',
+            event: 'message',
+            data: <String, dynamic>{
+              'message': <String, dynamic>{
+                'type': 'image',
+                'content': <String, dynamic>{
+                  'url': '/api/core/web/v1/media/int',
+                  'mime_type': 'image/png',
+                  'filename': 'img-int.png',
+                  'expires_at': 1700000000,
+                },
+              },
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'img-num',
+            event: 'message',
+            data: <String, dynamic>{
+              'message': <String, dynamic>{
+                'type': 'image',
+                'content': <String, dynamic>{
+                  'url': '/api/core/web/v1/media/num',
+                  'mime_type': 'image/png',
+                  'filename': 'img-num.png',
+                  'expires_at': 1700000000.25,
+                },
+              },
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'img-string',
+            event: 'message',
+            data: <String, dynamic>{
+              'message': <String, dynamic>{
+                'type': 'image',
+                'content': <String, dynamic>{
+                  'url': '/api/core/web/v1/media/string',
+                  'mime_type': 'image/png',
+                  'filename': 'img-string.png',
+                  'expires_at': '1700000001',
+                },
+              },
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      state = container.read(chatControllerProvider);
+      final latestImage = state.messages.last;
+      expect(latestImage.media, isNotNull);
+      expect(latestImage.media!.url, '/api/core/web/v1/media/string');
+      expect(latestImage.media!.expiresAt, isNotNull);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'img-raw',
+            event: 'message',
+            data: <String, dynamic>{
+              'message': <String, dynamic>{
+                'type': 'file',
+                'content': 'non-map payload',
+              },
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      state = container.read(chatControllerProvider);
+      expect(state.messages.last.type, ChatMessageType.file);
+      expect(state.messages.last.media, isNull);
+    },
+  );
+
+  test('provider factories resolve concrete defaults without overrides', () {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+
+    expect(container.read(chatLocalStorageProvider), isA<ChatLocalStorage>());
+    expect(
+      container.read(mediaObjectUrlPlatformProvider),
+      isA<MediaObjectUrlPlatform>(),
+    );
+    expect(container.read(chatFilePickerProvider), isA<ChatFilePicker>());
+    expect(container.read(chatRepositoryProvider), isA<ChatRepository>());
+    expect(container.read(chatApplicationServiceProvider), isNotNull);
+  });
+
+  test('clearTranscript is a no-op when state is already empty', () async {
+    final repository = _FakeChatRepository();
+    final mediaPlatform = _RecordingMediaPlatform();
+    final container = _buildContainer(
+      repository: repository,
+      storage: _InMemoryChatLocalStorage(),
+      mediaPlatform: mediaPlatform,
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(chatControllerProvider.notifier);
+    container.read(chatControllerProvider);
+    await Future<void>.delayed(Duration.zero);
+
+    notifier.clearTranscript();
+    final state = container.read(chatControllerProvider);
+    expect(state.messages, isEmpty);
+    expect(state.mediaResources, isEmpty);
+    expect(mediaPlatform.revokedUrls, isEmpty);
+  });
+
+  test('non-404 stream failures surface their error message', () async {
+    final repository = _FakeChatRepository();
+    final container = _buildContainer(
+      repository: repository,
+      storage: _InMemoryChatLocalStorage(),
+    );
+    addTearDown(container.dispose);
+
+    container.read(chatControllerProvider);
+    await Future<void>.delayed(Duration.zero);
+
+    repository.streamControllers.first.add(
+      const Result<ChatSseEventEntity>.failure(
+        ApiFailure(500, 'stream failed'),
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    final state = container.read(chatControllerProvider);
+    expect(state.errorMessage, 'stream failed');
+  });
+
+  test('unknown SSE event names are handled as system messages', () async {
+    final repository = _FakeChatRepository();
+    final container = _buildContainer(
+      repository: repository,
+      storage: _InMemoryChatLocalStorage(),
+    );
+    addTearDown(container.dispose);
+
+    container.read(chatControllerProvider);
+    await Future<void>.delayed(Duration.zero);
+
+    repository.streamControllers.first.add(
+      const Result<ChatSseEventEntity>.success(
+        ChatSseEventEntity(
+          id: 'mystery-1',
+          event: 'mystery',
+          data: <String, dynamic>{'message': 'mystery payload'},
+        ),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(chatControllerProvider);
+    expect(state.messages, hasLength(1));
+    expect(state.messages.single.role, ChatMessageRole.system);
+    expect(state.messages.single.text, 'mystery payload');
+  });
+
+  test(
+    'error events mark outgoing rows failed by client id and fallback',
+    () async {
+      final byClientRepository = _FakeChatRepository();
+      final byClientContainer = _buildContainer(
+        repository: byClientRepository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(byClientContainer.dispose);
+
+      final byClientNotifier = byClientContainer.read(
+        chatControllerProvider.notifier,
+      );
+      await Future<void>.delayed(Duration.zero);
+      final sentByClient = await byClientNotifier.sendMessage('by-client');
+      expect(sentByClient, isTrue);
+      final clientMessageId = byClientContainer
+          .read(chatControllerProvider)
+          .messages
+          .single
+          .clientMessageId;
+      expect(clientMessageId, isNotNull);
+
+      byClientRepository.streamControllers.first.add(
+        Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'err-client',
+            event: 'error',
+            data: <String, dynamic>{
+              'client_message_id': clientMessageId,
+              'error': 'client id failed',
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      final byClientState = byClientContainer.read(chatControllerProvider);
+      final byClientUser = byClientState.messages.firstWhere(
+        (message) => message.role == ChatMessageRole.user,
+      );
+      expect(byClientUser.status, ChatMessageStatus.failed);
+      expect(byClientUser.eventId, 'err-client');
+
+      final fallbackRepository = _FakeChatRepository();
+      final fallbackContainer = _buildContainer(
+        repository: fallbackRepository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(fallbackContainer.dispose);
+      final fallbackNotifier = fallbackContainer.read(
+        chatControllerProvider.notifier,
+      );
+      await Future<void>.delayed(Duration.zero);
+      final sentFallback = await fallbackNotifier.sendMessage('fallback');
+      expect(sentFallback, isTrue);
+
+      fallbackRepository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: null,
+            event: 'error',
+            data: <String, dynamic>{'error': 'fallback failed'},
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      final fallbackState = fallbackContainer.read(chatControllerProvider);
+      final fallbackUser = fallbackState.messages.firstWhere(
+        (message) => message.role == ChatMessageRole.user,
+      );
+      expect(fallbackUser.status, ChatMessageStatus.failed);
+    },
+  );
+
+  test('copyWith overrides cover direct field-update paths', () {
+    final draft = ChatAttachmentDraft(
+      id: 'draft-1',
+      filename: 'first.txt',
+      mimeType: 'text/plain',
+      bytes: Uint8List.fromList(<int>[1]),
+    );
+    final updatedDraft = draft.copyWith(bytes: Uint8List.fromList(<int>[2, 3]));
+    expect(updatedDraft.bytes, Uint8List.fromList(<int>[2, 3]));
+
+    final resource = ChatMediaResourceState(
+      isLoading: false,
+      objectUrl: 'blob://a',
+      mimeType: 'text/plain',
+      filename: 'first.txt',
+      textPreview: 'a',
+      pdfPageAspectRatio: 1.0,
+      spreadsheetPreview: const ChatSpreadsheetPreview(
+        sheetName: 'Sheet',
+        rows: <List<String>>[
+          <String>['A'],
+        ],
+        truncatedRows: false,
+        truncatedColumns: false,
+      ),
+      errorMessage: 'err',
+    );
+    final updatedResource = resource.copyWith(
+      objectUrl: 'blob://b',
+      mimeType: 'application/pdf',
+      filename: 'second.pdf',
+      textPreview: 'preview',
+      pdfPageAspectRatio: 1.7,
+      spreadsheetPreview: const ChatSpreadsheetPreview(
+        sheetName: 'Sheet2',
+        rows: <List<String>>[
+          <String>['B'],
+        ],
+        truncatedRows: true,
+        truncatedColumns: true,
+      ),
+      errorMessage: 'updated',
+    );
+    expect(updatedResource.objectUrl, 'blob://b');
+    expect(updatedResource.mimeType, 'application/pdf');
+    expect(updatedResource.filename, 'second.pdf');
+    expect(updatedResource.textPreview, 'preview');
+    expect(updatedResource.pdfPageAspectRatio, 1.7);
+    expect(updatedResource.spreadsheetPreview?.sheetName, 'Sheet2');
+    expect(updatedResource.errorMessage, 'updated');
+  });
+
+  test('pdf attachment sends with local preview ratio', () async {
+    final repository = _FakeChatRepository();
+    final container = _buildContainer(
+      repository: repository,
+      storage: _InMemoryChatLocalStorage(),
+      filePicker: _FixedChatFilePicker(<ChatPickedFile>[
+        ChatPickedFile(
+          filename: 'report.pdf',
+          mimeType: 'application/pdf',
+          bytes: _buildPdfWithMediaBoxBytes(),
+        ),
+      ]),
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(chatControllerProvider.notifier);
+    await Future<void>.delayed(Duration.zero);
+
+    await notifier.attachFromPicker();
+    final sent = await notifier.sendMessage('pdf');
+    expect(sent, isTrue);
+
+    final state = container.read(chatControllerProvider);
+    final messageId = state.messages.last.id;
+    expect(state.mediaResources[messageId]?.pdfPageAspectRatio, isNotNull);
+  });
+
+  test(
+    'spreadsheet/media parsing covers boolean, formula, and truncation paths',
+    () async {
+      final repository = _FakeChatRepository();
+      repository
+          .downloadMediaResponse = Result<ChatMediaDownloadEntity>.success(
+        ChatMediaDownloadEntity(
+          bytes: _buildSpreadsheetBytesForEdgeCells(),
+          mimeType:
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          filename: 'edge.xlsx',
+        ),
+      );
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(container.dispose);
+
+      container.read(chatControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'media-xlsx-edge',
+            event: 'message',
+            data: <String, dynamic>{
+              'message': <String, dynamic>{
+                'type': 'file',
+                'content': <String, dynamic>{
+                  'url': '/api/core/web/v1/media/edge',
+                  'mime_type':
+                      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                  'filename': 'edge.xlsx',
+                },
+              },
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+
+      final state = container.read(chatControllerProvider);
+      final media = state.mediaResources[state.messages.last.id];
+      expect(media, isNotNull);
+      expect(media!.spreadsheetPreview, isNotNull);
+      final rows = media.spreadsheetPreview!.rows;
+      expect(rows, isNotEmpty);
+      expect(rows.first, contains('TRUE'));
+      expect(rows.first, contains('FALSE'));
+      expect(rows.first.where((cell) => cell.startsWith('=')), isNotEmpty);
+      expect(
+        rows.first.where((cell) => cell.endsWith('...') && cell.length >= 120),
+        isNotEmpty,
+      );
+    },
+  );
+
+  test('text preview generation trims long line+char payloads', () async {
+    final repository = _FakeChatRepository();
+    final longLine = List<String>.filled(80, 'abcdefghijklmnop').join();
+    final longText = List<String>.generate(60, (_) => longLine).join('\n');
+    repository.downloadMediaResponse = Result<ChatMediaDownloadEntity>.success(
+      ChatMediaDownloadEntity(
+        bytes: Uint8List.fromList(utf8.encode(longText)),
+        mimeType: 'text/plain',
+        filename: 'long.txt',
+      ),
+    );
+    final container = _buildContainer(
+      repository: repository,
+      storage: _InMemoryChatLocalStorage(),
+    );
+    addTearDown(container.dispose);
+
+    container.read(chatControllerProvider);
+    await Future<void>.delayed(Duration.zero);
+    repository.streamControllers.first.add(
+      const Result<ChatSseEventEntity>.success(
+        ChatSseEventEntity(
+          id: 'media-long-text',
+          event: 'message',
+          data: <String, dynamic>{
+            'message': <String, dynamic>{
+              'type': 'file',
+              'content': <String, dynamic>{
+                'url': '/api/core/web/v1/media/long',
+                'mime_type': 'text/plain',
+                'filename': 'long.txt',
+              },
+            },
+          },
+        ),
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 30));
+
+    final state = container.read(chatControllerProvider);
+    final preview = state.mediaResources[state.messages.last.id]?.textPreview;
+    expect(preview, isNotNull);
+    expect(preview, contains('...'));
+    expect(preview!.length, lessThanOrEqualTo(4100));
+  });
 }
 
 Uint8List _buildSampleXlsxBytes() {
@@ -1500,10 +2414,79 @@ Uint8List _buildSampleXlsxBytes() {
   return Uint8List.fromList(zipped);
 }
 
+Uint8List _buildPdfWithMediaBoxBytes() {
+  const content =
+      '%PDF-1.7\n'
+      '1 0 obj\n'
+      '<< /Type /Page /MediaBox [0 0 595 842] >>\n'
+      'endobj\n'
+      '%%EOF';
+  return Uint8List.fromList(latin1.encode(content));
+}
+
+Uint8List _buildSpreadsheetBytesForEdgeCells() {
+  const workbookXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      '<workbook '
+      'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      '<sheets><sheet name="Sheet1" sheetId="1" id="rId1"/></sheets>'
+      '</workbook>';
+  final longInline = List<String>.filled(140, 'x').join();
+  final worksheetXml =
+      '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+      '<worksheet '
+      'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      '<sheetData>'
+      '<row r="1">'
+      '<c r="A1" t="b"><v>1</v></c>'
+      '<c r="B1" t="b"><v>0</v></c>'
+      '<c r="C1"><f>SUM(1,2)</f></c>'
+      '<c r="D1" t="inlineStr"><is><t>$longInline</t></is></c>'
+      '</row>'
+      '</sheetData>'
+      '</worksheet>';
+
+  final archive = Archive()
+    ..addFile(
+      ArchiveFile(
+        'xl/workbook.xml',
+        workbookXml.length,
+        utf8.encode(workbookXml),
+      ),
+    )
+    ..addFile(
+      ArchiveFile(
+        'xl/worksheets/sheet1.xml',
+        worksheetXml.length,
+        utf8.encode(worksheetXml),
+      ),
+    );
+
+  final zipped = ZipEncoder().encode(archive);
+  if (zipped == null) {
+    throw StateError('Could not build spreadsheet edge fixture');
+  }
+  return Uint8List.fromList(zipped);
+}
+
+FilePicker? _captureFilePickerPlatform() {
+  try {
+    return FilePicker.platform;
+  } catch (_) {
+    return null;
+  }
+}
+
+PlatformFile _platformFile(String name, {Uint8List? bytes}) {
+  final payload = bytes ?? Uint8List.fromList(<int>[1]);
+  return PlatformFile(name: name, size: payload.length, bytes: payload);
+}
+
 ProviderContainer _buildContainer({
   required _FakeChatRepository repository,
   required ChatLocalStorage storage,
   ChatFilePicker? filePicker,
+  MediaObjectUrlPlatform? mediaPlatform,
 }) {
   final overrides = <Override>[
     authRepositoryProvider.overrideWithValue(
@@ -1518,7 +2501,9 @@ ProviderContainer _buildContainer({
     ),
     chatRepositoryProvider.overrideWithValue(repository),
     chatLocalStorageProvider.overrideWithValue(storage),
-    mediaObjectUrlPlatformProvider.overrideWithValue(_NoopMediaPlatform()),
+    mediaObjectUrlPlatformProvider.overrideWithValue(
+      mediaPlatform ?? _NoopMediaPlatform(),
+    ),
   ];
   if (filePicker != null) {
     overrides.add(chatFilePickerProvider.overrideWithValue(filePicker));
@@ -1545,6 +2530,8 @@ class _FakeChatRepository implements ChatRepository {
   int sendComposedCallCount = 0;
   _ComposedCall? lastComposedCall;
   Completer<Result<ChatSendAcceptedEntity>>? pendingSendTextCompleter;
+  int downloadMediaCallCount = 0;
+  final List<_DownloadCall> downloadMediaCalls = <_DownloadCall>[];
 
   Result<ChatSendAcceptedEntity> sendTextResponse =
       Result<ChatSendAcceptedEntity>.success(
@@ -1554,6 +2541,14 @@ class _FakeChatRepository implements ChatRepository {
           acceptedAt: DateTime.utc(2026, 1, 1),
         ),
       );
+  Result<ChatMediaDownloadEntity> downloadMediaResponse =
+      Result<ChatMediaDownloadEntity>.success(
+        ChatMediaDownloadEntity(
+          bytes: Uint8List.fromList(<int>[1, 2, 3]),
+          mimeType: 'application/octet-stream',
+          filename: 'download.bin',
+        ),
+      );
 
   @override
   Future<Result<ChatMediaDownloadEntity>> downloadMedia({
@@ -1561,13 +2556,15 @@ class _FakeChatRepository implements ChatRepository {
     String? suggestedFilename,
     String? suggestedMimeType,
   }) async {
-    return Result<ChatMediaDownloadEntity>.success(
-      ChatMediaDownloadEntity(
-        bytes: Uint8List.fromList(<int>[1, 2, 3]),
-        mimeType: suggestedMimeType ?? 'application/octet-stream',
-        filename: suggestedFilename ?? 'download.bin',
+    downloadMediaCallCount += 1;
+    downloadMediaCalls.add(
+      _DownloadCall(
+        mediaUrl: mediaUrl,
+        suggestedFilename: suggestedFilename,
+        suggestedMimeType: suggestedMimeType,
       ),
     );
+    return downloadMediaResponse;
   }
 
   @override
@@ -1651,6 +2648,18 @@ class _StreamCall {
   final String? lastEventId;
 }
 
+class _DownloadCall {
+  const _DownloadCall({
+    required this.mediaUrl,
+    required this.suggestedFilename,
+    required this.suggestedMimeType,
+  });
+
+  final String mediaUrl;
+  final String? suggestedFilename;
+  final String? suggestedMimeType;
+}
+
 class _ComposedCall {
   const _ComposedCall({
     required this.conversationId,
@@ -1726,6 +2735,59 @@ class _NoopMediaPlatform implements MediaObjectUrlPlatform {
 
   @override
   void triggerDownload({required String url, required String filename}) {}
+}
+
+class _RecordingMediaPlatform implements MediaObjectUrlPlatform {
+  final List<String> revokedUrls = <String>[];
+  final List<_DownloadTrigger> downloads = <_DownloadTrigger>[];
+  int _counter = 0;
+
+  @override
+  String createObjectUrl({required Uint8List bytes, required String mimeType}) {
+    _counter += 1;
+    return 'blob://recorded-$_counter';
+  }
+
+  @override
+  void revokeObjectUrl(String url) {
+    revokedUrls.add(url);
+  }
+
+  @override
+  void triggerDownload({required String url, required String filename}) {
+    downloads.add(_DownloadTrigger(url: url, filename: filename));
+  }
+}
+
+class _DownloadTrigger {
+  const _DownloadTrigger({required this.url, required this.filename});
+
+  final String url;
+  final String filename;
+}
+
+class _FakePlatformFilePicker extends FilePicker {
+  _FakePlatformFilePicker(this.result);
+
+  final FilePickerResult? result;
+
+  @override
+  Future<FilePickerResult?> pickFiles({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    bool allowCompression = false,
+    int compressionQuality = 0,
+    bool allowMultiple = false,
+    bool withData = false,
+    bool withReadStream = false,
+    bool lockParentWindow = false,
+    bool readSequential = false,
+  }) async {
+    return result;
+  }
 }
 
 class _FakeAuthRepository implements AuthRepository {

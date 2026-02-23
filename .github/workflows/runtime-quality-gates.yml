@@ -33,8 +33,11 @@ jobs:
       - name: Architecture dependency check
         run: dart run tool/architecture/check_dependencies.dart
 
-      - name: Flutter tests
-        run: flutter test
+      - name: Flutter tests with coverage
+        run: flutter test --coverage
+
+      - name: Enforce line coverage
+        run: tool/coverage/check_line_coverage.sh --lcov coverage/lcov.info --minimum 100
 
       - name: Build web release
         run: flutter build web --release --no-wasm-dry-run

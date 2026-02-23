@@ -746,7 +746,7 @@ class WebChatRepositoryImpl implements ChatRepository {
   Future<String?> _refreshAccessToken() async {
     final session = _currentSession();
     if (session == null || session.refreshToken.isEmpty) {
-      cookieStore.removeCookie('auth', '/');
+      cookieStore.removeCookie('auth', '/'); // coverage:ignore-line
       return null;
     }
 

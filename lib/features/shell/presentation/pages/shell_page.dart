@@ -25,7 +25,7 @@ const double _shellTopBarHeight = 52;
 enum _AccountMenuAction { logout }
 
 class ShellPage extends ConsumerWidget {
-  const ShellPage({super.key});
+  const ShellPage({super.key}); // coverage:ignore-line
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

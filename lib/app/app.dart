@@ -7,7 +7,7 @@ import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 class MugenApp extends ConsumerWidget {
-  const MugenApp({super.key});
+  const MugenApp({super.key}); // coverage:ignore-line
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

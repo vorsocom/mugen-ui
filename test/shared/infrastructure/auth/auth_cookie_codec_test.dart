@@ -22,4 +22,33 @@ void main() {
     expect(session.roles, <String>['role:a', 'role:b']);
     expect(session.accessTokenExpires, isNotNull);
   });
+
+  test(
+    'parseAuthSession normalizes roles and supports numeric/string expiries',
+    () {
+      final fromNum = parseAuthSession(
+        '{"access_token":"a","refresh_token":"r","user_id":"u1","roles":["admin"," ","user"],"access_token_expires":4102444800.25}',
+      );
+      expect(fromNum, isNotNull);
+      expect(fromNum!.roles, <String>['admin', 'user']);
+      expect(fromNum.accessTokenExpires, isNotNull);
+
+      final fromString = parseAuthSession(
+        '{"access_token":"a","refresh_token":"r","user_id":"u1","access_token_expires":"4102444801"}',
+      );
+      expect(fromString?.accessTokenExpires, isNotNull);
+    },
+  );
+
+  test('encodeAuthSession returns JSON payload', () {
+    final encoded = encodeAuthSession(<String, dynamic>{
+      'access_token': 'a',
+      'refresh_token': 'r',
+      'user_id': 'u1',
+    });
+
+    expect(encoded, contains('"access_token":"a"'));
+    expect(encoded, contains('"refresh_token":"r"'));
+    expect(encoded, contains('"user_id":"u1"'));
+  });
 }

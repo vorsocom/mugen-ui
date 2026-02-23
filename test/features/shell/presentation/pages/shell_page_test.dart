@@ -10,6 +10,18 @@ import 'package:mugen_ui/features/chat/domain/entities/chat_message_entity.dart'
 import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dart';
 import 'package:mugen_ui/features/shell/presentation/pages/shell_page.dart';
 import 'package:mugen_ui/features/shell/presentation/providers/shell_providers.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
+import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
+import 'package:mugen_ui/shared/application/pagination.dart';
+import 'package:mugen_ui/shared/application/query_models.dart';
+import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
 
@@ -642,6 +654,479 @@ void main() {
 
     expect(find.byKey(const Key('shell-replay-resync-badge')), findsNothing);
   });
+
+  testWidgets('drawer toggle and nav item taps call shell controller actions', (
+    tester,
+  ) async {
+    final config = AppConfig.defaults();
+    final shellController = _TrackingShellController(
+      initialState: const ShellState(
+        isDrawerCollapsed: false,
+        showSettings: false,
+        activeRoute: RouteIds.chat,
+      ),
+    );
+    final authController = _TestAuthController(
+      initialState: const AuthControllerState(isLoading: false, session: null),
+    );
+    final chatController = _TestChatController(
+      initialState: ChatControllerState(
+        conversationId: 'conv-test',
+        messages: <ChatMessageEntity>[],
+        mediaResources: <String, ChatMediaResourceState>{},
+        attachments: const <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => config),
+          shellControllerProvider.overrideWith(() => shellController),
+          authControllerProvider.overrideWith(() => authController),
+          chatControllerProvider.overrideWith(() => chatController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Local Users'));
+    await tester.pump();
+    expect(shellController.lastRoute, RouteIds.localUsers);
+
+    await tester.tap(find.byTooltip('Toggle drawer'));
+    await tester.pump();
+    expect(shellController.toggleCollapsedCalls, 1);
+  });
+
+  testWidgets('user bar connection indicator renders connecting state', (
+    tester,
+  ) async {
+    Future<void> pumpWithChatState({
+      required bool isConnected,
+      required bool isConnecting,
+    }) async {
+      final config = AppConfig.defaults();
+      final shellController = _TestShellController(
+        initialState: const ShellState(
+          isDrawerCollapsed: false,
+          showSettings: false,
+          activeRoute: RouteIds.chat,
+        ),
+      );
+      final authController = _TestAuthController(
+        initialState: const AuthControllerState(
+          isLoading: false,
+          session: null,
+        ),
+      );
+      final chatController = _TestChatController(
+        initialState: ChatControllerState(
+          conversationId: 'conv-test',
+          messages: <ChatMessageEntity>[],
+          mediaResources: <String, ChatMediaResourceState>{},
+          attachments: const <ChatAttachmentDraft>[],
+          compositionMode: ChatCompositionMode.messageWithAttachments,
+          isConnected: isConnected,
+          isConnecting: isConnecting,
+          isSending: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            appConfigProvider.overrideWith((ref) => config),
+            shellControllerProvider.overrideWith(() => shellController),
+            authControllerProvider.overrideWith(() => authController),
+            chatControllerProvider.overrideWith(() => chatController),
+          ],
+          child: const MaterialApp(home: ShellPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpWithChatState(isConnected: false, isConnecting: true);
+    expect(find.text('Connecting...'), findsOneWidget);
+  });
+
+  testWidgets(
+    'route title falls back to drawer item title when spa route is missing',
+    (tester) async {
+      final fromDrawerConfig = AppConfig.defaults().merge(
+        const AppConfigurationOverride(
+          drawerItems: <DrawerItemConfig>[
+            DrawerItemConfig(
+              title: 'Reports Drawer',
+              icon: Icons.dashboard_outlined,
+              route: _reportsRoute,
+            ),
+          ],
+          spaDefaultRoute: _reportsRoute,
+          spaRoutes: <SpaRouteConfig>[],
+        ),
+      );
+      final authController = _TestAuthController(
+        initialState: const AuthControllerState(
+          isLoading: false,
+          session: null,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            appConfigProvider.overrideWith((ref) => fromDrawerConfig),
+            shellControllerProvider.overrideWith(
+              () => _TestShellController(
+                initialState: const ShellState(
+                  isDrawerCollapsed: false,
+                  showSettings: false,
+                  activeRoute: _reportsRoute,
+                ),
+              ),
+            ),
+            authControllerProvider.overrideWith(() => authController),
+          ],
+          child: const MaterialApp(home: ShellPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final drawerTitle = tester.widget<Text>(
+        find.byKey(const Key('shell-user-bar-title')),
+      );
+      expect(drawerTitle.data, 'Reports Drawer');
+    },
+  );
+
+  testWidgets('route title falls back to active route when unresolved', (
+    tester,
+  ) async {
+    final fallbackConfig = AppConfig.defaults().merge(
+      const AppConfigurationOverride(
+        drawerItems: <DrawerItemConfig>[],
+        spaDefaultRoute: 'mystery-route',
+        spaRoutes: <SpaRouteConfig>[],
+      ),
+    );
+    final authController = _TestAuthController(
+      initialState: const AuthControllerState(isLoading: false, session: null),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => fallbackConfig),
+          shellControllerProvider.overrideWith(
+            () => _TestShellController(
+              initialState: const ShellState(
+                isDrawerCollapsed: false,
+                showSettings: false,
+                activeRoute: 'mystery-route',
+              ),
+            ),
+          ),
+          authControllerProvider.overrideWith(() => authController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final fallbackTitle = tester.widget<Text>(
+      find.byKey(const Key('shell-user-bar-title')),
+    );
+    expect(fallbackTitle.data, 'mystery-route');
+  });
+
+  testWidgets('replay badge tooltip maps generation_mismatch reason', (
+    tester,
+  ) async {
+    final config = AppConfig.defaults();
+    final shellController = _TestShellController(
+      initialState: const ShellState(
+        isDrawerCollapsed: false,
+        showSettings: false,
+        activeRoute: RouteIds.chat,
+      ),
+    );
+    final authController = _TestAuthController(
+      initialState: const AuthControllerState(isLoading: false, session: null),
+    );
+    final chatController = _TestChatController(
+      initialState: ChatControllerState(
+        conversationId: 'conv-test',
+        messages: const <ChatMessageEntity>[],
+        mediaResources: const <String, ChatMediaResourceState>{},
+        attachments: const <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+        replayNoticeText: 'Replay resynced',
+        replayNoticeReason: 'generation_mismatch',
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => config),
+          shellControllerProvider.overrideWith(() => shellController),
+          authControllerProvider.overrideWith(() => authController),
+          chatControllerProvider.overrideWith(() => chatController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final generationTooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(const Key('shell-replay-resync-badge')),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(generationTooltip.message, contains('generation changed'));
+  });
+
+  testWidgets('replay badge tooltip maps log_rollover reason', (tester) async {
+    final config = AppConfig.defaults();
+    final shellController = _TestShellController(
+      initialState: const ShellState(
+        isDrawerCollapsed: false,
+        showSettings: false,
+        activeRoute: RouteIds.chat,
+      ),
+    );
+    final authController = _TestAuthController(
+      initialState: const AuthControllerState(isLoading: false, session: null),
+    );
+    final chatController = _TestChatController(
+      initialState: ChatControllerState(
+        conversationId: 'conv-test',
+        messages: const <ChatMessageEntity>[],
+        mediaResources: const <String, ChatMediaResourceState>{},
+        attachments: const <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+        replayNoticeText: 'Replay resynced',
+        replayNoticeReason: 'log_rollover',
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => config),
+          shellControllerProvider.overrideWith(() => shellController),
+          authControllerProvider.overrideWith(() => authController),
+          chatControllerProvider.overrideWith(() => chatController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final rolloverTooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(const Key('shell-replay-resync-badge')),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(rolloverTooltip.message, contains('Event log rolled over'));
+  });
+
+  testWidgets('replay badge tooltip maps cursor_unavailable reason', (
+    tester,
+  ) async {
+    final config = AppConfig.defaults();
+    final shellController = _TestShellController(
+      initialState: const ShellState(
+        isDrawerCollapsed: false,
+        showSettings: false,
+        activeRoute: RouteIds.chat,
+      ),
+    );
+    final authController = _TestAuthController(
+      initialState: const AuthControllerState(isLoading: false, session: null),
+    );
+    final chatController = _TestChatController(
+      initialState: ChatControllerState(
+        conversationId: 'conv-test',
+        messages: const <ChatMessageEntity>[],
+        mediaResources: const <String, ChatMediaResourceState>{},
+        attachments: const <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+        replayNoticeText: 'Replay resynced',
+        replayNoticeReason: 'cursor_unavailable',
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => config),
+          shellControllerProvider.overrideWith(() => shellController),
+          authControllerProvider.overrideWith(() => authController),
+          chatControllerProvider.overrideWith(() => chatController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(const Key('shell-replay-resync-badge')),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(tooltip.message, contains('cursor was unavailable'));
+  });
+
+  testWidgets('collapsed drawer renders section divider and item tooltips', (
+    tester,
+  ) async {
+    final config = AppConfig.defaults().merge(
+      const AppConfigurationOverride(
+        drawerItems: <DrawerItemConfig>[
+          DrawerItemConfig(
+            title: 'Chat',
+            icon: Icons.chat_bubble_outline,
+            route: RouteIds.chat,
+          ),
+          DrawerItemConfig(
+            title: 'Local Users',
+            icon: Icons.groups_outlined,
+            route: RouteIds.localUsers,
+            section: 'Platform Configuration',
+          ),
+        ],
+      ),
+    );
+    final shellController = _TestShellController(
+      initialState: const ShellState(
+        isDrawerCollapsed: true,
+        showSettings: false,
+        activeRoute: RouteIds.chat,
+      ),
+    );
+    final authController = _TestAuthController(
+      initialState: const AuthControllerState(isLoading: false, session: null),
+    );
+    final chatController = _TestChatController(
+      initialState: ChatControllerState(
+        conversationId: 'conv-test',
+        messages: const <ChatMessageEntity>[],
+        mediaResources: const <String, ChatMediaResourceState>{},
+        attachments: const <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => config),
+          shellControllerProvider.overrideWith(() => shellController),
+          authControllerProvider.overrideWith(() => authController),
+          chatControllerProvider.overrideWith(() => chatController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Divider), findsWidgets);
+    expect(find.byTooltip('Local Users'), findsOneWidget);
+  });
+
+  testWidgets(
+    'users settings panel opens dialog with header and close action',
+    (tester) async {
+      final config = AppConfig.defaults().merge(
+        const AppConfigurationOverride(
+          settingsPanels: <SettingsPanelConfig>[
+            SettingsPanelConfig(
+              title: 'Local Users',
+              icon: Icons.groups_outlined,
+              roles: <String>[],
+              type: SettingsPanelType.users,
+            ),
+          ],
+        ),
+      );
+      final shellController = _TestShellController(
+        initialState: const ShellState(
+          isDrawerCollapsed: false,
+          showSettings: false,
+          activeRoute: RouteIds.chat,
+        ),
+      );
+      final authController = _TestAuthController(
+        initialState: const AuthControllerState(
+          isLoading: false,
+          session: null,
+        ),
+      );
+      final chatController = _TestChatController(
+        initialState: ChatControllerState(
+          conversationId: 'conv-test',
+          messages: const <ChatMessageEntity>[],
+          mediaResources: const <String, ChatMediaResourceState>{},
+          attachments: const <ChatAttachmentDraft>[],
+          compositionMode: ChatCompositionMode.messageWithAttachments,
+          isConnected: true,
+          isConnecting: false,
+          isSending: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            appConfigProvider.overrideWith((ref) => config),
+            shellControllerProvider.overrideWith(() => shellController),
+            authControllerProvider.overrideWith(() => authController),
+            chatControllerProvider.overrideWith(() => chatController),
+            userAdminRepositoryProvider.overrideWithValue(
+              _NoopUserAdminRepository(),
+            ),
+          ],
+          child: const MaterialApp(home: ShellPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(_shellAccountMenuTriggerKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(_shellAccountMenuSettingsKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(_shellAccountSettingsPanelUsersKey));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Local Users'), findsWidgets);
+      expect(find.byType(Dialog), findsOneWidget);
+      await tester.tap(find.byTooltip('Close'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+    },
+  );
 }
 
 class _TestShellController extends ShellController {
@@ -651,6 +1136,29 @@ class _TestShellController extends ShellController {
 
   @override
   ShellState build() => initialState;
+}
+
+class _TrackingShellController extends ShellController {
+  _TrackingShellController({required this.initialState});
+
+  final ShellState initialState;
+  int toggleCollapsedCalls = 0;
+  String? lastRoute;
+
+  @override
+  ShellState build() => initialState;
+
+  @override
+  void toggleCollapsed() {
+    toggleCollapsedCalls += 1;
+    super.toggleCollapsed();
+  }
+
+  @override
+  void setRoute(String route) {
+    lastRoute = route;
+    super.setRoute(route);
+  }
 }
 
 class _TestAuthController extends AuthController {
@@ -682,6 +1190,57 @@ class _TestChatController extends ChatController {
 
   @override
   void ensureStreaming() {}
+}
+
+class _NoopUserAdminRepository implements UserAdminRepository {
+  @override
+  Future<Result<void>> disableUserAccount(ToggleUserAccountInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> editUserRoles(EditUserRolesInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> enableUserAccount(ToggleUserAccountInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<List<UserRoleEntity>>> fetchRoles() async {
+    return const Result<List<UserRoleEntity>>.success(<UserRoleEntity>[]);
+  }
+
+  @override
+  Future<Result<PageResult<UserEntity>>> fetchUsers(UserListQuery query) async {
+    return const Result<PageResult<UserEntity>>.success(
+      PageResult<UserEntity>(
+        items: <UserEntity>[],
+        total: 0,
+        page: 1,
+        pageSize: 5,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<void>> registerUser(UserRegistrationInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> resetUserPasswordAdmin(
+    UserResetPasswordAdminInput input,
+  ) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> updateUser(UpdateUserInput input) async {
+    return const Result<void>.success(null);
+  }
 }
 
 class _FakeAppNavigator extends AppNavigator {

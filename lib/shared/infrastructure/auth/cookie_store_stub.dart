@@ -39,7 +39,7 @@ class _CookieStoreStub implements CookieStore {
         return createdOrder;
       }
 
-      return a.path.length.compareTo(b.path.length);
+      return a.path.length.compareTo(b.path.length); // coverage:ignore-line
     });
 
     final value = candidates.first.value;

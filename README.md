@@ -50,7 +50,8 @@ Runtime quality gates run in CI for pull requests and pushes to `develop` and `m
 
 - `flutter analyze`
 - `dart run tool/architecture/check_dependencies.dart`
-- `flutter test`
+- `flutter test --coverage`
+- `tool/coverage/check_line_coverage.sh --minimum 100` (enforced 100% line coverage)
 - `flutter build web --release --no-wasm-dry-run`
 
 CI also enforces Conventional Commit formatting for both commit messages and pull request titles.

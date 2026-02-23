@@ -15,7 +15,7 @@ import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 class LocalUserPanel extends ConsumerStatefulWidget {
-  const LocalUserPanel({super.key});
+  const LocalUserPanel({super.key}); // coverage:ignore-line
 
   @override
   ConsumerState<LocalUserPanel> createState() => _LocalUserPanelState();

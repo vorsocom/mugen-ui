@@ -76,7 +76,8 @@ Enable local commit-msg validation:
 ```bash
 flutter analyze
 dart run tool/architecture/check_dependencies.dart
-flutter test
+flutter test --coverage
+tool/coverage/check_line_coverage.sh --minimum 100
 ```
 
 - Optional locally (required in CI):

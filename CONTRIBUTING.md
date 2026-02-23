@@ -68,9 +68,18 @@ Enable local commit-msg validation:
 
 - Keep PRs focused and small when practical.
 - Add an entry to `CHANGELOG.md` under `## [Unreleased]` using a Keep a Changelog category.
+- For PRs targeting `main`, bump `pubspec.yaml` version and add a dated `## [x.y.z] - YYYY-MM-DD` release section in `CHANGELOG.md`.
 - Run checks before opening/updating a PR:
 
 ```bash
 flutter test
 dart run tool/architecture/check_dependencies.dart
 ```
+
+## Release and Versioning
+
+- Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
+- Release tags must be `v<version>` and match `pubspec.yaml` version (ignoring `+build` metadata).
+- Release tags require a matching dated section in `CHANGELOG.md`:
+
+`## [x.y.z] - YYYY-MM-DD`

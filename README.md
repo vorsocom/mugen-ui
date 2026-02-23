@@ -36,6 +36,14 @@ Enable local hook enforcement (recommended):
 ./tool/commitlint/install_git_hooks.sh
 ```
 
+## Versioning and Releases
+
+Versioning follows [Semantic Versioning 2.0.0](https://semver.org/). CI enforces:
+
+- `pubspec.yaml` version format
+- version bump + matching dated changelog release section for PRs to `main`
+- release tag consistency (`v<version>` must match `pubspec.yaml`, ignoring `+build`)
+
 ## Architecture Overview
 
 This codebase uses a feature-first module layout with strict layer boundaries:

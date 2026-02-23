@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/route_views.dart';
+import 'package:mugen_ui/features/tenant_admin/presentation/widgets/tenant_management_panel.dart';
 import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
 
 void main() {
@@ -35,5 +36,12 @@ void main() {
     expect(widget, isA<Padding>());
     final padded = widget as Padding;
     expect(padded.child, isA<LocalUserPanel>());
+  });
+
+  test('Tenant management route maps to TenantManagementPanel widget', () {
+    final widget = buildSpaRouteWidget(RouteIds.tenantManagement);
+    expect(widget, isA<Padding>());
+    final padded = widget as Padding;
+    expect(padded.child, isA<TenantManagementPanel>());
   });
 }

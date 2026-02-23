@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/features/tenant_invite/presentation/providers/pending_invite_providers.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -41,7 +42,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         );
 
     if (success) {
-      await ref.read(appNavigatorProvider).navigateTo(RouteIds.app);
+      final pendingInvite = ref.read(pendingInviteControllerProvider);
+      final targetRoute = pendingInvite == null
+          ? RouteIds.app
+          : RouteIds.buildInviteRoute(
+              tenantId: pendingInvite.tenantId,
+              invitationId: pendingInvite.invitationId,
+            );
+      await ref.read(appNavigatorProvider).navigateTo(targetRoute);
       return;
     }
 

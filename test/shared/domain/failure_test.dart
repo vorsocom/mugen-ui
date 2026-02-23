@@ -6,14 +6,11 @@ void main() {
   group('Failure', () {
     test('UnauthorizedFailure uses default message when omitted', () {
       final failure = UnauthorizedFailure();
-      expect(
-        failure.message,
-        'Unauthorized request.',
-      );
+      expect(failure.message, 'Unauthorized request.');
     });
 
     test('failure subtypes preserve provided messages', () {
-      expect(const ValidationFailure('v').message, 'v');
+      expect(ValidationFailure('v').message, 'v');
       expect(const NetworkFailure('n').message, 'n');
       expect(const ApiFailure(418, 'a').message, 'a');
       expect(const SessionExpiredFailure('s').message, 's');

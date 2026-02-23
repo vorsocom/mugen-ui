@@ -192,7 +192,7 @@ void main() {
         activeRoute: RouteIds.chat,
       ),
     );
-    final authController = _TestAuthController(
+    final authController = _RoleAwareAuthController(
       initialState: const AuthControllerState(
         isLoading: false,
         session: AuthSession(
@@ -246,7 +246,7 @@ void main() {
         activeRoute: RouteIds.chat,
       ),
     );
-    final authController = _TestAuthController(
+    final authController = _RoleAwareAuthController(
       initialState: const AuthControllerState(
         isLoading: false,
         session: AuthSession(
@@ -285,6 +285,59 @@ void main() {
 
     expect(find.text('Platform Configuration'), findsOneWidget);
     expect(find.text('Local Users'), findsOneWidget);
+    expect(find.text('Tenant Management'), findsOneWidget);
+  });
+
+  testWidgets('drawer hides tenant admin routes for non-admin users', (
+    tester,
+  ) async {
+    final config = AppConfig.defaults();
+    final shellController = _TestShellController(
+      initialState: const ShellState(
+        isDrawerCollapsed: false,
+        showSettings: false,
+        activeRoute: RouteIds.chat,
+      ),
+    );
+    final authController = _RoleAwareAuthController(
+      initialState: const AuthControllerState(
+        isLoading: false,
+        session: AuthSession(
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          userId: 'user-1',
+          roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+        ),
+      ),
+    );
+    final chatController = _TestChatController(
+      initialState: ChatControllerState(
+        conversationId: 'conv-test',
+        messages: <ChatMessageEntity>[],
+        mediaResources: <String, ChatMediaResourceState>{},
+        attachments: const <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => config),
+          shellControllerProvider.overrideWith(() => shellController),
+          authControllerProvider.overrideWith(() => authController),
+          chatControllerProvider.overrideWith(() => chatController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Local Users'), findsNothing);
+    expect(find.text('Tenant Management'), findsNothing);
   });
 
   testWidgets('account menu opens and shows settings and logout actions', (
@@ -1177,6 +1230,24 @@ class _TestAuthController extends AuthController {
   Future<bool> logout() async {
     logoutCallCount += 1;
     return true;
+  }
+}
+
+class _RoleAwareAuthController extends _TestAuthController {
+  _RoleAwareAuthController({required super.initialState});
+
+  @override
+  bool hasRoles(List<String> roles, {String operator = 'and'}) {
+    final sessionRoles = initialState.session?.roles ?? const <String>[];
+    if (roles.isEmpty) {
+      return true;
+    }
+
+    if (operator.toLowerCase() == 'or') {
+      return roles.any(sessionRoles.contains);
+    }
+
+    return roles.every(sessionRoles.contains);
   }
 }
 

@@ -35,11 +35,22 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
       icon: Icons.chat_bubble_outline,
       route: RouteIds.chat,
     ),
+    DrawerItemConfig(
+      title: 'Tenant Management',
+      icon: Icons.apartment_outlined,
+      route: RouteIds.tenantManagement,
+      section: 'Platform Configuration',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+    ),
   ],
   spaDefaultRoute: RouteIds.dashboard,
   spaRoutes: <SpaRouteConfig>[
     SpaRouteConfig(id: RouteIds.dashboard, title: 'Dashboard'),
     SpaRouteConfig(id: RouteIds.chat, title: 'Chat'),
+    SpaRouteConfig(
+      id: RouteIds.tenantManagement,
+      title: 'Tenant Management',
+    ),
   ],
 );
 ```
@@ -47,10 +58,18 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
 ### What You Can Override
 
 - app metadata: `appName`, `appVersion`
-- API config: `api.baseUrl` and endpoint paths
+- API config: `api.baseUrl` and endpoint paths (including tenant management + invite redeem endpoints)
 - role catalog: `activeRoles`
 - navigation structure: `drawerItems`, `spaDefaultRoute`, `spaRoutes`
 - settings UX: `settingsPanels`
+
+Tenant-specific endpoint keys available in `ApiEndpointsOverride`:
+
+- `tenant`, `tenantDomain`, `tenantInvitation`, `tenantMembership`
+- `tenantActionDeactivate`, `tenantActionReactivate`
+- `tenantInvitationActionResend`, `tenantInvitationActionRevoke`
+- `tenantMembershipActionSuspend`, `tenantMembershipActionUnsuspend`, `tenantMembershipActionRemove`
+- `authTenantInvitationRedeem`
 
 ### Merge Semantics
 
@@ -94,3 +113,4 @@ When customizing, preserve these externally visible contracts unless intentional
 1. Route names used by auth flow (`/app`, `/login`).
 2. ACP payload/field casing expected by backend endpoints.
 3. Auth refresh/logout behavior tied to the configured endpoint paths.
+4. Invite route shape and parser assumptions (`/invite/{tenant_id}/{invitation_id}`).

@@ -17,7 +17,7 @@ Architecture rules are enforced by `tool/architecture/check_dependencies.dart`.
 - `lib/main.dart`: platform entrypoint.
 - `lib/app`: composition root (bootstrap, router, global providers, typed app config).
 - `lib/shared`: cross-feature primitives and adapters.
-- `lib/features`: feature modules (`auth`, `chat`, `user_admin`, `shell`) with layer-aligned subfolders.
+- `lib/features`: feature modules (`auth`, `chat`, `user_admin`, `tenant_admin`, `tenant_invite`, `shell`) with layer-aligned subfolders.
 - `lib/extension`: typed extension surface for configuration and provider overrides.
 - `test`: unit and widget tests, including layer and behavior checks.
 - `tool/architecture`: dependency rule checker.
@@ -71,6 +71,13 @@ Infrastructure maps these modes to the web plugin structured multipart contract 
 2. Add route metadata in `AppConfig.defaults()` (`drawerItems`, `spaRoutes`, and optionally `spaDefaultRoute`) in `lib/app/config/app_config.dart`.
 3. Add content widget mapping in `lib/features/shell/presentation/widgets/route_views.dart`.
 4. Validate drawer behavior and route switching in shell widget tests.
+
+### Add an Invite Deep-Link Route
+
+1. Add typed route helpers in `lib/app/routing/route_ids.dart` for path build/parse.
+2. Detect dynamic invite paths in `lib/app/routing/app_router.dart` before fallback shell routes.
+3. Route invite links through `AuthGuard` and persist pending invite context for login-first flows.
+4. Ensure login success redirects to pending invite when present, otherwise `/app`.
 
 ### Add a New Settings Panel
 

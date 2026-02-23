@@ -5,6 +5,7 @@ import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/pages/login_page.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/features/tenant_invite/presentation/providers/pending_invite_providers.dart';
 import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
 
@@ -89,6 +90,39 @@ void main() {
     expect(snackBars.messages, isEmpty);
   });
 
+  testWidgets('LoginPage navigates to pending invite route when available', (
+    WidgetTester tester,
+  ) async {
+    final authController = _TestAuthController(
+      initialState: const AuthControllerState(isLoading: false, session: null),
+    )..loginResult = true;
+    final navigator = _FakeAppNavigator();
+    final snackBars = _RecordingSnackBarDispatcher();
+    final pendingInviteController = PendingInviteController()
+      ..setPending(
+        const InviteRouteMatch(
+          tenantId: 'tenant-1',
+          invitationId: 'invite-2',
+          token: 'abc',
+        ),
+      );
+
+    await _pumpLoginPage(
+      tester,
+      authController: authController,
+      navigator: navigator,
+      snackBars: snackBars,
+      pendingInviteController: pendingInviteController,
+    );
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'alice');
+    await tester.enterText(find.byType(TextFormField).at(1), 'secret');
+    await tester.tap(find.text('Login'));
+    await tester.pumpAndSettle();
+
+    expect(navigator.lastRoute, '/invite/tenant-1/invite-2');
+  });
+
   testWidgets('LoginPage shows snackbar on submit failure via Enter key', (
     WidgetTester tester,
   ) async {
@@ -147,14 +181,24 @@ Future<void> _pumpLoginPage(
   required _TestAuthController authController,
   required _FakeAppNavigator navigator,
   required _RecordingSnackBarDispatcher snackBars,
+  PendingInviteController? pendingInviteController,
 }) async {
+  final overrides = <Override>[
+    authControllerProvider.overrideWith(() => authController),
+    appNavigatorProvider.overrideWith((Ref ref) => navigator),
+    snackBarDispatcherProvider.overrideWith((Ref ref) => snackBars),
+  ];
+  if (pendingInviteController != null) {
+    overrides.add(
+      pendingInviteControllerProvider.overrideWith(
+        (ref) => pendingInviteController,
+      ),
+    );
+  }
+
   await tester.pumpWidget(
     ProviderScope(
-      overrides: <Override>[
-        authControllerProvider.overrideWith(() => authController),
-        appNavigatorProvider.overrideWith((Ref ref) => navigator),
-        snackBarDispatcherProvider.overrideWith((Ref ref) => snackBars),
-      ],
+      overrides: overrides,
       child: const MaterialApp(home: Scaffold(body: LoginPage())),
     ),
   );

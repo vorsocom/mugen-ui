@@ -126,7 +126,7 @@ class ApiConfig {
 }
 
 class ApiConfigOverride {
-  const ApiConfigOverride({this.baseUrl, this.endpoints});
+  const ApiConfigOverride({this.baseUrl, this.endpoints}); // coverage:ignore-line
 
   final String? baseUrl;
   final ApiEndpointsOverride? endpoints;

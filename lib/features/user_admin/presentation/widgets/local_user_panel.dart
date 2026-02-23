@@ -217,135 +217,139 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
                     scrollDirection: Axis.horizontal,
                     child: SizedBox(
                       width: tableWidth,
-                      child: DataTable(
-                        headingRowColor: WidgetStatePropertyAll<Color?>(
-                          AppUiPalette.surfaceMuted,
-                        ),
-                        headingTextStyle: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppUiPalette.textPrimary,
-                        ),
-                        dataTextStyle: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppUiPalette.textPrimary,
-                        ),
-                        dataRowMinHeight: 54,
-                        dataRowMaxHeight: 62,
-                        columnSpacing: 22,
-                        horizontalMargin: 16,
-                        dividerThickness: 1.0,
-                        columns: const [
-                          DataColumn(label: Text('Username')),
-                          DataColumn(label: Text('First Name')),
-                          DataColumn(label: Text('Last Name')),
-                          DataColumn(label: Text('Date Created')),
-                          DataColumn(label: Text('Actions')),
-                        ],
-                        rows: List<DataRow>.generate(state.pageSize, (index) {
-                          final rowBackground = index.isEven
-                              ? Colors.white
-                              : AppUiPalette.surface;
-                          if (state.total == 0 || index >= state.users.length) {
+                      child: SingleChildScrollView(
+                        child: DataTable(
+                          headingRowColor: WidgetStatePropertyAll<Color?>(
+                            AppUiPalette.surfaceMuted,
+                          ),
+                          headingTextStyle: theme.textTheme.bodyMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppUiPalette.textPrimary,
+                              ),
+                          dataTextStyle: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppUiPalette.textPrimary,
+                          ),
+                          dataRowMinHeight: 44,
+                          dataRowMaxHeight: 50,
+                          columnSpacing: 22,
+                          horizontalMargin: 16,
+                          dividerThickness: 1.0,
+                          columns: const [
+                            DataColumn(label: Text('Username')),
+                            DataColumn(label: Text('First Name')),
+                            DataColumn(label: Text('Last Name')),
+                            DataColumn(label: Text('Date Created')),
+                            DataColumn(label: Text('Actions')),
+                          ],
+                          rows: List<DataRow>.generate(state.pageSize, (index) {
+                            final rowBackground = index.isEven
+                                ? Colors.white
+                                : AppUiPalette.surface;
+                            if (state.total == 0 ||
+                                index >= state.users.length) {
+                              return DataRow(
+                                color: WidgetStatePropertyAll<Color?>(
+                                  rowBackground,
+                                ),
+                                cells: const <DataCell>[
+                                  DataCell(SizedBox.shrink()),
+                                  DataCell(SizedBox.shrink()),
+                                  DataCell(SizedBox.shrink()),
+                                  DataCell(SizedBox.shrink()),
+                                  DataCell(SizedBox.shrink()),
+                                ],
+                              );
+                            }
+
+                            final user = state.users[index];
                             return DataRow(
                               color: WidgetStatePropertyAll<Color?>(
                                 rowBackground,
                               ),
-                              cells: const <DataCell>[
-                                DataCell(SizedBox.shrink()),
-                                DataCell(SizedBox.shrink()),
-                                DataCell(SizedBox.shrink()),
-                                DataCell(SizedBox.shrink()),
-                                DataCell(SizedBox.shrink()),
+                              cells: [
+                                DataCell(Text(user.userName)),
+                                DataCell(Text(user.person.firstName)),
+                                DataCell(Text(user.person.lastName)),
+                                DataCell(
+                                  Text(
+                                    '${user.dateCreated.toUtc()}'
+                                        .split('.')
+                                        .first,
+                                  ),
+                                ),
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      _LocalUserActionIcon(
+                                        icon: Icons.edit_outlined,
+                                        onPressed: () =>
+                                            _showEditUserDialog(user),
+                                        tooltip: 'Edit Details',
+                                      ),
+                                      const SizedBox(width: 4),
+                                      _LocalUserActionIcon(
+                                        icon: Icons.work_outline_outlined,
+                                        onPressed: () =>
+                                            _showEditRolesDialog(user),
+                                        tooltip: 'Edit Roles',
+                                      ),
+                                      const SizedBox(width: 4),
+                                      _LocalUserActionIcon(
+                                        icon: Icons.password_outlined,
+                                        onPressed: () =>
+                                            _showResetPasswordDialog(user),
+                                        tooltip: 'Reset Password',
+                                      ),
+                                      const SizedBox(width: 4),
+                                      _LocalUserActionIcon(
+                                        icon: user.isLocked
+                                            ? Icons.person_outline_outlined
+                                            : Icons.person_off_outlined,
+                                        iconColor: user.isLocked
+                                            ? Colors.green.shade700
+                                            : Colors.red.shade700,
+                                        onPressed: () async {
+                                          final confirmed =
+                                              await showAppConfirmationDialog(
+                                                context: context,
+                                                title: 'Confirmation Required',
+                                                message: user.isLocked
+                                                    ? 'Enabling this account will allow the user to log in and perform permitted actions.'
+                                                    : 'Disabling this account will prevent the user from logging in and performing any actions.',
+                                                confirmLabel: 'Continue',
+                                                icon: user.isLocked
+                                                    ? Icons
+                                                          .person_outline_outlined
+                                                    : Icons.person_off_outlined,
+                                              );
+
+                                          if (confirmed != true) {
+                                            return;
+                                          }
+
+                                          if (user.isLocked) {
+                                            await handleEnableUserAccount(
+                                              user.id,
+                                            );
+                                          } else {
+                                            await handleDisableUserAccount(
+                                              user.id,
+                                            );
+                                          }
+                                        },
+                                        tooltip: user.isLocked
+                                            ? 'Enable Account'
+                                            : 'Disable Account',
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             );
-                          }
-
-                          final user = state.users[index];
-                          return DataRow(
-                            color: WidgetStatePropertyAll<Color?>(
-                              rowBackground,
-                            ),
-                            cells: [
-                              DataCell(Text(user.userName)),
-                              DataCell(Text(user.person.firstName)),
-                              DataCell(Text(user.person.lastName)),
-                              DataCell(
-                                Text(
-                                  '${user.dateCreated.toUtc()}'
-                                      .split('.')
-                                      .first,
-                                ),
-                              ),
-                              DataCell(
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _LocalUserActionIcon(
-                                      icon: Icons.edit_outlined,
-                                      onPressed: () =>
-                                          _showEditUserDialog(user),
-                                      tooltip: 'Edit Details',
-                                    ),
-                                    const SizedBox(width: 4),
-                                    _LocalUserActionIcon(
-                                      icon: Icons.work_outline_outlined,
-                                      onPressed: () =>
-                                          _showEditRolesDialog(user),
-                                      tooltip: 'Edit Roles',
-                                    ),
-                                    const SizedBox(width: 4),
-                                    _LocalUserActionIcon(
-                                      icon: Icons.password_outlined,
-                                      onPressed: () =>
-                                          _showResetPasswordDialog(user),
-                                      tooltip: 'Reset Password',
-                                    ),
-                                    const SizedBox(width: 4),
-                                    _LocalUserActionIcon(
-                                      icon: user.isLocked
-                                          ? Icons.person_outline_outlined
-                                          : Icons.person_off_outlined,
-                                      iconColor: user.isLocked
-                                          ? Colors.green.shade700
-                                          : Colors.red.shade700,
-                                      onPressed: () async {
-                                        final confirmed =
-                                            await showAppConfirmationDialog(
-                                              context: context,
-                                              title: 'Confirmation Required',
-                                              message: user.isLocked
-                                                  ? 'Enabling this account will allow the user to log in and perform permitted actions.'
-                                                  : 'Disabling this account will prevent the user from logging in and performing any actions.',
-                                              confirmLabel: 'Continue',
-                                              icon: user.isLocked
-                                                  ? Icons
-                                                        .person_outline_outlined
-                                                  : Icons.person_off_outlined,
-                                            );
-
-                                        if (confirmed != true) {
-                                          return;
-                                        }
-
-                                        if (user.isLocked) {
-                                          await handleEnableUserAccount(
-                                            user.id,
-                                          );
-                                        } else {
-                                          await handleDisableUserAccount(
-                                            user.id,
-                                          );
-                                        }
-                                      },
-                                      tooltip: user.isLocked
-                                          ? 'Enable Account'
-                                          : 'Disable Account',
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
+                          }),
+                        ),
                       ),
                     ),
                   );
@@ -458,7 +462,7 @@ class _Paginator extends StatelessWidget {
                 child: DropdownButton<int>(
                   value: rowsPerPage,
                   icon: const Icon(Icons.expand_more, size: 18),
-                  items: const [5, 10, 25, 50]
+                  items: const [15, 25, 50]
                       .map(
                         (value) => DropdownMenuItem<int>(
                           value: value,

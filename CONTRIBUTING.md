@@ -10,6 +10,8 @@
 
 This repository uses Conventional Commits.
 
+Pull request titles are validated with the same Conventional Commit format in CI.
+
 Header format:
 
 `<type>(optional-scope)!: <description>`
@@ -72,8 +74,15 @@ Enable local commit-msg validation:
 - Run checks before opening/updating a PR:
 
 ```bash
-flutter test
+flutter analyze
 dart run tool/architecture/check_dependencies.dart
+flutter test
+```
+
+- Optional locally (required in CI):
+
+```bash
+flutter build web --release --no-wasm-dry-run
 ```
 
 ## Release and Versioning

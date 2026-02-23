@@ -9,6 +9,7 @@ print_usage() {
 Usage:
   check_conventional_commit.sh <commit_message_file>
   check_conventional_commit.sh --rev-range <git_rev_range>
+  check_conventional_commit.sh --pr-title "<pull_request_title>"
 USAGE
 }
 
@@ -32,14 +33,20 @@ extract_header_from_file() {
 
 validate_header() {
   local header="$1"
+  local context="${2:-}"
+  local prefix="Conventional Commit check failed"
+
+  if [[ -n "${context}" ]]; then
+    prefix="${prefix} (${context})"
+  fi
 
   if [[ -z "${header}" ]]; then
-    echo "Conventional Commit check failed: missing commit header." >&2
+    echo "${prefix}: missing commit header." >&2
     return 1
   fi
 
   if ((${#header} > MAX_HEADER_LENGTH)); then
-    echo "Conventional Commit check failed: header exceeds ${MAX_HEADER_LENGTH} characters." >&2
+    echo "${prefix}: header exceeds ${MAX_HEADER_LENGTH} characters." >&2
     echo "Header: ${header}" >&2
     return 1
   fi
@@ -50,12 +57,18 @@ validate_header() {
   fi
 
   if [[ ! "${header}" =~ ${HEADER_REGEX} ]]; then
-    echo "Conventional Commit check failed: invalid header format." >&2
+    echo "${prefix}: invalid header format." >&2
     echo "Expected: <type>(optional-scope)!: <description>" >&2
     echo "Example: feat(chat): support media upload retries" >&2
     echo "Header: ${header}" >&2
     return 1
   fi
+}
+
+trim_surrounding_whitespace() {
+  local value="$1"
+
+  sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' <<<"${value}"
 }
 
 validate_message_file() {
@@ -100,14 +113,29 @@ validate_commit_range() {
   echo "Conventional Commit check passed for ${#commits[@]} commit(s)."
 }
 
+validate_pr_title() {
+  local pr_title="$1"
+  local normalized_title
+
+  normalized_title="$(trim_surrounding_whitespace "${pr_title}")"
+  validate_header "${normalized_title}" "PR title"
+
+  echo "Conventional Commit check passed for PR title."
+}
+
 main() {
-  if (($# == 1)); then
-    validate_message_file "$1"
+  if (($# == 2)) && [[ "$1" == "--pr-title" ]]; then
+    validate_pr_title "$2"
     exit 0
   fi
 
   if (($# == 2)) && [[ "$1" == "--rev-range" ]]; then
     validate_commit_range "$2"
+    exit 0
+  fi
+
+  if (($# == 1)); then
+    validate_message_file "$1"
     exit 0
   fi
 

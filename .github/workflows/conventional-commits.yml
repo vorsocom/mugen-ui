@@ -19,6 +19,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Validate PR title
+        if: github.event_name == 'pull_request'
+        run: |
+          tool/commitlint/check_conventional_commit.sh \
+            --pr-title "${{ github.event.pull_request.title }}"
+
       - name: Resolve commit range
         id: range
         run: |

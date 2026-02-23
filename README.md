@@ -44,6 +44,17 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/). CI enforces
 - version bump + matching dated changelog release section for PRs to `main`
 - release tag consistency (`v<version>` must match `pubspec.yaml`, ignoring `+build`)
 
+## CI Quality Gates
+
+Runtime quality gates run in CI for pull requests and pushes to `develop` and `main`:
+
+- `flutter analyze`
+- `dart run tool/architecture/check_dependencies.dart`
+- `flutter test`
+- `flutter build web --release --no-wasm-dry-run`
+
+CI also enforces Conventional Commit formatting for both commit messages and pull request titles.
+
 ## Architecture Overview
 
 This codebase uses a feature-first module layout with strict layer boundaries:

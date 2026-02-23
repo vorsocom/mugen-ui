@@ -16,6 +16,39 @@ fail() {
   exit 1
 }
 
+print_misses() {
+  local lcov_path="$1"
+  local limit="${2:-20}"
+
+  echo "Uncovered lines (top ${limit} files by uncovered-line count):" >&2
+  awk -v limit="${limit}" '
+    BEGIN { file = "" }
+    /^SF:/ {
+      file = substr($0, 4)
+    }
+    /^DA:/ {
+      split($0, a, ",")
+      if (a[2] == 0) {
+        misses[file] = misses[file] " " a[1]
+      }
+    }
+    END {
+      for (f in misses) {
+        n = split(misses[f], arr, " ")
+        c = 0
+        for (i = 1; i <= n; i++) {
+          if (arr[i] != "") {
+            c++
+          }
+        }
+        if (c > 0) {
+          print c "\t" f "\t" misses[f]
+        }
+      }
+    }
+  ' "${lcov_path}" | sort -nr | head -n "${limit}" >&2
+}
+
 main() {
   local lcov_path="coverage/lcov.info"
   local minimum="100"
@@ -76,6 +109,7 @@ main() {
 
   if ! awk -v lh="${lh}" -v lf="${lf}" -v min="${minimum}" \
     'BEGIN { pct = (100 * lh) / lf; exit (pct + 1e-12 >= min) ? 0 : 1 }'; then
+    print_misses "${lcov_path}" 20
     fail "line coverage ${percent}% (${lh}/${lf}) is below required ${minimum}%."
   fi
 

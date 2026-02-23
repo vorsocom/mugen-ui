@@ -82,6 +82,7 @@ The UI serializes these through structured multipart fields (`composition_mode`,
 - `docs/README.md` contributor docs index
 - `docs/project-layout.md` project structure and development workflows
 - `docs/extension-surface.md` typed extension hooks and override examples
+- `CHANGELOG.md` Keep a Changelog formatted release notes
 - `CONTRIBUTING.md` branch policy, commit conventions, and PR expectations
 
 ## Production Identity and Signing Checklist

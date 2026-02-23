@@ -1,0 +1,14 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Enforced Conventional Commit headers in CI and local `commit-msg` hooks.
+- Added a contributor guide with branch, commit, and PR expectations.
+- Enforced Keep a Changelog updates for pull requests in CI.

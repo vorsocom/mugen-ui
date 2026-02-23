@@ -67,6 +67,7 @@ Enable local commit-msg validation:
 ## Pull Request Expectations
 
 - Keep PRs focused and small when practical.
+- Add an entry to `CHANGELOG.md` under `## [Unreleased]` using a Keep a Changelog category.
 - Run checks before opening/updating a PR:
 
 ```bash

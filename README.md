@@ -2,6 +2,40 @@
 
 Flutter web ACP client rebuilt around strict Clean Architecture and Riverpod.
 
+## Conventional Commits
+
+This repository enforces Conventional Commits for non-merge commits in CI and via an optional local Git `commit-msg` hook.
+
+Accepted commit types:
+
+- `build`
+- `chore`
+- `ci`
+- `docs`
+- `feat`
+- `fix`
+- `perf`
+- `refactor`
+- `revert`
+- `style`
+- `test`
+
+Commit header format:
+
+`<type>(optional-scope)!: <description>`
+
+Examples:
+
+- `feat(chat): support structured attachment drafts`
+- `fix(auth): preserve session when refresh succeeds`
+- `chore(ci): add Flutter web smoke test`
+
+Enable local hook enforcement (recommended):
+
+```bash
+./tool/commitlint/install_git_hooks.sh
+```
+
 ## Architecture Overview
 
 This codebase uses a feature-first module layout with strict layer boundaries:
@@ -48,6 +82,7 @@ The UI serializes these through structured multipart fields (`composition_mode`,
 - `docs/README.md` contributor docs index
 - `docs/project-layout.md` project structure and development workflows
 - `docs/extension-surface.md` typed extension hooks and override examples
+- `CONTRIBUTING.md` branch policy, commit conventions, and PR expectations
 
 ## Production Identity and Signing Checklist
 

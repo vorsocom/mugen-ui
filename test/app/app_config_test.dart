@@ -52,6 +52,51 @@ void main() {
       defaults.api.endpoints.tenantMembershipActionSuspend,
       'core/acp/v1/tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/suspend',
     );
+    expect(defaults.api.endpoints.rbacGlobalRole, 'core/acp/v1/GlobalRoles');
+    expect(
+      defaults.api.endpoints.rbacTenantRole,
+      'core/acp/v1/tenants/{tenant_id}/Roles',
+    );
+    expect(
+      defaults.api.endpoints.rbacTenantRoleActionDeprecate,
+      'core/acp/v1/tenants/{tenant_id}/Roles/{role_id}/\$action/deprecate',
+    );
+    expect(
+      defaults.api.endpoints.rbacTenantRoleActionReactivate,
+      'core/acp/v1/tenants/{tenant_id}/Roles/{role_id}/\$action/reactivate',
+    );
+    expect(
+      defaults.api.endpoints.rbacPermissionObject,
+      'core/acp/v1/PermissionObjects',
+    );
+    expect(
+      defaults.api.endpoints.rbacPermissionObjectActionDeprecate,
+      'core/acp/v1/PermissionObjects/{permission_object_id}/\$action/deprecate',
+    );
+    expect(
+      defaults.api.endpoints.rbacPermissionObjectActionReactivate,
+      'core/acp/v1/PermissionObjects/{permission_object_id}/\$action/reactivate',
+    );
+    expect(
+      defaults.api.endpoints.rbacPermissionType,
+      'core/acp/v1/PermissionTypes',
+    );
+    expect(
+      defaults.api.endpoints.rbacPermissionTypeActionDeprecate,
+      'core/acp/v1/PermissionTypes/{permission_type_id}/\$action/deprecate',
+    );
+    expect(
+      defaults.api.endpoints.rbacPermissionTypeActionReactivate,
+      'core/acp/v1/PermissionTypes/{permission_type_id}/\$action/reactivate',
+    );
+    expect(
+      defaults.api.endpoints.rbacGlobalPermissionEntry,
+      'core/acp/v1/GlobalPermissionEntries',
+    );
+    expect(
+      defaults.api.endpoints.rbacTenantPermissionEntry,
+      'core/acp/v1/tenants/{tenant_id}/PermissionEntries',
+    );
     expect(
       merged.api.endpoints.tenantMembershipActionSuspend,
       'custom/tenants/{tenant_id}/memberships/{membership_id}/suspend',
@@ -80,6 +125,12 @@ void main() {
       isTrue,
     );
     expect(
+      defaults.drawerItems.any(
+        (item) => item.route == RouteIds.rolePermissionManagement,
+      ),
+      isTrue,
+    );
+    expect(
       defaults.settingsPanels.any(
         (panel) => panel.type == SettingsPanelType.users,
       ),
@@ -101,6 +152,23 @@ void main() {
       defaults.spaRoutes.any((route) => route.id == RouteIds.tenantManagement),
       isTrue,
     );
+    expect(
+      defaults.spaRoutes.any(
+        (route) => route.id == RouteIds.rolePermissionManagement,
+      ),
+      isTrue,
+    );
     expect(runtimeOverride.appName, isNull);
+  });
+
+  test('ApiConfigOverride can be instantiated at runtime', () {
+    final override = ApiConfigOverride(
+      baseUrl: 'https://example.com/api',
+      endpoints: const ApiEndpointsOverride(webMessages: 'runtime/messages'),
+    );
+
+    expect(override.baseUrl, 'https://example.com/api');
+    expect(override.endpoints, isNotNull);
+    expect(override.endpoints!.webMessages, 'runtime/messages');
   });
 }

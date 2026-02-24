@@ -3,14 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/app/providers.dart';
+import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
+import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
 import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
@@ -44,12 +49,13 @@ void main() {
 
       await tester.pumpAndSettle();
 
+      expect(find.text('Edit Profile'), findsOneWidget);
       expect(find.text('Reset Password'), findsOneWidget);
       expect(find.text('Local Users'), findsNothing);
     },
   );
 
-  testWidgets('ShellSettingsPanel opens account overlay on tap', (
+  testWidgets('ShellSettingsPanel opens account overlays on tap', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -73,11 +79,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Current password'), findsNothing);
 
+    await tester.tap(find.text('Edit Profile'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit Profile'), findsWidgets);
+    expect(find.text('Save Profile'), findsOneWidget);
+    expect(find.text('Current password'), findsNothing);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.text('Reset Password'));
     await tester.pumpAndSettle();
 
     expect(find.text('Current password'), findsOneWidget);
-    expect(find.byTooltip('Close'), findsOneWidget);
   });
 
   testWidgets('ShellSettingsPanel opens local users overlay on tap', (
@@ -90,7 +104,7 @@ void main() {
             title: 'Reset Password',
             icon: Icons.security,
             roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
-            type: SettingsPanelType.account,
+            type: SettingsPanelType.resetPassword,
           ),
           SettingsPanelConfig(
             title: 'Local Users',
@@ -190,11 +204,34 @@ class _FakeAuthRepository implements AuthRepository {
   }) async {
     return const Result<void>.success(null);
   }
+
+  @override
+  Future<Result<OwnProfileEntity>> fetchOwnProfile() async {
+    return const Result<OwnProfileEntity>.success(
+      OwnProfileEntity(
+        userId: 'u1',
+        personId: 'p1',
+        personRowVersion: 1,
+        firstName: 'Demo',
+        lastName: 'User',
+      ),
+    );
+  }
+
+  @override
+  Future<Result<void>> updateOwnProfile(UpdateOwnProfileInput input) async {
+    return const Result<void>.success(null);
+  }
 }
 
 class _FakeUserAdminRepository implements UserAdminRepository {
   @override
   Future<Result<void>> disableUserAccount(ToggleUserAccountInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> deleteUser(DeleteUserInput input) async {
     return const Result<void>.success(null);
   }
 
@@ -206,6 +243,13 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   @override
   Future<Result<void>> enableUserAccount(ToggleUserAccountInput input) async {
     return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<List<UserSessionEntity>>> fetchUserSessions(
+    String userId,
+  ) async {
+    return const Result<List<UserSessionEntity>>.success(<UserSessionEntity>[]);
   }
 
   @override
@@ -239,6 +283,11 @@ class _FakeUserAdminRepository implements UserAdminRepository {
 
   @override
   Future<Result<void>> updateUser(UpdateUserInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> revokeUserSession(RevokeUserSessionInput input) async {
     return const Result<void>.success(null);
   }
 }

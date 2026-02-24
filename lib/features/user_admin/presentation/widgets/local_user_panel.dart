@@ -9,6 +9,7 @@ import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_inp
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
@@ -78,6 +79,22 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
     );
   }
 
+  Future<void> _showSessionsDialog(UserEntity user) async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        insetPadding: const EdgeInsets.all(24),
+        backgroundColor: AppUiPalette.surfaceMuted,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppUiPalette.border),
+        ),
+        child: _UserSessionsDialog(user: user),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(userAdminControllerProvider);
@@ -106,6 +123,18 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
         snackBar.show(
           navigator,
           'User account could not be disabled. Please try again.',
+        );
+      }
+    }
+
+    Future<void> handleDeleteUser(String userId) async {
+      final success = await controller.deleteUser(userId);
+      if (success) {
+        snackBar.show(navigator, 'User account successfully deleted.');
+      } else {
+        snackBar.show(
+          navigator,
+          'User account could not be deleted. Please try again.',
         );
       }
     }
@@ -304,6 +333,13 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
                                       ),
                                       const SizedBox(width: 4),
                                       _LocalUserActionIcon(
+                                        icon: Icons.history_toggle_off_outlined,
+                                        onPressed: () =>
+                                            _showSessionsDialog(user),
+                                        tooltip: 'Sessions',
+                                      ),
+                                      const SizedBox(width: 4),
+                                      _LocalUserActionIcon(
                                         icon: user.isLocked
                                             ? Icons.person_outline_outlined
                                             : Icons.person_off_outlined,
@@ -342,6 +378,29 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
                                         tooltip: user.isLocked
                                             ? 'Enable Account'
                                             : 'Disable Account',
+                                      ),
+                                      const SizedBox(width: 4),
+                                      _LocalUserActionIcon(
+                                        icon: Icons.delete_outline,
+                                        iconColor: Colors.red.shade700,
+                                        onPressed: () async {
+                                          final confirmed =
+                                              await showAppConfirmationDialog(
+                                                context: context,
+                                                title: 'Confirmation Required',
+                                                message:
+                                                    'Deleting this user will immediately disable access and remove the account.',
+                                                confirmLabel: 'Delete User',
+                                                icon: Icons.delete_outline,
+                                              );
+
+                                          if (confirmed != true) {
+                                            return;
+                                          }
+
+                                          await handleDeleteUser(user.id);
+                                        },
+                                        tooltip: 'Delete User',
                                       ),
                                     ],
                                   ),
@@ -609,6 +668,201 @@ class _LocalUserActionIcon extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _UserSessionsDialog extends ConsumerStatefulWidget {
+  const _UserSessionsDialog({required this.user});
+
+  final UserEntity user;
+
+  @override
+  ConsumerState<_UserSessionsDialog> createState() =>
+      _UserSessionsDialogState();
+}
+
+class _UserSessionsDialogState extends ConsumerState<_UserSessionsDialog> {
+  bool _loading = true;
+  bool _revoking = false;
+  String? _error;
+  List<UserSessionEntity> _sessions = const <UserSessionEntity>[];
+
+  @override
+  void initState() {
+    super.initState();
+    Future<void>.microtask(_loadSessions);
+  }
+
+  Future<void> _loadSessions() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final result = await ref
+        .read(userAdminControllerProvider.notifier)
+        .fetchUserSessions(widget.user.id);
+
+    if (!mounted) {
+      return;
+    }
+
+    if (result.isFailure) {
+      setState(() {
+        _loading = false;
+        _sessions = const <UserSessionEntity>[];
+        _error = result.failure?.message ?? 'Could not load sessions.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = false;
+      _sessions = result.data!;
+      _error = null;
+    });
+  }
+
+  Future<void> _revokeSession(UserSessionEntity session) async {
+    final confirmed = await showAppConfirmationDialog(
+      context: context,
+      title: 'Confirmation Required',
+      message:
+          'Revoking this session will force the client to authenticate again.',
+      confirmLabel: 'Revoke Session',
+      icon: Icons.block_outlined,
+    );
+    if (confirmed != true) {
+      return;
+    }
+
+    setState(() {
+      _revoking = true;
+    });
+
+    final success = await ref
+        .read(userAdminControllerProvider.notifier)
+        .revokeUserSession(session.id);
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _revoking = false;
+    });
+
+    final snackBar = ref.read(snackBarDispatcherProvider);
+    final navigator = ref.read(appNavigatorProvider);
+    if (!success) {
+      snackBar.show(
+        navigator,
+        'Session could not be revoked. Please try again.',
+      );
+      return;
+    }
+
+    snackBar.show(navigator, 'Session revoked successfully.');
+    await _loadSessions();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      width: 760,
+      child: AppFormPanel(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Sessions - ${widget.user.userName}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Refresh Sessions',
+                  onPressed: _loading || _revoking ? null : _loadSessions,
+                  icon: const Icon(Icons.refresh),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_loading) const LinearProgressIndicator(),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppUiPalette.textSecondary,
+                ),
+              ),
+            ],
+            if (!_loading && _error == null) ...[
+              if (_sessions.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    'No active sessions found for this user.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppUiPalette.textSecondary,
+                    ),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    itemCount: _sessions.length,
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: AppUiPalette.border),
+                    itemBuilder: (context, index) {
+                      final session = _sessions[index];
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                        title: Text('Session ${_shortId(session.id)}'),
+                        subtitle: Text(
+                          'Created: ${session.dateCreated.toUtc().toString().split('.').first}\n'
+                          'Expires: ${session.expiresAt.toUtc().toString().split('.').first}',
+                        ),
+                        isThreeLine: true,
+                        trailing: TextButton.icon(
+                          onPressed: _revoking
+                              ? null
+                              : () => _revokeSession(session),
+                          icon: const Icon(Icons.block_outlined, size: 16),
+                          label: const Text('Revoke'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _shortId(String value) {
+    if (value.length <= 12) {
+      return value;
+    }
+
+    return '${value.substring(0, 8)}...${value.substring(value.length - 4)}';
   }
 }
 

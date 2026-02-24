@@ -1,8 +1,11 @@
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
@@ -15,8 +18,11 @@ abstract class UserAdminRepository {
 
   Future<Result<void>> registerUser(UserRegistrationInput input);
   Future<Result<void>> updateUser(UpdateUserInput input);
+  Future<Result<void>> deleteUser(DeleteUserInput input);
   Future<Result<void>> disableUserAccount(ToggleUserAccountInput input);
   Future<Result<void>> enableUserAccount(ToggleUserAccountInput input);
+  Future<Result<List<UserSessionEntity>>> fetchUserSessions(String userId);
+  Future<Result<void>> revokeUserSession(RevokeUserSessionInput input);
   Future<Result<void>> resetUserPasswordAdmin(
     UserResetPasswordAdminInput input,
   );

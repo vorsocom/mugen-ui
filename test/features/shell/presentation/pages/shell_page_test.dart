@@ -10,11 +10,14 @@ import 'package:mugen_ui/features/chat/domain/entities/chat_message_entity.dart'
 import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dart';
 import 'package:mugen_ui/features/shell/presentation/pages/shell_page.dart';
 import 'package:mugen_ui/features/shell/presentation/providers/shell_providers.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
@@ -31,6 +34,9 @@ const Key _shellAccountMenuSettingsKey = Key('shell-account-menu-settings');
 const Key _shellAccountMenuLogoutKey = Key('shell-account-menu-logout');
 const Key _shellAccountSettingsPanelAccountKey = Key(
   'shell-account-settings-panel-account',
+);
+const Key _shellAccountSettingsPanelResetPasswordKey = Key(
+  'shell-account-settings-panel-resetPassword',
 );
 const Key _shellAccountSettingsPanelUsersKey = Key(
   'shell-account-settings-panel-users',
@@ -435,8 +441,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(_shellAccountSettingsPanelAccountKey), findsOneWidget);
+    expect(
+      find.byKey(_shellAccountSettingsPanelResetPasswordKey),
+      findsOneWidget,
+    );
     expect(find.byKey(_shellAccountSettingsPanelUsersKey), findsNothing);
-    expect(find.text('Reset Password'), findsWidgets);
+    expect(find.text('Edit Profile'), findsOneWidget);
+    expect(find.text('Reset Password'), findsOneWidget);
   });
 
   testWidgets(
@@ -495,7 +506,69 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(Dialog), findsOneWidget);
-      expect(find.text('Reset Password'), findsWidgets);
+      expect(find.text('Edit Profile'), findsWidgets);
+      expect(find.text('Current password'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'selecting reset-password panel opens the reset-password overlay dialog',
+    (tester) async {
+      final config = AppConfig.defaults();
+      final shellController = _TestShellController(
+        initialState: const ShellState(
+          isDrawerCollapsed: false,
+          showSettings: false,
+          activeRoute: RouteIds.chat,
+        ),
+      );
+      final authController = _TestAuthController(
+        initialState: const AuthControllerState(
+          isLoading: false,
+          session: AuthSession(
+            accessToken: 'token',
+            refreshToken: 'refresh',
+            userId: 'user-1',
+            roles: <String>[],
+          ),
+        ),
+      );
+      final chatController = _TestChatController(
+        initialState: ChatControllerState(
+          conversationId: 'conv-test',
+          messages: <ChatMessageEntity>[],
+          mediaResources: <String, ChatMediaResourceState>{},
+          attachments: const <ChatAttachmentDraft>[],
+          compositionMode: ChatCompositionMode.messageWithAttachments,
+          isConnected: true,
+          isConnecting: false,
+          isSending: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            appConfigProvider.overrideWith((ref) => config),
+            shellControllerProvider.overrideWith(() => shellController),
+            authControllerProvider.overrideWith(() => authController),
+            chatControllerProvider.overrideWith(() => chatController),
+          ],
+          child: const MaterialApp(home: ShellPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(_shellAccountMenuTriggerKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(_shellAccountMenuSettingsKey));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(_shellAccountSettingsPanelResetPasswordKey));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Dialog), findsOneWidget);
+      expect(find.text('Current password'), findsOneWidget);
+      expect(find.text('Save Profile'), findsNothing);
     },
   );
 
@@ -1272,6 +1345,11 @@ class _NoopUserAdminRepository implements UserAdminRepository {
   }
 
   @override
+  Future<Result<void>> deleteUser(DeleteUserInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
   Future<Result<void>> editUserRoles(EditUserRolesInput input) async {
     return const Result<void>.success(null);
   }
@@ -1279,6 +1357,13 @@ class _NoopUserAdminRepository implements UserAdminRepository {
   @override
   Future<Result<void>> enableUserAccount(ToggleUserAccountInput input) async {
     return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<List<UserSessionEntity>>> fetchUserSessions(
+    String userId,
+  ) async {
+    return const Result<List<UserSessionEntity>>.success(<UserSessionEntity>[]);
   }
 
   @override
@@ -1312,6 +1397,11 @@ class _NoopUserAdminRepository implements UserAdminRepository {
 
   @override
   Future<Result<void>> updateUser(UpdateUserInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> revokeUserSession(RevokeUserSessionInput input) async {
     return const Result<void>.success(null);
   }
 }

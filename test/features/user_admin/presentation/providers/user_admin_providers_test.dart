@@ -1,12 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
 import 'package:mugen_ui/features/user_admin/infrastructure/repositories/user_admin_repository_impl.dart';
@@ -69,6 +72,9 @@ void main() {
         ..updateResult = const Result<void>.failure(
           UnexpectedFailure('update failed'),
         )
+        ..deleteResult = const Result<void>.failure(
+          UnexpectedFailure('delete failed'),
+        )
         ..enableResult = const Result<void>.failure(
           UnexpectedFailure('enable failed'),
         )
@@ -80,6 +86,12 @@ void main() {
         )
         ..editRolesResult = const Result<void>.failure(
           UnexpectedFailure('roles failed'),
+        )
+        ..fetchSessionsResult = const Result<List<UserSessionEntity>>.failure(
+          UnexpectedFailure('sessions failed'),
+        )
+        ..revokeSessionResult = const Result<void>.failure(
+          UnexpectedFailure('revoke failed'),
         );
       final container = ProviderContainer(
         overrides: <Override>[
@@ -104,6 +116,13 @@ void main() {
       expect(
         container.read(userAdminControllerProvider).errorMessage,
         'update failed',
+      );
+
+      final deleteOk = await notifier.deleteUser('u1');
+      expect(deleteOk, isFalse);
+      expect(
+        container.read(userAdminControllerProvider).errorMessage,
+        'delete failed',
       );
 
       final enableOk = await notifier.enableUser('u1');
@@ -140,6 +159,20 @@ void main() {
       expect(
         container.read(userAdminControllerProvider).errorMessage,
         'roles failed',
+      );
+
+      final sessions = await notifier.fetchUserSessions('u1');
+      expect(sessions.isFailure, isTrue);
+      expect(
+        container.read(userAdminControllerProvider).errorMessage,
+        'sessions failed',
+      );
+
+      final revokeOk = await notifier.revokeUserSession('session-1');
+      expect(revokeOk, isFalse);
+      expect(
+        container.read(userAdminControllerProvider).errorMessage,
+        'revoke failed',
       );
     },
   );
@@ -191,12 +224,21 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   Result<void> updateResult = const Result<void>.success(null);
   Result<void> disableResult = const Result<void>.success(null);
   Result<void> enableResult = const Result<void>.success(null);
+  Result<void> deleteResult = const Result<void>.success(null);
   Result<void> resetResult = const Result<void>.success(null);
   Result<void> editRolesResult = const Result<void>.success(null);
+  Result<List<UserSessionEntity>> fetchSessionsResult =
+      const Result<List<UserSessionEntity>>.success(<UserSessionEntity>[]);
+  Result<void> revokeSessionResult = const Result<void>.success(null);
 
   @override
   Future<Result<void>> disableUserAccount(ToggleUserAccountInput input) async {
     return disableResult;
+  }
+
+  @override
+  Future<Result<void>> deleteUser(DeleteUserInput input) async {
+    return deleteResult;
   }
 
   @override
@@ -207,6 +249,13 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   @override
   Future<Result<void>> enableUserAccount(ToggleUserAccountInput input) async {
     return enableResult;
+  }
+
+  @override
+  Future<Result<List<UserSessionEntity>>> fetchUserSessions(
+    String userId,
+  ) async {
+    return fetchSessionsResult;
   }
 
   @override
@@ -234,5 +283,10 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   @override
   Future<Result<void>> updateUser(UpdateUserInput input) async {
     return updateResult;
+  }
+
+  @override
+  Future<Result<void>> revokeUserSession(RevokeUserSessionInput input) async {
+    return revokeSessionResult;
   }
 }

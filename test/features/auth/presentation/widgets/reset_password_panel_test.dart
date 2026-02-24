@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
+import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
+import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
@@ -137,6 +139,26 @@ void main() {
       expect(navigator.lastRoute, RouteIds.login);
     },
   );
+
+  testWidgets('ResetPasswordPanel cancel action is wired', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeAuthRepository();
+    final authController = _TestAuthController();
+    final navigator = _FakeAppNavigator();
+    final snackBars = _RecordingSnackBarDispatcher();
+
+    await _pumpPanel(
+      tester,
+      repository: repository,
+      authController: authController,
+      navigator: navigator,
+      snackBars: snackBars,
+    );
+
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pump();
+  });
 }
 
 Future<void> _pumpPanel(
@@ -234,6 +256,24 @@ class _FakeAuthRepository implements AuthRepository {
       return pending.future;
     }
     return resetResult;
+  }
+
+  @override
+  Future<Result<OwnProfileEntity>> fetchOwnProfile() async {
+    return const Result<OwnProfileEntity>.success(
+      OwnProfileEntity(
+        userId: 'u1',
+        personId: 'p1',
+        personRowVersion: 1,
+        firstName: 'Alice',
+        lastName: 'Example',
+      ),
+    );
+  }
+
+  @override
+  Future<Result<void>> updateOwnProfile(UpdateOwnProfileInput input) async {
+    return const Result<void>.success(null);
   }
 }
 

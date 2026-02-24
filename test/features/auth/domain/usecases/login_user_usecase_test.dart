@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
+import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mugen_ui/features/auth/domain/usecases/login_user_usecase.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -64,6 +66,24 @@ class _FakeAuthRepository implements AuthRepository {
     required String newPassword,
     required String confirmNewPassword,
   }) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<OwnProfileEntity>> fetchOwnProfile() async {
+    return const Result<OwnProfileEntity>.success(
+      OwnProfileEntity(
+        userId: 'u1',
+        personId: 'p1',
+        personRowVersion: 1,
+        firstName: 'Alice',
+        lastName: 'Example',
+      ),
+    );
+  }
+
+  @override
+  Future<Result<void>> updateOwnProfile(UpdateOwnProfileInput input) async {
     return const Result<void>.success(null);
   }
 }

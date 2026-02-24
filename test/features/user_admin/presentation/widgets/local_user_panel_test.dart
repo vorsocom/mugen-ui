@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
+import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/person_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
@@ -236,6 +241,88 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.enableInputs, hasLength(1));
     expect(repository.enableInputs.single.userId, 'u-2');
+
+    await tester.tap(find.byTooltip('Delete User').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Confirmation Required'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(repository.deleteInputs, isEmpty);
+
+    await tester.tap(find.byTooltip('Delete User').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete User'));
+    await tester.pumpAndSettle();
+    expect(repository.deleteInputs, hasLength(1));
+    expect(repository.deleteInputs.single.userId, 'u-1');
+  });
+
+  testWidgets('sessions dialog loads, revokes, and refreshes sessions', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeUserAdminRepository();
+
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Sessions').first);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Sessions - alice'), findsOneWidget);
+    expect(repository.fetchSessionUserIds, contains('u-1'));
+    expect(find.text('Revoke'), findsWidgets);
+    expect(find.byTooltip('Close'), findsOneWidget);
+
+    await tester.tap(find.text('Revoke').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Revoke Session'));
+    await tester.pumpAndSettle();
+
+    expect(repository.revokeSessionInputs, hasLength(1));
+    expect(
+      repository.revokeSessionInputs.single.refreshTokenId,
+      'session-u-1-1',
+    );
+    expect(
+      repository.fetchSessionUserIds.where((id) => id == 'u-1').length,
+      greaterThanOrEqualTo(2),
+    );
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Sessions - alice'), findsNothing);
+  });
+
+  testWidgets('sessions dialog shows loading error when fetch fails', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeUserAdminRepository()
+      ..fetchSessionsShouldSucceed = false;
+
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Sessions').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('sessions failed'), findsOneWidget);
+  });
+
+  testWidgets('sessions dialog renders empty-state copy', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeUserAdminRepository()..emptySessions = true;
+
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Sessions').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('No active sessions found for this user.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('loading state and cancel actions are rendered and wired', (
@@ -276,7 +363,9 @@ void main() {
         ..resetPasswordShouldSucceed = false
         ..editRolesShouldSucceed = false
         ..disableShouldSucceed = false
-        ..enableShouldSucceed = false;
+        ..enableShouldSucceed = false
+        ..deleteShouldSucceed = false
+        ..revokeSessionShouldSucceed = false;
 
       await _pumpPanel(tester, repository);
       await tester.pumpAndSettle();
@@ -336,6 +425,20 @@ void main() {
       await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(repository.enableInputs, hasLength(1));
+
+      await tester.tap(find.byTooltip('Delete User').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete User'));
+      await tester.pumpAndSettle();
+      expect(repository.deleteInputs, hasLength(1));
+
+      await tester.tap(find.byTooltip('Sessions').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Revoke').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Revoke Session'));
+      await tester.pumpAndSettle();
+      expect(repository.revokeSessionInputs, hasLength(1));
     },
   );
 }
@@ -454,6 +557,18 @@ class _StaticAuthRepository implements AuthRepository {
     required String newPassword,
     required String confirmNewPassword,
   }) async => const Result<void>.success(null);
+
+  @override
+  Future<Result<OwnProfileEntity>> fetchOwnProfile() async {
+    return const Result<OwnProfileEntity>.failure(
+      UnauthorizedFailure('Not implemented'),
+    );
+  }
+
+  @override
+  Future<Result<void>> updateOwnProfile(UpdateOwnProfileInput input) async {
+    return const Result<void>.success(null);
+  }
 }
 
 class _FakeUserAdminRepository implements UserAdminRepository {
@@ -515,6 +630,10 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   bool editRolesShouldSucceed = true;
   bool disableShouldSucceed = true;
   bool enableShouldSucceed = true;
+  bool deleteShouldSucceed = true;
+  bool fetchSessionsShouldSucceed = true;
+  bool emptySessions = false;
+  bool revokeSessionShouldSucceed = true;
   Duration? fetchUsersDelay;
 
   final List<UserListQuery> fetchUsersQueries = <UserListQuery>[];
@@ -525,6 +644,10 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   final List<EditUserRolesInput> editRolesInputs = <EditUserRolesInput>[];
   final List<ToggleUserAccountInput> disableInputs = <ToggleUserAccountInput>[];
   final List<ToggleUserAccountInput> enableInputs = <ToggleUserAccountInput>[];
+  final List<DeleteUserInput> deleteInputs = <DeleteUserInput>[];
+  final List<String> fetchSessionUserIds = <String>[];
+  final List<RevokeUserSessionInput> revokeSessionInputs =
+      <RevokeUserSessionInput>[];
 
   @override
   Future<Result<void>> disableUserAccount(ToggleUserAccountInput input) async {
@@ -556,6 +679,41 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   @override
   Future<Result<List<UserRoleEntity>>> fetchRoles() async {
     return Result<List<UserRoleEntity>>.success(_roles);
+  }
+
+  @override
+  Future<Result<List<UserSessionEntity>>> fetchUserSessions(
+    String userId,
+  ) async {
+    fetchSessionUserIds.add(userId);
+    if (!fetchSessionsShouldSucceed) {
+      return const Result<List<UserSessionEntity>>.failure(
+        UnexpectedFailure('sessions failed'),
+      );
+    }
+    if (emptySessions) {
+      return const Result<List<UserSessionEntity>>.success(
+        <UserSessionEntity>[],
+      );
+    }
+    return Result<List<UserSessionEntity>>.success(<UserSessionEntity>[
+      UserSessionEntity(
+        id: 'session-$userId-1',
+        userId: userId,
+        tokenJti: 'token-$userId-1',
+        expiresAt: DateTime.utc(2030, 1, 2),
+        dateCreated: DateTime.utc(2030, 1, 1),
+        dateLastModified: DateTime.utc(2030, 1, 1),
+      ),
+      UserSessionEntity(
+        id: 'session-$userId-2',
+        userId: userId,
+        tokenJti: 'token-$userId-2',
+        expiresAt: DateTime.utc(2030, 1, 3),
+        dateCreated: DateTime.utc(2030, 1, 2),
+        dateLastModified: DateTime.utc(2030, 1, 2),
+      ),
+    ]);
   }
 
   @override
@@ -628,6 +786,24 @@ class _FakeUserAdminRepository implements UserAdminRepository {
     updateInputs.add(input);
     if (!updateShouldSucceed) {
       return const Result<void>.failure(UnexpectedFailure('update failed'));
+    }
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> deleteUser(DeleteUserInput input) async {
+    deleteInputs.add(input);
+    if (!deleteShouldSucceed) {
+      return const Result<void>.failure(UnexpectedFailure('delete failed'));
+    }
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> revokeUserSession(RevokeUserSessionInput input) async {
+    revokeSessionInputs.add(input);
+    if (!revokeSessionShouldSucceed) {
+      return const Result<void>.failure(UnexpectedFailure('session failed'));
     }
     return const Result<void>.success(null);
   }

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
+import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -189,6 +191,127 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<Result<OwnProfileEntity>> fetchOwnProfile() async {
+    final session = parseAuthSession(cookieStore.getCookie('auth'));
+    if (session == null) {
+      return const Result<OwnProfileEntity>.failure(
+        UnauthorizedFailure('User is not authenticated.'),
+      );
+    }
+
+    try {
+      final response = await authenticatedHttpClient.send(
+        AcpRequest(
+          method: HttpMethod.get,
+          path: '${appConfig.api.endpoints.user}/${session.userId}',
+          queryParameters: <String, dynamic>{r'$expand': 'Person'},
+        ),
+      );
+
+      if (response.sessionExpired) {
+        cookieStore.removeCookie('auth', '/');
+        return const Result<OwnProfileEntity>.failure(SessionExpiredFailure());
+      }
+
+      if (!response.response.isSuccess) {
+        return Result<OwnProfileEntity>.failure(
+          ApiFailure(response.response.statusCode, 'API error.'),
+        );
+      }
+
+      final decoded = jsonDecode(response.response.body);
+      if (decoded is! Map<String, dynamic>) {
+        return const Result<OwnProfileEntity>.failure(
+          UnexpectedFailure('Unexpected API response.'),
+        );
+      }
+
+      final userMap = _extractEntityMap(decoded);
+      final personMap = _extractPersonMap(userMap);
+      if (userMap == null || personMap == null) {
+        return const Result<OwnProfileEntity>.failure(
+          UnexpectedFailure('Unexpected API response.'),
+        );
+      }
+
+      final personRowVersion = _parseRowVersion(personMap['RowVersion']);
+      if (personRowVersion == null) {
+        return const Result<OwnProfileEntity>.failure(
+          UnexpectedFailure('Unexpected API response.'),
+        );
+      }
+
+      return Result<OwnProfileEntity>.success(
+        OwnProfileEntity(
+          userId: _asString(userMap['Id']).isEmpty
+              ? session.userId
+              : _asString(userMap['Id']),
+          personId: _asString(personMap['Id']).isEmpty
+              ? _asString(userMap['PersonId'])
+              : _asString(personMap['Id']),
+          personRowVersion: personRowVersion,
+          firstName: _asString(personMap['FirstName']),
+          lastName: _asString(personMap['LastName']),
+        ),
+      );
+    } catch (_) {
+      return const Result<OwnProfileEntity>.failure(
+        NetworkFailure('Network error.'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> updateOwnProfile(UpdateOwnProfileInput input) async {
+    final session = parseAuthSession(cookieStore.getCookie('auth'));
+    if (session == null) {
+      return const Result<void>.failure(
+        UnauthorizedFailure('User is not authenticated.'),
+      );
+    }
+
+    if (input.personRowVersion <= 0) {
+      return const Result<void>.failure(
+        ValidationFailure('Profile row version is required.'),
+      );
+    }
+
+    final actionPath = appConfig.api.endpoints.authUpdateProfile.replaceAll(
+      '{user_id}',
+      session.userId,
+    );
+
+    try {
+      final response = await authenticatedHttpClient.send(
+        AcpRequest(
+          method: HttpMethod.post,
+          path: actionPath,
+          body: <String, dynamic>{
+            'RowVersion': input.personRowVersion,
+            'FirstName': input.firstName,
+            'LastName': input.lastName,
+          },
+        ),
+      );
+
+      if (response.sessionExpired) {
+        cookieStore.removeCookie('auth', '/');
+        return const Result<void>.failure(SessionExpiredFailure());
+      }
+
+      if (!response.response.isSuccess) {
+        return Result<void>.failure(
+          ApiFailure(response.response.statusCode, 'API error.'),
+        );
+      }
+
+      return const Result<void>.success(null);
+    } catch (_) {
+      return const Result<void>.failure(NetworkFailure('Network error.'));
+    }
+  }
+
   Future<int?> _fetchUserRowVersion(String userId) async {
     try {
       final response = await authenticatedHttpClient.send(
@@ -235,5 +358,49 @@ class AuthRepositoryImpl implements AuthRepository {
     }
 
     return null;
+  }
+
+  String _asString(Object? value) {
+    return value?.toString() ?? '';
+  }
+
+  Map<String, dynamic>? _toNullableMap(Object? value) {
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+
+    // coverage:ignore-start
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    // coverage:ignore-end
+
+    return null;
+  }
+
+  Map<String, dynamic>? _extractEntityMap(Map<String, dynamic> decoded) {
+    if (decoded.containsKey('Id')) {
+      return decoded;
+    }
+
+    final values = decoded['value'];
+    if (values is List && values.isNotEmpty) {
+      return _toNullableMap(values.first);
+    }
+
+    return null;
+  }
+
+  Map<String, dynamic>? _extractPersonMap(Map<String, dynamic>? userMap) {
+    if (userMap == null) {
+      return null;
+    }
+
+    final person = userMap['Person'];
+    if (person is List && person.isNotEmpty) {
+      return _toNullableMap(person.first);
+    }
+
+    return _toNullableMap(person);
   }
 }

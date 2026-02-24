@@ -4,25 +4,32 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
 import 'package:mugen_ui/features/user_admin/application/services/user_admin_service.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
+import 'package:mugen_ui/features/user_admin/domain/usecases/delete_user_usecase.dart';
 import 'package:mugen_ui/features/user_admin/domain/usecases/disable_user_account_usecase.dart';
 import 'package:mugen_ui/features/user_admin/domain/usecases/edit_user_roles_usecase.dart';
 import 'package:mugen_ui/features/user_admin/domain/usecases/enable_user_account_usecase.dart';
+import 'package:mugen_ui/features/user_admin/domain/usecases/fetch_user_sessions_usecase.dart';
 import 'package:mugen_ui/features/user_admin/domain/usecases/fetch_roles_usecase.dart';
 import 'package:mugen_ui/features/user_admin/domain/usecases/fetch_users_usecase.dart';
 import 'package:mugen_ui/features/user_admin/domain/usecases/register_user_usecase.dart';
 import 'package:mugen_ui/features/user_admin/domain/usecases/reset_user_password_admin_usecase.dart';
+import 'package:mugen_ui/features/user_admin/domain/usecases/revoke_user_session_usecase.dart';
 import 'package:mugen_ui/features/user_admin/domain/usecases/update_user_usecase.dart';
 import 'package:mugen_ui/features/user_admin/infrastructure/repositories/user_admin_repository_impl.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
+import 'package:mugen_ui/shared/domain/result.dart';
 
 part 'user_admin_providers.g.dart';
 
@@ -100,8 +107,11 @@ UserAdminService userAdminService(Ref ref) {
     fetchRolesUseCase: FetchRolesUseCase(repository),
     registerUserUseCase: RegisterUserUseCase(repository),
     updateUserUseCase: UpdateUserUseCase(repository),
+    deleteUserUseCase: DeleteUserUseCase(repository),
     disableUserAccountUseCase: DisableUserAccountUseCase(repository),
     enableUserAccountUseCase: EnableUserAccountUseCase(repository),
+    fetchUserSessionsUseCase: FetchUserSessionsUseCase(repository),
+    revokeUserSessionUseCase: RevokeUserSessionUseCase(repository),
     resetUserPasswordAdminUseCase: ResetUserPasswordAdminUseCase(repository),
     editUserRolesUseCase: EditUserRolesUseCase(repository),
   );
@@ -233,6 +243,21 @@ class UserAdminController extends _$UserAdminController {
     return true;
   }
 
+  Future<bool> deleteUser(String userId) async {
+    final response = await ref
+        .read(userAdminServiceProvider)
+        .deleteUser(DeleteUserInput(userId: userId));
+    if (response.isFailure) {
+      state = state.copyWith(
+        errorMessage: response.failure?.message ?? 'API error.',
+      );
+      return false;
+    }
+
+    await loadUsers();
+    return true;
+  }
+
   Future<bool> enableUser(String userId) async {
     final response = await ref
         .read(userAdminServiceProvider)
@@ -260,6 +285,37 @@ class UserAdminController extends _$UserAdminController {
     }
 
     await loadUsers();
+    return true;
+  }
+
+  Future<Result<List<UserSessionEntity>>> fetchUserSessions(
+    String userId,
+  ) async {
+    final response = await ref
+        .read(userAdminServiceProvider)
+        .fetchUserSessions(userId);
+    if (response.isFailure) {
+      state = state.copyWith(
+        errorMessage: response.failure?.message ?? 'API error.',
+      );
+    }
+
+    return response;
+  }
+
+  Future<bool> revokeUserSession(String refreshTokenId) async {
+    final response = await ref
+        .read(userAdminServiceProvider)
+        .revokeUserSession(
+          RevokeUserSessionInput(refreshTokenId: refreshTokenId),
+        );
+    if (response.isFailure) {
+      state = state.copyWith(
+        errorMessage: response.failure?.message ?? 'API error.',
+      );
+      return false;
+    }
+
     return true;
   }
 

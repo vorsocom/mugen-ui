@@ -1,14 +1,20 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/person_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
+import 'package:mugen_ui/features/user_admin/domain/usecases/delete_user_usecase.dart';
+import 'package:mugen_ui/features/user_admin/domain/usecases/fetch_user_sessions_usecase.dart';
 import 'package:mugen_ui/features/user_admin/domain/usecases/fetch_users_usecase.dart';
+import 'package:mugen_ui/features/user_admin/domain/usecases/revoke_user_session_usecase.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -26,11 +32,55 @@ void main() {
     expect(result.data?.items.length, 1);
     expect(result.data?.items.first.userName, 'alice');
   });
+
+  test('DeleteUserUseCase delegates to repository', () async {
+    final repository = _FakeUserAdminRepository();
+    final useCase = DeleteUserUseCase(repository);
+
+    final result = await useCase(const DeleteUserInput(userId: 'u-1'));
+
+    expect(result.isSuccess, isTrue);
+    expect(repository.lastDeleteInput?.userId, 'u-1');
+  });
+
+  test('FetchUserSessionsUseCase delegates to repository', () async {
+    final repository = _FakeUserAdminRepository();
+    final useCase = FetchUserSessionsUseCase(repository);
+
+    final result = await useCase('u-1');
+
+    expect(result.isSuccess, isTrue);
+    expect(result.data, hasLength(1));
+    expect(result.data?.single.userId, 'u-1');
+    expect(repository.lastFetchSessionUserId, 'u-1');
+  });
+
+  test('RevokeUserSessionUseCase delegates to repository', () async {
+    final repository = _FakeUserAdminRepository();
+    final useCase = RevokeUserSessionUseCase(repository);
+
+    final result = await useCase(
+      const RevokeUserSessionInput(refreshTokenId: 'rt-1'),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(repository.lastRevokeInput?.refreshTokenId, 'rt-1');
+  });
 }
 
 class _FakeUserAdminRepository implements UserAdminRepository {
+  DeleteUserInput? lastDeleteInput;
+  String? lastFetchSessionUserId;
+  RevokeUserSessionInput? lastRevokeInput;
+
   @override
   Future<Result<void>> disableUserAccount(ToggleUserAccountInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> deleteUser(DeleteUserInput input) async {
+    lastDeleteInput = input;
     return const Result<void>.success(null);
   }
 
@@ -42,6 +92,23 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   @override
   Future<Result<void>> enableUserAccount(ToggleUserAccountInput input) async {
     return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<List<UserSessionEntity>>> fetchUserSessions(
+    String userId,
+  ) async {
+    lastFetchSessionUserId = userId;
+    return Result<List<UserSessionEntity>>.success(<UserSessionEntity>[
+      UserSessionEntity(
+        id: 'rt-1',
+        userId: userId,
+        tokenJti: 'token-1',
+        expiresAt: DateTime.utc(2025, 1, 1),
+        dateCreated: DateTime.utc(2024, 1, 1),
+        dateLastModified: DateTime.utc(2024, 1, 1),
+      ),
+    ]);
   }
 
   @override
@@ -99,6 +166,12 @@ class _FakeUserAdminRepository implements UserAdminRepository {
 
   @override
   Future<Result<void>> updateUser(UpdateUserInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> revokeUserSession(RevokeUserSessionInput input) async {
+    lastRevokeInput = input;
     return const Result<void>.success(null);
   }
 }

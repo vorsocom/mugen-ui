@@ -7,9 +7,11 @@ import 'package:mugen_ui/features/auth/application/services/auth_application_ser
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mugen_ui/features/auth/domain/usecases/check_user_authenticated_usecase.dart';
 import 'package:mugen_ui/features/auth/domain/usecases/check_user_roles_usecase.dart';
+import 'package:mugen_ui/features/auth/domain/usecases/fetch_own_profile_usecase.dart';
 import 'package:mugen_ui/features/auth/domain/usecases/login_user_usecase.dart';
 import 'package:mugen_ui/features/auth/domain/usecases/logout_user_usecase.dart';
 import 'package:mugen_ui/features/auth/domain/usecases/reset_own_password_usecase.dart';
+import 'package:mugen_ui/features/auth/domain/usecases/update_own_profile_usecase.dart';
 import 'package:mugen_ui/features/auth/infrastructure/repositories/auth_repository_impl.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 
@@ -61,6 +63,8 @@ AuthApplicationService authApplicationService(Ref ref) {
     checkUserAuthenticatedUseCase: CheckUserAuthenticatedUseCase(repository),
     checkUserRolesUseCase: CheckUserRolesUseCase(repository),
     resetOwnPasswordUseCase: ResetOwnPasswordUseCase(repository),
+    fetchOwnProfileUseCase: FetchOwnProfileUseCase(repository),
+    updateOwnProfileUseCase: UpdateOwnProfileUseCase(repository),
   );
 }
 

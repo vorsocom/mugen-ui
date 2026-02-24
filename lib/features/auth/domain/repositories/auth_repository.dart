@@ -1,3 +1,5 @@
+import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
+import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 
@@ -18,4 +20,8 @@ abstract class AuthRepository {
     required String newPassword,
     required String confirmNewPassword,
   });
+
+  Future<Result<OwnProfileEntity>> fetchOwnProfile();
+
+  Future<Result<void>> updateOwnProfile(UpdateOwnProfileInput input);
 }

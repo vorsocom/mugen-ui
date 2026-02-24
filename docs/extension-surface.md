@@ -74,7 +74,7 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
 - navigation structure: `drawerItems`, `spaDefaultRoute`, `spaRoutes`
 - settings UX: `settingsPanels`
 
-Tenant-specific endpoint keys available in `ApiEndpointsOverride`:
+Endpoint keys available in `ApiEndpointsOverride`:
 
 - `tenant`, `tenantDomain`, `tenantInvitation`, `tenantMembership`
 - `tenantActionDeactivate`, `tenantActionReactivate`
@@ -86,6 +86,7 @@ Tenant-specific endpoint keys available in `ApiEndpointsOverride`:
 - `rbacPermissionType`, `rbacPermissionTypeActionDeprecate`, `rbacPermissionTypeActionReactivate`
 - `rbacGlobalPermissionEntry`, `rbacTenantPermissionEntry`
 - `authTenantInvitationRedeem`
+- `authDeleteUser`, `refreshTokenActionRevoke`
 
 ### Merge Semantics
 

@@ -22,3 +22,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated Local Users table pagination defaults to 15 rows with options of 15, 25, and 50, added vertical table scrolling support for larger page sizes, and reduced row height for a more compact layout.
 - Updated tenant management ACP subresource/action endpoint defaults to use lowercase `/core/acp/v1/tenants/...` paths so browser preflight requests resolve correctly.
+- Reverted the unreviewed RBAC admin UI integration from `develop` to restore required 100% line coverage and unblock runtime CI checks.

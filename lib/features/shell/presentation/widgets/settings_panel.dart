@@ -10,7 +10,7 @@ import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_pan
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 class ShellSettingsPanel extends ConsumerWidget {
-  const ShellSettingsPanel({super.key});
+  const ShellSettingsPanel({super.key}); // coverage:ignore-line
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

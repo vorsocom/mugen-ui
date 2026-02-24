@@ -13,6 +13,8 @@ import 'package:mugen_ui/features/rbac_admin/presentation/providers/rbac_admin_p
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
+const double _formDialogPanelWidth = 520;
+
 class RbacManagementPanel extends ConsumerStatefulWidget {
   const RbacManagementPanel({super.key}); // coverage:ignore-line
 
@@ -386,61 +388,66 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     await showDialog<void>(
       context: context,
       builder: (_) => Dialog(
-        child: AppFormPanel(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDialogTitle('Create Global Role'),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: namespaceController,
-                  decoration: appFormInputDecoration(labelText: 'Namespace'),
-                  validator: _requiredValidator,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: nameController,
-                  decoration: appFormInputDecoration(labelText: 'Name'),
-                  validator: _requiredValidator,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: displayNameController,
-                  decoration: appFormInputDecoration(labelText: 'Display Name'),
-                  validator: _requiredValidator,
-                ),
-                const SizedBox(height: 14),
-                _DialogActions(
-                  submitLabel: 'Create Global Role',
-                  onSubmit: () async {
-                    final isValid = formKey.currentState?.validate() ?? false;
-                    if (!isValid) {
-                      return;
-                    }
+        child: SizedBox(
+          width: _formDialogPanelWidth,
+          child: AppFormPanel(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDialogTitle('Create Global Role'),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: namespaceController,
+                    decoration: appFormInputDecoration(labelText: 'Namespace'),
+                    validator: _requiredValidator,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    validator: _requiredValidator,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: displayNameController,
+                    decoration: appFormInputDecoration(
+                      labelText: 'Display Name',
+                    ),
+                    validator: _requiredValidator,
+                  ),
+                  const SizedBox(height: 14),
+                  _DialogActions(
+                    submitLabel: 'Create Global Role',
+                    onSubmit: () async {
+                      final isValid = formKey.currentState?.validate() ?? false;
+                      if (!isValid) {
+                        return;
+                      }
 
-                    final success = await ref
-                        .read(rbacAdminControllerProvider.notifier)
-                        .createGlobalRole(
-                          RbacCreateGlobalRoleInput(
-                            namespace: namespaceController.text.trim(),
-                            name: nameController.text.trim(),
-                            displayName: displayNameController.text.trim(),
-                          ),
-                        );
-                    _showMutationResult(
-                      successMessage: 'Global role created.',
-                      failureMessage: 'Global role create failed.',
-                      success: success,
-                    );
+                      final success = await ref
+                          .read(rbacAdminControllerProvider.notifier)
+                          .createGlobalRole(
+                            RbacCreateGlobalRoleInput(
+                              namespace: namespaceController.text.trim(),
+                              name: nameController.text.trim(),
+                              displayName: displayNameController.text.trim(),
+                            ),
+                          );
+                      _showMutationResult(
+                        successMessage: 'Global role created.',
+                        failureMessage: 'Global role create failed.',
+                        success: success,
+                      );
 
-                    if (success && mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-              ],
+                      if (success && mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -455,49 +462,54 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     await showDialog<void>(
       context: context,
       builder: (_) => Dialog(
-        child: AppFormPanel(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDialogTitle('Edit Global Role'),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: displayNameController,
-                  decoration: appFormInputDecoration(labelText: 'Display Name'),
-                  validator: _requiredValidator,
-                ),
-                const SizedBox(height: 14),
-                _DialogActions(
-                  submitLabel: 'Save Changes',
-                  onSubmit: () async {
-                    final isValid = formKey.currentState?.validate() ?? false;
-                    if (!isValid) {
-                      return;
-                    }
+        child: SizedBox(
+          width: _formDialogPanelWidth,
+          child: AppFormPanel(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDialogTitle('Edit Global Role'),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: displayNameController,
+                    decoration: appFormInputDecoration(
+                      labelText: 'Display Name',
+                    ),
+                    validator: _requiredValidator,
+                  ),
+                  const SizedBox(height: 14),
+                  _DialogActions(
+                    submitLabel: 'Save Changes',
+                    onSubmit: () async {
+                      final isValid = formKey.currentState?.validate() ?? false;
+                      if (!isValid) {
+                        return;
+                      }
 
-                    final success = await ref
-                        .read(rbacAdminControllerProvider.notifier)
-                        .updateGlobalRole(
-                          RbacUpdateGlobalRoleInput(
-                            roleId: role.id,
-                            displayName: displayNameController.text.trim(),
-                            rowVersion: role.rowVersion,
-                          ),
-                        );
-                    _showMutationResult(
-                      successMessage: 'Global role updated.',
-                      failureMessage: 'Global role update failed.',
-                      success: success,
-                    );
+                      final success = await ref
+                          .read(rbacAdminControllerProvider.notifier)
+                          .updateGlobalRole(
+                            RbacUpdateGlobalRoleInput(
+                              roleId: role.id,
+                              displayName: displayNameController.text.trim(),
+                              rowVersion: role.rowVersion,
+                            ),
+                          );
+                      _showMutationResult(
+                        successMessage: 'Global role updated.',
+                        failureMessage: 'Global role update failed.',
+                        success: success,
+                      );
 
-                    if (success && mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-              ],
+                      if (success && mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -514,62 +526,67 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     await showDialog<void>(
       context: context,
       builder: (_) => Dialog(
-        child: AppFormPanel(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDialogTitle('Create Tenant Role'),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: namespaceController,
-                  decoration: appFormInputDecoration(labelText: 'Namespace'),
-                  validator: _requiredValidator,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: nameController,
-                  decoration: appFormInputDecoration(labelText: 'Name'),
-                  validator: _requiredValidator,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: displayNameController,
-                  decoration: appFormInputDecoration(labelText: 'Display Name'),
-                  validator: _requiredValidator,
-                ),
-                const SizedBox(height: 14),
-                _DialogActions(
-                  submitLabel: 'Create Tenant Role',
-                  onSubmit: () async {
-                    final isValid = formKey.currentState?.validate() ?? false;
-                    if (!isValid) {
-                      return;
-                    }
+        child: SizedBox(
+          width: _formDialogPanelWidth,
+          child: AppFormPanel(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDialogTitle('Create Tenant Role'),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: namespaceController,
+                    decoration: appFormInputDecoration(labelText: 'Namespace'),
+                    validator: _requiredValidator,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    validator: _requiredValidator,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: displayNameController,
+                    decoration: appFormInputDecoration(
+                      labelText: 'Display Name',
+                    ),
+                    validator: _requiredValidator,
+                  ),
+                  const SizedBox(height: 14),
+                  _DialogActions(
+                    submitLabel: 'Create Tenant Role',
+                    onSubmit: () async {
+                      final isValid = formKey.currentState?.validate() ?? false;
+                      if (!isValid) {
+                        return;
+                      }
 
-                    final success = await ref
-                        .read(rbacAdminControllerProvider.notifier)
-                        .createTenantRole(
-                          RbacCreateTenantRoleInput(
-                            tenantId: tenantId,
-                            namespace: namespaceController.text.trim(),
-                            name: nameController.text.trim(),
-                            displayName: displayNameController.text.trim(),
-                          ),
-                        );
-                    _showMutationResult(
-                      successMessage: 'Tenant role created.',
-                      failureMessage: 'Tenant role create failed.',
-                      success: success,
-                    );
+                      final success = await ref
+                          .read(rbacAdminControllerProvider.notifier)
+                          .createTenantRole(
+                            RbacCreateTenantRoleInput(
+                              tenantId: tenantId,
+                              namespace: namespaceController.text.trim(),
+                              name: nameController.text.trim(),
+                              displayName: displayNameController.text.trim(),
+                            ),
+                          );
+                      _showMutationResult(
+                        successMessage: 'Tenant role created.',
+                        failureMessage: 'Tenant role create failed.',
+                        success: success,
+                      );
 
-                    if (success && mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-              ],
+                      if (success && mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -587,50 +604,55 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     await showDialog<void>(
       context: context,
       builder: (_) => Dialog(
-        child: AppFormPanel(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDialogTitle('Edit Tenant Role'),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: displayNameController,
-                  decoration: appFormInputDecoration(labelText: 'Display Name'),
-                  validator: _requiredValidator,
-                ),
-                const SizedBox(height: 14),
-                _DialogActions(
-                  submitLabel: 'Save Changes',
-                  onSubmit: () async {
-                    final isValid = formKey.currentState?.validate() ?? false;
-                    if (!isValid) {
-                      return;
-                    }
+        child: SizedBox(
+          width: _formDialogPanelWidth,
+          child: AppFormPanel(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDialogTitle('Edit Tenant Role'),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: displayNameController,
+                    decoration: appFormInputDecoration(
+                      labelText: 'Display Name',
+                    ),
+                    validator: _requiredValidator,
+                  ),
+                  const SizedBox(height: 14),
+                  _DialogActions(
+                    submitLabel: 'Save Changes',
+                    onSubmit: () async {
+                      final isValid = formKey.currentState?.validate() ?? false;
+                      if (!isValid) {
+                        return;
+                      }
 
-                    final success = await ref
-                        .read(rbacAdminControllerProvider.notifier)
-                        .updateTenantRole(
-                          RbacUpdateTenantRoleInput(
-                            tenantId: tenantId,
-                            roleId: role.id,
-                            displayName: displayNameController.text.trim(),
-                            rowVersion: role.rowVersion,
-                          ),
-                        );
-                    _showMutationResult(
-                      successMessage: 'Tenant role updated.',
-                      failureMessage: 'Tenant role update failed.',
-                      success: success,
-                    );
+                      final success = await ref
+                          .read(rbacAdminControllerProvider.notifier)
+                          .updateTenantRole(
+                            RbacUpdateTenantRoleInput(
+                              tenantId: tenantId,
+                              roleId: role.id,
+                              displayName: displayNameController.text.trim(),
+                              rowVersion: role.rowVersion,
+                            ),
+                          );
+                      _showMutationResult(
+                        successMessage: 'Tenant role updated.',
+                        failureMessage: 'Tenant role update failed.',
+                        success: success,
+                      );
 
-                    if (success && mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-              ],
+                      if (success && mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -663,67 +685,70 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     await showDialog<void>(
       context: context,
       builder: (_) => Dialog(
-        child: AppFormPanel(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDialogTitle(title),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: namespaceController,
-                  decoration: appFormInputDecoration(labelText: 'Namespace'),
-                  validator: _requiredValidator,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: nameController,
-                  decoration: appFormInputDecoration(labelText: 'Name'),
-                  validator: _requiredValidator,
-                ),
-                const SizedBox(height: 14),
-                _DialogActions(
-                  submitLabel: submit,
-                  onSubmit: () async {
-                    final isValid = formKey.currentState?.validate() ?? false;
-                    if (!isValid) {
-                      return;
-                    }
+        child: SizedBox(
+          width: _formDialogPanelWidth,
+          child: AppFormPanel(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDialogTitle(title),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: namespaceController,
+                    decoration: appFormInputDecoration(labelText: 'Namespace'),
+                    validator: _requiredValidator,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    validator: _requiredValidator,
+                  ),
+                  const SizedBox(height: 14),
+                  _DialogActions(
+                    submitLabel: submit,
+                    onSubmit: () async {
+                      final isValid = formKey.currentState?.validate() ?? false;
+                      if (!isValid) {
+                        return;
+                      }
 
-                    final notifier = ref.read(
-                      rbacAdminControllerProvider.notifier,
-                    );
-                    final success = isPermissionType
-                        ? await notifier.createPermissionType(
-                            RbacCreatePermissionTypeInput(
-                              namespace: namespaceController.text.trim(),
-                              name: nameController.text.trim(),
-                            ),
-                          )
-                        : await notifier.createPermissionObject(
-                            RbacCreatePermissionObjectInput(
-                              namespace: namespaceController.text.trim(),
-                              name: nameController.text.trim(),
-                            ),
-                          );
+                      final notifier = ref.read(
+                        rbacAdminControllerProvider.notifier,
+                      );
+                      final success = isPermissionType
+                          ? await notifier.createPermissionType(
+                              RbacCreatePermissionTypeInput(
+                                namespace: namespaceController.text.trim(),
+                                name: nameController.text.trim(),
+                              ),
+                            )
+                          : await notifier.createPermissionObject(
+                              RbacCreatePermissionObjectInput(
+                                namespace: namespaceController.text.trim(),
+                                name: nameController.text.trim(),
+                              ),
+                            );
 
-                    _showMutationResult(
-                      successMessage: isPermissionType
-                          ? 'Permission type created.'
-                          : 'Permission object created.',
-                      failureMessage: isPermissionType
-                          ? 'Permission type create failed.'
-                          : 'Permission object create failed.',
-                      success: success,
-                    );
+                      _showMutationResult(
+                        successMessage: isPermissionType
+                            ? 'Permission type created.'
+                            : 'Permission object created.',
+                        failureMessage: isPermissionType
+                            ? 'Permission type create failed.'
+                            : 'Permission object create failed.',
+                        success: success,
+                      );
 
-                    if (success && mounted) {
-                      Navigator.of(context).pop();
-                    }
-                  },
-                ),
-              ],
+                      if (success && mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -756,121 +781,125 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
       builder: (_) => StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           return Dialog(
-            child: AppFormPanel(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildDialogTitle('Create Global Grant'),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedRoleId,
-                      decoration: appFormInputDecoration(labelText: 'Role'),
-                      items: state.globalRoles
-                          .map(
-                            (role) => DropdownMenuItem<String>(
-                              value: role.id,
-                              child: Text(role.displayName),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedRoleId = value;
-                        });
-                      },
-                      validator: (value) =>
-                          value == null ? 'Field cannot be empty.' : null,
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedPermissionObjectId,
-                      decoration: appFormInputDecoration(
-                        labelText: 'Permission Object',
-                      ),
-                      items: state.permissionObjects
-                          .map(
-                            (permissionObject) => DropdownMenuItem<String>(
-                              value: permissionObject.id,
-                              child: Text(permissionObject.key),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedPermissionObjectId = value;
-                        });
-                      },
-                      validator: (value) =>
-                          value == null ? 'Field cannot be empty.' : null,
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedPermissionTypeId,
-                      decoration: appFormInputDecoration(
-                        labelText: 'Permission Type',
-                      ),
-                      items: state.permissionTypes
-                          .map(
-                            (permissionType) => DropdownMenuItem<String>(
-                              value: permissionType.id,
-                              child: Text(permissionType.key),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedPermissionTypeId = value;
-                        });
-                      },
-                      validator: (value) =>
-                          value == null ? 'Field cannot be empty.' : null,
-                    ),
-                    SwitchListTile(
-                      value: permitted,
-                      title: const Text('Permitted'),
-                      contentPadding: EdgeInsets.zero,
-                      onChanged: (value) {
-                        setDialogState(() {
-                          permitted = value;
-                        });
-                      },
-                    ),
-                    _DialogActions(
-                      submitLabel: 'Create Global Grant',
-                      onSubmit: () async {
-                        final isValid =
-                            formKey.currentState?.validate() ?? false;
-                        if (!isValid ||
-                            selectedRoleId == null ||
-                            selectedPermissionObjectId == null ||
-                            selectedPermissionTypeId == null) {
-                          return;
-                        }
-
-                        final success = await ref
-                            .read(rbacAdminControllerProvider.notifier)
-                            .createGlobalPermissionEntry(
-                              RbacCreateGlobalPermissionEntryInput(
-                                globalRoleId: selectedRoleId!,
-                                permissionObjectId: selectedPermissionObjectId!,
-                                permissionTypeId: selectedPermissionTypeId!,
-                                permitted: permitted,
+            child: SizedBox(
+              width: _formDialogPanelWidth,
+              child: AppFormPanel(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildDialogTitle('Create Global Grant'),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedRoleId,
+                        decoration: appFormInputDecoration(labelText: 'Role'),
+                        items: state.globalRoles
+                            .map(
+                              (role) => DropdownMenuItem<String>(
+                                value: role.id,
+                                child: Text(role.displayName),
                               ),
-                            );
-                        _showMutationResult(
-                          successMessage: 'Global grant created.',
-                          failureMessage: 'Global grant create failed.',
-                          success: success,
-                        );
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedRoleId = value;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Field cannot be empty.' : null,
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedPermissionObjectId,
+                        decoration: appFormInputDecoration(
+                          labelText: 'Permission Object',
+                        ),
+                        items: state.permissionObjects
+                            .map(
+                              (permissionObject) => DropdownMenuItem<String>(
+                                value: permissionObject.id,
+                                child: Text(permissionObject.key),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedPermissionObjectId = value;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Field cannot be empty.' : null,
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedPermissionTypeId,
+                        decoration: appFormInputDecoration(
+                          labelText: 'Permission Type',
+                        ),
+                        items: state.permissionTypes
+                            .map(
+                              (permissionType) => DropdownMenuItem<String>(
+                                value: permissionType.id,
+                                child: Text(permissionType.key),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedPermissionTypeId = value;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Field cannot be empty.' : null,
+                      ),
+                      SwitchListTile(
+                        value: permitted,
+                        title: const Text('Permitted'),
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            permitted = value;
+                          });
+                        },
+                      ),
+                      _DialogActions(
+                        submitLabel: 'Create Global Grant',
+                        onSubmit: () async {
+                          final isValid =
+                              formKey.currentState?.validate() ?? false;
+                          if (!isValid ||
+                              selectedRoleId == null ||
+                              selectedPermissionObjectId == null ||
+                              selectedPermissionTypeId == null) {
+                            return;
+                          }
 
-                        if (success && mounted) {
-                          Navigator.of(context).pop();
-                        }
-                      },
-                    ),
-                  ],
+                          final success = await ref
+                              .read(rbacAdminControllerProvider.notifier)
+                              .createGlobalPermissionEntry(
+                                RbacCreateGlobalPermissionEntryInput(
+                                  globalRoleId: selectedRoleId!,
+                                  permissionObjectId:
+                                      selectedPermissionObjectId!,
+                                  permissionTypeId: selectedPermissionTypeId!,
+                                  permitted: permitted,
+                                ),
+                              );
+                          _showMutationResult(
+                            successMessage: 'Global grant created.',
+                            failureMessage: 'Global grant create failed.',
+                            success: success,
+                          );
+
+                          if (success && mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -905,122 +934,126 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
       builder: (_) => StatefulBuilder(
         builder: (dialogContext, setDialogState) {
           return Dialog(
-            child: AppFormPanel(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildDialogTitle('Create Tenant Grant'),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedRoleId,
-                      decoration: appFormInputDecoration(labelText: 'Role'),
-                      items: state.tenantRoles
-                          .map(
-                            (role) => DropdownMenuItem<String>(
-                              value: role.id,
-                              child: Text(role.displayName),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedRoleId = value;
-                        });
-                      },
-                      validator: (value) =>
-                          value == null ? 'Field cannot be empty.' : null,
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedPermissionObjectId,
-                      decoration: appFormInputDecoration(
-                        labelText: 'Permission Object',
-                      ),
-                      items: state.permissionObjects
-                          .map(
-                            (permissionObject) => DropdownMenuItem<String>(
-                              value: permissionObject.id,
-                              child: Text(permissionObject.key),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedPermissionObjectId = value;
-                        });
-                      },
-                      validator: (value) =>
-                          value == null ? 'Field cannot be empty.' : null,
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedPermissionTypeId,
-                      decoration: appFormInputDecoration(
-                        labelText: 'Permission Type',
-                      ),
-                      items: state.permissionTypes
-                          .map(
-                            (permissionType) => DropdownMenuItem<String>(
-                              value: permissionType.id,
-                              child: Text(permissionType.key),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedPermissionTypeId = value;
-                        });
-                      },
-                      validator: (value) =>
-                          value == null ? 'Field cannot be empty.' : null,
-                    ),
-                    SwitchListTile(
-                      value: permitted,
-                      title: const Text('Permitted'),
-                      contentPadding: EdgeInsets.zero,
-                      onChanged: (value) {
-                        setDialogState(() {
-                          permitted = value;
-                        });
-                      },
-                    ),
-                    _DialogActions(
-                      submitLabel: 'Create Tenant Grant',
-                      onSubmit: () async {
-                        final isValid =
-                            formKey.currentState?.validate() ?? false;
-                        if (!isValid ||
-                            selectedRoleId == null ||
-                            selectedPermissionObjectId == null ||
-                            selectedPermissionTypeId == null) {
-                          return;
-                        }
-
-                        final success = await ref
-                            .read(rbacAdminControllerProvider.notifier)
-                            .createTenantPermissionEntry(
-                              RbacCreateTenantPermissionEntryInput(
-                                tenantId: tenantId,
-                                roleId: selectedRoleId!,
-                                permissionObjectId: selectedPermissionObjectId!,
-                                permissionTypeId: selectedPermissionTypeId!,
-                                permitted: permitted,
+            child: SizedBox(
+              width: _formDialogPanelWidth,
+              child: AppFormPanel(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildDialogTitle('Create Tenant Grant'),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedRoleId,
+                        decoration: appFormInputDecoration(labelText: 'Role'),
+                        items: state.tenantRoles
+                            .map(
+                              (role) => DropdownMenuItem<String>(
+                                value: role.id,
+                                child: Text(role.displayName),
                               ),
-                            );
-                        _showMutationResult(
-                          successMessage: 'Tenant grant created.',
-                          failureMessage: 'Tenant grant create failed.',
-                          success: success,
-                        );
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedRoleId = value;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Field cannot be empty.' : null,
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedPermissionObjectId,
+                        decoration: appFormInputDecoration(
+                          labelText: 'Permission Object',
+                        ),
+                        items: state.permissionObjects
+                            .map(
+                              (permissionObject) => DropdownMenuItem<String>(
+                                value: permissionObject.id,
+                                child: Text(permissionObject.key),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedPermissionObjectId = value;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Field cannot be empty.' : null,
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: selectedPermissionTypeId,
+                        decoration: appFormInputDecoration(
+                          labelText: 'Permission Type',
+                        ),
+                        items: state.permissionTypes
+                            .map(
+                              (permissionType) => DropdownMenuItem<String>(
+                                value: permissionType.id,
+                                child: Text(permissionType.key),
+                              ),
+                            )
+                            .toList(growable: false),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedPermissionTypeId = value;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Field cannot be empty.' : null,
+                      ),
+                      SwitchListTile(
+                        value: permitted,
+                        title: const Text('Permitted'),
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            permitted = value;
+                          });
+                        },
+                      ),
+                      _DialogActions(
+                        submitLabel: 'Create Tenant Grant',
+                        onSubmit: () async {
+                          final isValid =
+                              formKey.currentState?.validate() ?? false;
+                          if (!isValid ||
+                              selectedRoleId == null ||
+                              selectedPermissionObjectId == null ||
+                              selectedPermissionTypeId == null) {
+                            return;
+                          }
 
-                        if (success && mounted) {
-                          Navigator.of(context).pop();
-                        }
-                      },
-                    ),
-                  ],
+                          final success = await ref
+                              .read(rbacAdminControllerProvider.notifier)
+                              .createTenantPermissionEntry(
+                                RbacCreateTenantPermissionEntryInput(
+                                  tenantId: tenantId,
+                                  roleId: selectedRoleId!,
+                                  permissionObjectId:
+                                      selectedPermissionObjectId!,
+                                  permissionTypeId: selectedPermissionTypeId!,
+                                  permitted: permitted,
+                                ),
+                              );
+                          _showMutationResult(
+                            successMessage: 'Tenant grant created.',
+                            failureMessage: 'Tenant grant create failed.',
+                            success: success,
+                          );
+
+                          if (success && mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

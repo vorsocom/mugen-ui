@@ -42,13 +42,6 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
       section: 'Platform Configuration',
       roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
-    DrawerItemConfig(
-      title: 'Role & Permission Management',
-      icon: Icons.admin_panel_settings_outlined,
-      route: RouteIds.rolePermissionManagement,
-      section: 'Platform Configuration',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
-    ),
   ],
   spaDefaultRoute: RouteIds.dashboard,
   spaRoutes: <SpaRouteConfig>[
@@ -57,10 +50,6 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
     SpaRouteConfig(
       id: RouteIds.tenantManagement,
       title: 'Tenant Management',
-    ),
-    SpaRouteConfig(
-      id: RouteIds.rolePermissionManagement,
-      title: 'Role & Permission Management',
     ),
   ],
 );
@@ -80,11 +69,6 @@ Tenant-specific endpoint keys available in `ApiEndpointsOverride`:
 - `tenantActionDeactivate`, `tenantActionReactivate`
 - `tenantInvitationActionResend`, `tenantInvitationActionRevoke`
 - `tenantMembershipActionSuspend`, `tenantMembershipActionUnsuspend`, `tenantMembershipActionRemove`
-- `rbacGlobalRole`, `rbacTenantRole`
-- `rbacTenantRoleActionDeprecate`, `rbacTenantRoleActionReactivate`
-- `rbacPermissionObject`, `rbacPermissionObjectActionDeprecate`, `rbacPermissionObjectActionReactivate`
-- `rbacPermissionType`, `rbacPermissionTypeActionDeprecate`, `rbacPermissionTypeActionReactivate`
-- `rbacGlobalPermissionEntry`, `rbacTenantPermissionEntry`
 - `authTenantInvitationRedeem`
 
 ### Merge Semantics

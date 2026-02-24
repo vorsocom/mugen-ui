@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
-import 'package:mugen_ui/features/rbac_admin/presentation/widgets/rbac_management_panel.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/route_views.dart';
 import 'package:mugen_ui/features/tenant_admin/presentation/widgets/tenant_management_panel.dart';
 import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
@@ -44,12 +43,5 @@ void main() {
     expect(widget, isA<Padding>());
     final padded = widget as Padding;
     expect(padded.child, isA<TenantManagementPanel>());
-  });
-
-  test('RBAC route maps to RbacManagementPanel widget', () {
-    final widget = buildSpaRouteWidget(RouteIds.rolePermissionManagement);
-    expect(widget, isA<Padding>());
-    final padded = widget as Padding;
-    expect(padded.child, isA<RbacManagementPanel>());
   });
 }

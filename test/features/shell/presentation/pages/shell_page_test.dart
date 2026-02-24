@@ -286,7 +286,6 @@ void main() {
     expect(find.text('Platform Configuration'), findsOneWidget);
     expect(find.text('Local Users'), findsOneWidget);
     expect(find.text('Tenant Management'), findsOneWidget);
-    expect(find.text('Role & Permission Management'), findsOneWidget);
   });
 
   testWidgets('drawer hides tenant admin routes for non-admin users', (
@@ -339,7 +338,6 @@ void main() {
 
     expect(find.text('Local Users'), findsNothing);
     expect(find.text('Tenant Management'), findsNothing);
-    expect(find.text('Role & Permission Management'), findsNothing);
   });
 
   testWidgets('account menu opens and shows settings and logout actions', (

@@ -31,6 +31,18 @@ class ApiEndpointsConfig {
     required this.tenantMembershipActionUnsuspend,
     required this.user,
     required this.userRole,
+    required this.rbacGlobalRole,
+    required this.rbacTenantRole,
+    required this.rbacTenantRoleActionDeprecate,
+    required this.rbacTenantRoleActionReactivate,
+    required this.rbacPermissionObject,
+    required this.rbacPermissionObjectActionDeprecate,
+    required this.rbacPermissionObjectActionReactivate,
+    required this.rbacPermissionType,
+    required this.rbacPermissionTypeActionDeprecate,
+    required this.rbacPermissionTypeActionReactivate,
+    required this.rbacGlobalPermissionEntry,
+    required this.rbacTenantPermissionEntry,
     required this.webMessages,
     required this.webEvents,
     required this.webMediaBase,
@@ -61,6 +73,18 @@ class ApiEndpointsConfig {
   final String tenantMembershipActionUnsuspend;
   final String user;
   final String userRole;
+  final String rbacGlobalRole;
+  final String rbacTenantRole;
+  final String rbacTenantRoleActionDeprecate;
+  final String rbacTenantRoleActionReactivate;
+  final String rbacPermissionObject;
+  final String rbacPermissionObjectActionDeprecate;
+  final String rbacPermissionObjectActionReactivate;
+  final String rbacPermissionType;
+  final String rbacPermissionTypeActionDeprecate;
+  final String rbacPermissionTypeActionReactivate;
+  final String rbacGlobalPermissionEntry;
+  final String rbacTenantPermissionEntry;
   final String webMessages;
   final String webEvents;
   final String webMediaBase;
@@ -108,6 +132,33 @@ class ApiEndpointsConfig {
           tenantMembershipActionUnsuspend,
       user: override.user ?? user,
       userRole: override.userRole ?? userRole,
+      rbacGlobalRole: override.rbacGlobalRole ?? rbacGlobalRole,
+      rbacTenantRole: override.rbacTenantRole ?? rbacTenantRole,
+      rbacTenantRoleActionDeprecate:
+          override.rbacTenantRoleActionDeprecate ??
+          rbacTenantRoleActionDeprecate,
+      rbacTenantRoleActionReactivate:
+          override.rbacTenantRoleActionReactivate ??
+          rbacTenantRoleActionReactivate,
+      rbacPermissionObject:
+          override.rbacPermissionObject ?? rbacPermissionObject,
+      rbacPermissionObjectActionDeprecate:
+          override.rbacPermissionObjectActionDeprecate ??
+          rbacPermissionObjectActionDeprecate,
+      rbacPermissionObjectActionReactivate:
+          override.rbacPermissionObjectActionReactivate ??
+          rbacPermissionObjectActionReactivate,
+      rbacPermissionType: override.rbacPermissionType ?? rbacPermissionType,
+      rbacPermissionTypeActionDeprecate:
+          override.rbacPermissionTypeActionDeprecate ??
+          rbacPermissionTypeActionDeprecate,
+      rbacPermissionTypeActionReactivate:
+          override.rbacPermissionTypeActionReactivate ??
+          rbacPermissionTypeActionReactivate,
+      rbacGlobalPermissionEntry:
+          override.rbacGlobalPermissionEntry ?? rbacGlobalPermissionEntry,
+      rbacTenantPermissionEntry:
+          override.rbacTenantPermissionEntry ?? rbacTenantPermissionEntry,
       webMessages: override.webMessages ?? webMessages,
       webEvents: override.webEvents ?? webEvents,
       webMediaBase: override.webMediaBase ?? webMediaBase,
@@ -142,6 +193,18 @@ class ApiEndpointsOverride {
     this.tenantMembershipActionUnsuspend,
     this.user,
     this.userRole,
+    this.rbacGlobalRole,
+    this.rbacTenantRole,
+    this.rbacTenantRoleActionDeprecate,
+    this.rbacTenantRoleActionReactivate,
+    this.rbacPermissionObject,
+    this.rbacPermissionObjectActionDeprecate,
+    this.rbacPermissionObjectActionReactivate,
+    this.rbacPermissionType,
+    this.rbacPermissionTypeActionDeprecate,
+    this.rbacPermissionTypeActionReactivate,
+    this.rbacGlobalPermissionEntry,
+    this.rbacTenantPermissionEntry,
     this.webMessages,
     this.webEvents,
     this.webMediaBase,
@@ -172,6 +235,18 @@ class ApiEndpointsOverride {
   final String? tenantMembershipActionUnsuspend;
   final String? user;
   final String? userRole;
+  final String? rbacGlobalRole;
+  final String? rbacTenantRole;
+  final String? rbacTenantRoleActionDeprecate;
+  final String? rbacTenantRoleActionReactivate;
+  final String? rbacPermissionObject;
+  final String? rbacPermissionObjectActionDeprecate;
+  final String? rbacPermissionObjectActionReactivate;
+  final String? rbacPermissionType;
+  final String? rbacPermissionTypeActionDeprecate;
+  final String? rbacPermissionTypeActionReactivate;
+  final String? rbacGlobalPermissionEntry;
+  final String? rbacTenantPermissionEntry;
   final String? webMessages;
   final String? webEvents;
   final String? webMediaBase;
@@ -196,7 +271,8 @@ class ApiConfig {
 }
 
 class ApiConfigOverride {
-  const ApiConfigOverride({ // coverage:ignore-line
+  const ApiConfigOverride({
+    // coverage:ignore-line
     this.baseUrl,
     this.endpoints,
   }); // coverage:ignore-line
@@ -316,6 +392,25 @@ class AppConfig {
               'core/acp/v1/tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/unsuspend',
           user: 'core/acp/v1/Users',
           userRole: 'core/acp/v1/GlobalRoles',
+          rbacGlobalRole: 'core/acp/v1/GlobalRoles',
+          rbacTenantRole: 'core/acp/v1/tenants/{tenant_id}/Roles',
+          rbacTenantRoleActionDeprecate:
+              'core/acp/v1/tenants/{tenant_id}/Roles/{role_id}/\$action/deprecate',
+          rbacTenantRoleActionReactivate:
+              'core/acp/v1/tenants/{tenant_id}/Roles/{role_id}/\$action/reactivate',
+          rbacPermissionObject: 'core/acp/v1/PermissionObjects',
+          rbacPermissionObjectActionDeprecate:
+              'core/acp/v1/PermissionObjects/{permission_object_id}/\$action/deprecate',
+          rbacPermissionObjectActionReactivate:
+              'core/acp/v1/PermissionObjects/{permission_object_id}/\$action/reactivate',
+          rbacPermissionType: 'core/acp/v1/PermissionTypes',
+          rbacPermissionTypeActionDeprecate:
+              'core/acp/v1/PermissionTypes/{permission_type_id}/\$action/deprecate',
+          rbacPermissionTypeActionReactivate:
+              'core/acp/v1/PermissionTypes/{permission_type_id}/\$action/reactivate',
+          rbacGlobalPermissionEntry: 'core/acp/v1/GlobalPermissionEntries',
+          rbacTenantPermissionEntry:
+              'core/acp/v1/tenants/{tenant_id}/PermissionEntries',
           webMessages: 'core/web/v1/messages',
           webEvents: 'core/web/v1/events',
           webMediaBase: 'core/web/v1/media',
@@ -351,6 +446,13 @@ class AppConfig {
           section: 'Platform Configuration',
           roles: <String>['$acpNamespace:administrator'],
         ),
+        DrawerItemConfig(
+          title: 'Role & Permission Management',
+          icon: Icons.admin_panel_settings_outlined,
+          route: RouteIds.rolePermissionManagement,
+          section: 'Platform Configuration',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
       ],
       settingsPanels: const <SettingsPanelConfig>[
         SettingsPanelConfig(
@@ -367,6 +469,10 @@ class AppConfig {
         SpaRouteConfig(
           id: RouteIds.tenantManagement,
           title: 'Tenant Management',
+        ),
+        SpaRouteConfig(
+          id: RouteIds.rolePermissionManagement,
+          title: 'Role & Permission Management',
         ),
       ],
     );

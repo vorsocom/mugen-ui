@@ -433,21 +433,21 @@ class AppConfig {
           route: RouteIds.chat,
         ),
         DrawerItemConfig(
-          title: 'Local Users',
+          title: 'LocalUsers',
           icon: Icons.groups_outlined,
           route: RouteIds.localUsers,
           section: 'Platform Configuration',
           roles: <String>['$acpNamespace:administrator'],
         ),
         DrawerItemConfig(
-          title: 'Tenant Management',
+          title: 'Tenants',
           icon: Icons.apartment_outlined,
           route: RouteIds.tenantManagement,
           section: 'Platform Configuration',
           roles: <String>['$acpNamespace:administrator'],
         ),
         DrawerItemConfig(
-          title: 'Role & Permission Management',
+          title: 'Roles & Permissions',
           icon: Icons.admin_panel_settings_outlined,
           route: RouteIds.rolePermissionManagement,
           section: 'Platform Configuration',
@@ -465,14 +465,11 @@ class AppConfig {
       spaDefaultRoute: RouteIds.chat,
       spaRoutes: const <SpaRouteConfig>[
         SpaRouteConfig(id: RouteIds.chat, title: 'AI Assist'),
-        SpaRouteConfig(id: RouteIds.localUsers, title: 'Local Users'),
-        SpaRouteConfig(
-          id: RouteIds.tenantManagement,
-          title: 'Tenant Management',
-        ),
+        SpaRouteConfig(id: RouteIds.localUsers, title: 'LocalUsers'),
+        SpaRouteConfig(id: RouteIds.tenantManagement, title: 'Tenants'),
         SpaRouteConfig(
           id: RouteIds.rolePermissionManagement,
-          title: 'Role & Permission Management',
+          title: 'Roles & Permissions',
         ),
       ],
     );

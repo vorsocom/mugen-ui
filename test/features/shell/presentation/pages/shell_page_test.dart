@@ -284,9 +284,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Platform Configuration'), findsOneWidget);
-    expect(find.text('Local Users'), findsOneWidget);
-    expect(find.text('Tenant Management'), findsOneWidget);
-    expect(find.text('Role & Permission Management'), findsOneWidget);
+    expect(find.text('LocalUsers'), findsOneWidget);
+    expect(find.text('Tenants'), findsOneWidget);
+    expect(find.text('Roles & Permissions'), findsOneWidget);
   });
 
   testWidgets('drawer hides tenant admin routes for non-admin users', (
@@ -337,9 +337,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Local Users'), findsNothing);
-    expect(find.text('Tenant Management'), findsNothing);
-    expect(find.text('Role & Permission Management'), findsNothing);
+    expect(find.text('LocalUsers'), findsNothing);
+    expect(find.text('Tenants'), findsNothing);
+    expect(find.text('Roles & Permissions'), findsNothing);
   });
 
   testWidgets('account menu opens and shows settings and logout actions', (
@@ -750,7 +750,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Local Users'));
+    await tester.tap(find.text('LocalUsers'));
     await tester.pump();
     expect(shellController.lastRoute, RouteIds.localUsers);
 
@@ -1063,7 +1063,7 @@ void main() {
             route: RouteIds.chat,
           ),
           DrawerItemConfig(
-            title: 'Local Users',
+            title: 'LocalUsers',
             icon: Icons.groups_outlined,
             route: RouteIds.localUsers,
             section: 'Platform Configuration',
@@ -1108,7 +1108,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(Divider), findsWidgets);
-    expect(find.byTooltip('Local Users'), findsOneWidget);
+    expect(find.byTooltip('LocalUsers'), findsOneWidget);
   });
 
   testWidgets(

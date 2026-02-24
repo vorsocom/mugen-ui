@@ -7,6 +7,7 @@ const String acpNamespace = 'com.vorsocomputing.mugen.acp';
 class ApiEndpointsConfig {
   const ApiEndpointsConfig({
     required this.authTenantInvitationRedeem,
+    required this.authDeleteUser,
     required this.authDisableUser,
     required this.authEnableUser,
     required this.authJwks,
@@ -31,6 +32,7 @@ class ApiEndpointsConfig {
     required this.tenantMembershipActionUnsuspend,
     required this.user,
     required this.userRole,
+    required this.refreshTokenActionRevoke,
     required this.rbacGlobalRole,
     required this.rbacTenantRole,
     required this.rbacTenantRoleActionDeprecate,
@@ -49,6 +51,7 @@ class ApiEndpointsConfig {
   });
 
   final String authTenantInvitationRedeem;
+  final String authDeleteUser;
   final String authDisableUser;
   final String authEnableUser;
   final String authJwks;
@@ -73,6 +76,7 @@ class ApiEndpointsConfig {
   final String tenantMembershipActionUnsuspend;
   final String user;
   final String userRole;
+  final String refreshTokenActionRevoke;
   final String rbacGlobalRole;
   final String rbacTenantRole;
   final String rbacTenantRoleActionDeprecate;
@@ -97,6 +101,7 @@ class ApiEndpointsConfig {
     return ApiEndpointsConfig(
       authTenantInvitationRedeem:
           override.authTenantInvitationRedeem ?? authTenantInvitationRedeem,
+      authDeleteUser: override.authDeleteUser ?? authDeleteUser,
       authDisableUser: override.authDisableUser ?? authDisableUser,
       authEnableUser: override.authEnableUser ?? authEnableUser,
       authJwks: override.authJwks ?? authJwks,
@@ -132,6 +137,8 @@ class ApiEndpointsConfig {
           tenantMembershipActionUnsuspend,
       user: override.user ?? user,
       userRole: override.userRole ?? userRole,
+      refreshTokenActionRevoke:
+          override.refreshTokenActionRevoke ?? refreshTokenActionRevoke,
       rbacGlobalRole: override.rbacGlobalRole ?? rbacGlobalRole,
       rbacTenantRole: override.rbacTenantRole ?? rbacTenantRole,
       rbacTenantRoleActionDeprecate:
@@ -169,6 +176,7 @@ class ApiEndpointsConfig {
 class ApiEndpointsOverride {
   const ApiEndpointsOverride({
     this.authTenantInvitationRedeem,
+    this.authDeleteUser,
     this.authDisableUser,
     this.authEnableUser,
     this.authJwks,
@@ -193,6 +201,7 @@ class ApiEndpointsOverride {
     this.tenantMembershipActionUnsuspend,
     this.user,
     this.userRole,
+    this.refreshTokenActionRevoke,
     this.rbacGlobalRole,
     this.rbacTenantRole,
     this.rbacTenantRoleActionDeprecate,
@@ -211,6 +220,7 @@ class ApiEndpointsOverride {
   });
 
   final String? authTenantInvitationRedeem;
+  final String? authDeleteUser;
   final String? authDisableUser;
   final String? authEnableUser;
   final String? authJwks;
@@ -235,6 +245,7 @@ class ApiEndpointsOverride {
   final String? tenantMembershipActionUnsuspend;
   final String? user;
   final String? userRole;
+  final String? refreshTokenActionRevoke;
   final String? rbacGlobalRole;
   final String? rbacTenantRole;
   final String? rbacTenantRoleActionDeprecate;
@@ -304,7 +315,7 @@ class DrawerItemConfig {
   final List<String> roles;
 }
 
-enum SettingsPanelType { account, users }
+enum SettingsPanelType { account, resetPassword, users }
 
 class SettingsPanelConfig {
   const SettingsPanelConfig({
@@ -357,6 +368,7 @@ class AppConfig {
         endpoints: ApiEndpointsConfig(
           authTenantInvitationRedeem:
               'core/acp/v1/auth/tenants/{tenant_id}/invitations/{invitation_id}/redeem',
+          authDeleteUser: 'core/acp/v1/Users/{user_id}/\$action/delete',
           authDisableUser: 'core/acp/v1/Users/{user_id}/\$action/lock',
           authEnableUser: 'core/acp/v1/Users/{user_id}/\$action/unlock',
           authJwks: 'core/acp/v1/auth/.well-known/jwks.json',
@@ -392,6 +404,8 @@ class AppConfig {
               'core/acp/v1/tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/unsuspend',
           user: 'core/acp/v1/Users',
           userRole: 'core/acp/v1/GlobalRoles',
+          refreshTokenActionRevoke:
+              'core/acp/v1/RefreshTokens/{refresh_token_id}/\$action/revoke',
           rbacGlobalRole: 'core/acp/v1/GlobalRoles',
           rbacTenantRole: 'core/acp/v1/tenants/{tenant_id}/Roles',
           rbacTenantRoleActionDeprecate:
@@ -456,10 +470,16 @@ class AppConfig {
       ],
       settingsPanels: const <SettingsPanelConfig>[
         SettingsPanelConfig(
+          title: 'Edit Profile',
+          icon: Icons.person_outline,
+          roles: <String>['$acpNamespace:authenticated'],
+          type: SettingsPanelType.account,
+        ),
+        SettingsPanelConfig(
           title: 'Reset Password',
           icon: Icons.security,
           roles: <String>['$acpNamespace:authenticated'],
-          type: SettingsPanelType.account,
+          type: SettingsPanelType.resetPassword,
         ),
       ],
       spaDefaultRoute: RouteIds.chat,

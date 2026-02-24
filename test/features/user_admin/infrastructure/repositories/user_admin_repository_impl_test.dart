@@ -4,7 +4,9 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
@@ -589,6 +591,31 @@ void main() {
       },
     );
 
+    test('deleteUser calls delete action endpoint', () async {
+      final fixture = _UserAdminFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{'RowVersion': 13}),
+          ),
+          (_) => _response(statusCode: 204),
+        ],
+      );
+
+      final result = await fixture.repository.deleteUser(
+        const DeleteUserInput(userId: 'u-2'),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        fixture.client.requests[1].path,
+        r'core/acp/v1/Users/u-2/$action/delete',
+      );
+      expect(fixture.client.requests[1].body, <String, dynamic>{
+        'RowVersion': 13,
+      });
+    });
+
     test(
       'toggleUser returns API failure when row version fetch fails',
       () async {
@@ -735,6 +762,176 @@ void main() {
         );
         final network = await networkFixture.repository.editUserRoles(
           const EditUserRolesInput(userId: 'u-2', roles: <String>['admin']),
+        );
+        expect(network.isFailure, isTrue);
+        expect(network.failure, isA<NetworkFailure>());
+      },
+    );
+
+    test('fetchUserSessions maps expanded RefreshTokens payload', () async {
+      final fixture = _UserAdminFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'Id': 'u-2',
+              'RefreshTokens': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'Id': 'rt-1',
+                  'UserId': 'u-2',
+                  'TokenJti': 'jti-1',
+                  'CreatedAt': '2026-01-02T00:00:00Z',
+                  'UpdatedAt': '2026-01-02T00:05:00Z',
+                  'ExpiresAt': '2026-02-02T00:00:00Z',
+                },
+                <String, dynamic>{
+                  'Id': 'rt-2',
+                  'UserId': 'u-2',
+                  'TokenJti': 'jti-2',
+                  'CreatedAt': '2026-01-01T00:00:00Z',
+                  'UpdatedAt': '2026-01-01T00:05:00Z',
+                  'ExpiresAt': '2026-02-01T00:00:00Z',
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.fetchUserSessions('u-2');
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data, hasLength(2));
+      expect(result.data![0].id, 'rt-1');
+      expect(result.data![0].userId, 'u-2');
+      expect(result.data![0].tokenJti, 'jti-1');
+      expect(result.data![0].dateCreated, DateTime.utc(2026, 1, 2));
+      expect(result.data![0].expiresAt, DateTime.utc(2026, 2, 2));
+      expect(result.data![1].id, 'rt-2');
+
+      final request = fixture.client.requests.single;
+      expect(request.path, 'core/acp/v1/Users/u-2');
+      expect(request.queryParameters[r'$expand'], 'RefreshTokens');
+    });
+
+    test('fetchUserSessions parses collection-style entity payload', () async {
+      final fixture = _UserAdminFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'value': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'Id': 'u-2',
+                  'RefreshTokens': <Map<String, dynamic>>[
+                    <String, dynamic>{
+                      'Id': 'rt-2',
+                      'UserId': 'u-2',
+                      'TokenJti': 'jti-2',
+                      'CreatedAt': '2026-01-01T00:00:00Z',
+                      'UpdatedAt': '2026-01-01T00:05:00Z',
+                      'ExpiresAt': '2026-02-01T00:00:00Z',
+                    },
+                  ],
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.fetchUserSessions('u-2');
+      expect(result.isSuccess, isTrue);
+      expect(result.data, hasLength(1));
+      expect(result.data!.single.id, 'rt-2');
+    });
+
+    test('fetchUserSessions maps session expired failure', () async {
+      final fixture = _UserAdminFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(statusCode: 401, sessionExpired: true),
+        ],
+      );
+
+      final result = await fixture.repository.fetchUserSessions('u-2');
+
+      expect(result.isFailure, isTrue);
+      expect(result.failure, isA<SessionExpiredFailure>());
+    });
+
+    test(
+      'fetchUserSessions maps API, unexpected payload, and network failures',
+      () async {
+        final apiFixture = _UserAdminFixture(
+          handlers: <_AuthHandler>[(_) => _response(statusCode: 400)],
+        );
+        final api = await apiFixture.repository.fetchUserSessions('u-2');
+        expect(api.isFailure, isTrue);
+        expect(api.failure, isA<ApiFailure>());
+
+        final invalidMapFixture = _UserAdminFixture(
+          handlers: <_AuthHandler>[
+            (_) => _response(statusCode: 200, body: '{}'),
+          ],
+        );
+        final invalidMap = await invalidMapFixture.repository.fetchUserSessions(
+          'u-2',
+        );
+        expect(invalidMap.isFailure, isTrue);
+        expect(invalidMap.failure, isA<UnexpectedFailure>());
+
+        final unexpectedFixture = _UserAdminFixture(
+          handlers: <_AuthHandler>[
+            (_) => _response(statusCode: 200, body: '[]'),
+          ],
+        );
+        final unexpected = await unexpectedFixture.repository.fetchUserSessions(
+          'u-2',
+        );
+        expect(unexpected.isFailure, isTrue);
+        expect(unexpected.failure, isA<UnexpectedFailure>());
+
+        final networkFixture = _UserAdminFixture(
+          handlers: <_AuthHandler>[(_) => throw Exception('boom')],
+        );
+        final network = await networkFixture.repository.fetchUserSessions(
+          'u-2',
+        );
+        expect(network.isFailure, isTrue);
+        expect(network.failure, isA<NetworkFailure>());
+      },
+    );
+
+    test(
+      'revokeUserSession maps success, API failure, and network failure',
+      () async {
+        final successFixture = _UserAdminFixture(
+          handlers: <_AuthHandler>[(_) => _response(statusCode: 204)],
+        );
+        final success = await successFixture.repository.revokeUserSession(
+          const RevokeUserSessionInput(refreshTokenId: 'rt-1'),
+        );
+        expect(success.isSuccess, isTrue);
+        expect(
+          successFixture.client.requests.single.path,
+          r'core/acp/v1/RefreshTokens/rt-1/$action/revoke',
+        );
+        expect(successFixture.client.requests.single.body, <String, dynamic>{});
+
+        final apiFixture = _UserAdminFixture(
+          handlers: <_AuthHandler>[(_) => _response(statusCode: 400)],
+        );
+        final api = await apiFixture.repository.revokeUserSession(
+          const RevokeUserSessionInput(refreshTokenId: 'rt-1'),
+        );
+        expect(api.isFailure, isTrue);
+        expect(api.failure, isA<ApiFailure>());
+
+        final networkFixture = _UserAdminFixture(
+          handlers: <_AuthHandler>[(_) => throw Exception('boom')],
+        );
+        final network = await networkFixture.repository.revokeUserSession(
+          const RevokeUserSessionInput(refreshTokenId: 'rt-1'),
         );
         expect(network.isFailure, isTrue);
         expect(network.failure, isA<NetworkFailure>());

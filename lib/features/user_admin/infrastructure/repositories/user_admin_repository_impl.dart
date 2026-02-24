@@ -2,12 +2,15 @@ import 'dart:convert';
 
 import 'package:intl/intl.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/person_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
@@ -239,6 +242,11 @@ class UserAdminRepositoryImpl implements UserAdminRepository {
   }
 
   @override
+  Future<Result<void>> deleteUser(DeleteUserInput input) async {
+    return _toggleUser(input.userId, appConfig.api.endpoints.authDeleteUser);
+  }
+
+  @override
   Future<Result<void>> disableUserAccount(ToggleUserAccountInput input) async {
     return _toggleUser(input.userId, appConfig.api.endpoints.authDisableUser);
   }
@@ -246,6 +254,88 @@ class UserAdminRepositoryImpl implements UserAdminRepository {
   @override
   Future<Result<void>> enableUserAccount(ToggleUserAccountInput input) async {
     return _toggleUser(input.userId, appConfig.api.endpoints.authEnableUser);
+  }
+
+  @override
+  Future<Result<List<UserSessionEntity>>> fetchUserSessions(
+    String userId,
+  ) async {
+    try {
+      final response = await authenticatedHttpClient.send(
+        AcpRequest(
+          method: HttpMethod.get,
+          path: '${appConfig.api.endpoints.user}/$userId',
+          queryParameters: <String, dynamic>{r'$expand': 'RefreshTokens'},
+        ),
+      );
+
+      if (response.sessionExpired) {
+        return const Result<List<UserSessionEntity>>.failure(
+          SessionExpiredFailure(),
+        );
+      }
+
+      if (!response.response.isSuccess) {
+        return Result<List<UserSessionEntity>>.failure(
+          ApiFailure(response.response.statusCode, 'API error.'),
+        );
+      }
+
+      final decoded = jsonDecode(response.response.body);
+      if (decoded is! Map<String, dynamic>) {
+        return const Result<List<UserSessionEntity>>.failure(
+          UnexpectedFailure('Unexpected API response.'),
+        );
+      }
+
+      final userMap = _extractEntityMap(decoded);
+      if (userMap == null) {
+        return const Result<List<UserSessionEntity>>.failure(
+          UnexpectedFailure('Unexpected API response.'),
+        );
+      }
+
+      final rawSessions = userMap['RefreshTokens'];
+      final sessions = <UserSessionEntity>[];
+      if (rawSessions is List) {
+        for (final raw in rawSessions) {
+          final map = _toNullableMap(raw);
+          if (map != null) {
+            sessions.add(_mapUserSession(map));
+          }
+        }
+      }
+
+      sessions.sort(
+        (left, right) => right.dateCreated.compareTo(left.dateCreated),
+      );
+
+      return Result<List<UserSessionEntity>>.success(sessions);
+    } catch (_) {
+      return const Result<List<UserSessionEntity>>.failure(
+        NetworkFailure('Network error.'),
+      );
+    }
+  }
+
+  @override
+  Future<Result<void>> revokeUserSession(RevokeUserSessionInput input) async {
+    final actionPath = appConfig.api.endpoints.refreshTokenActionRevoke
+        .replaceAll('{refresh_token_id}', input.refreshTokenId);
+
+    try {
+      final response = await authenticatedHttpClient.send(
+        AcpRequest(
+          method: HttpMethod.post,
+          path: actionPath,
+          body: const <String, dynamic>{},
+        ),
+      );
+
+      return _mapVoidResponse(response);
+    } catch (_) {
+      return const Result<void>.failure(NetworkFailure('Network error.'));
+    }
   }
 
   @override
@@ -376,6 +466,30 @@ class UserAdminRepositoryImpl implements UserAdminRepository {
     }
 
     return const Result<void>.success(null);
+  }
+
+  Map<String, dynamic>? _extractEntityMap(Map<String, dynamic> decoded) {
+    if (decoded.containsKey('Id')) {
+      return decoded;
+    }
+
+    final values = decoded['value'];
+    if (values is List && values.isNotEmpty) {
+      return _toNullableMap(values.first);
+    }
+
+    return null;
+  }
+
+  UserSessionEntity _mapUserSession(Map<String, dynamic> raw) {
+    return UserSessionEntity(
+      id: _asString(raw['Id']),
+      userId: _asString(raw['UserId']),
+      tokenJti: _asString(raw['TokenJti']),
+      expiresAt: _parseDate(raw['ExpiresAt']),
+      dateCreated: _parseDate(raw['CreatedAt']),
+      dateLastModified: _parseDate(raw['UpdatedAt']),
+    );
   }
 
   UserEntity _mapUser(Map<String, dynamic> element) {

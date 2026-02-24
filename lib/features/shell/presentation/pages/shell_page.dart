@@ -5,9 +5,10 @@ import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/features/auth/presentation/widgets/edit_profile_panel.dart';
+import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
 import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dart';
 import 'package:mugen_ui/features/shell/presentation/providers/shell_providers.dart';
-import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
 import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/route_views.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/settings_panel.dart';
@@ -608,9 +609,34 @@ Future<void> _openSettingsOverlay(
   BuildContext context,
   SettingsPanelConfig panel,
 ) async {
-  final (maxWidth, maxHeight, body) = switch (panel.type) {
-    SettingsPanelType.account => (560.0, 520.0, const ResetPasswordPanel()),
-    SettingsPanelType.users => (1280.0, 860.0, const LocalUserPanel()),
+  final (
+    maxWidth,
+    maxHeight,
+    body,
+    showHeader,
+    expandBody,
+  ) = switch (panel.type) {
+    SettingsPanelType.account => (
+      760.0,
+      640.0,
+      const EditProfilePanel(),
+      false,
+      false,
+    ),
+    SettingsPanelType.resetPassword => (
+      760.0,
+      620.0,
+      const ResetPasswordPanel(),
+      false,
+      false,
+    ),
+    SettingsPanelType.users => (
+      1280.0,
+      860.0,
+      const LocalUserPanel(),
+      true,
+      true,
+    ),
   };
 
   await showDialog<void>(
@@ -619,7 +645,8 @@ Future<void> _openSettingsOverlay(
       title: panel.title,
       maxWidth: maxWidth,
       maxHeight: maxHeight,
-      showHeader: panel.type != SettingsPanelType.account,
+      showHeader: showHeader,
+      expandBody: expandBody,
       child: body,
     ),
   );
@@ -671,6 +698,7 @@ class _AccountSettingsOverlayDialog extends StatelessWidget {
     required this.maxHeight,
     required this.child,
     this.showHeader = true,
+    this.expandBody = true,
   });
 
   final String title;
@@ -678,6 +706,7 @@ class _AccountSettingsOverlayDialog extends StatelessWidget {
   final double maxHeight;
   final Widget child;
   final bool showHeader;
+  final bool expandBody;
 
   @override
   Widget build(BuildContext context) {
@@ -691,6 +720,7 @@ class _AccountSettingsOverlayDialog extends StatelessWidget {
           maxHeight: maxHeight.clamp(280.0, media.height - 48),
         ),
         child: Column(
+          mainAxisSize: expandBody ? MainAxisSize.max : MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (showHeader)
@@ -719,7 +749,7 @@ class _AccountSettingsOverlayDialog extends StatelessWidget {
                   ],
                 ),
               ),
-            Expanded(child: child),
+            if (expandBody) Expanded(child: child) else child,
           ],
         ),
       ),

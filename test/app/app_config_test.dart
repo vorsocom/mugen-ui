@@ -14,6 +14,7 @@ void main() {
         api: ApiConfigOverride(
           endpoints: ApiEndpointsOverride(
             webMessages: 'custom/messages',
+            authDeleteUser: 'custom/users/{user_id}/delete',
             tenantMembershipActionSuspend:
                 'custom/tenants/{tenant_id}/memberships/{membership_id}/suspend',
           ),
@@ -47,12 +48,20 @@ void main() {
       defaults.api.endpoints.authTenantInvitationRedeem,
       'core/acp/v1/auth/tenants/{tenant_id}/invitations/{invitation_id}/redeem',
     );
+    expect(
+      defaults.api.endpoints.authDeleteUser,
+      'core/acp/v1/Users/{user_id}/\$action/delete',
+    );
     expect(defaults.api.endpoints.tenant, 'core/acp/v1/Tenants');
     expect(
       defaults.api.endpoints.tenantMembershipActionSuspend,
       'core/acp/v1/tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/suspend',
     );
     expect(defaults.api.endpoints.rbacGlobalRole, 'core/acp/v1/GlobalRoles');
+    expect(
+      defaults.api.endpoints.refreshTokenActionRevoke,
+      'core/acp/v1/RefreshTokens/{refresh_token_id}/\$action/revoke',
+    );
     expect(
       defaults.api.endpoints.rbacTenantRole,
       'core/acp/v1/tenants/{tenant_id}/Roles',
@@ -102,8 +111,16 @@ void main() {
       'custom/tenants/{tenant_id}/memberships/{membership_id}/suspend',
     );
     expect(
+      merged.api.endpoints.authDeleteUser,
+      'custom/users/{user_id}/delete',
+    );
+    expect(
       mergedWithoutSuspendOverride.api.endpoints.tenantMembershipActionSuspend,
       defaults.api.endpoints.tenantMembershipActionSuspend,
+    );
+    expect(
+      mergedWithoutSuspendOverride.api.endpoints.authDeleteUser,
+      defaults.api.endpoints.authDeleteUser,
     );
     expect(defaults.spaDefaultRoute, RouteIds.chat);
     expect(
@@ -127,6 +144,18 @@ void main() {
     expect(
       defaults.drawerItems.any(
         (item) => item.route == RouteIds.rolePermissionManagement,
+      ),
+      isTrue,
+    );
+    expect(
+      defaults.settingsPanels.any(
+        (panel) => panel.type == SettingsPanelType.account,
+      ),
+      isTrue,
+    );
+    expect(
+      defaults.settingsPanels.any(
+        (panel) => panel.type == SettingsPanelType.resetPassword,
       ),
       isTrue,
     );

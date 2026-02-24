@@ -9,7 +9,9 @@ import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 class ResetPasswordPanel extends ConsumerStatefulWidget {
-  const ResetPasswordPanel({super.key});
+  const ResetPasswordPanel({super.key, this.showHeader = true});
+
+  final bool showHeader;
 
   @override
   ConsumerState<ResetPasswordPanel> createState() => _ResetPasswordPanelState();
@@ -89,50 +91,52 @@ class _ResetPasswordPanelState extends ConsumerState<ResetPasswordPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AppUiPalette.surfaceStrong,
-                    shape: BoxShape.circle,
+            if (widget.showHeader) ...[
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppUiPalette.surfaceStrong,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.lock_reset_outlined,
+                      size: 18,
+                      color: AppUiPalette.textPrimary,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.lock_reset_outlined,
-                    size: 18,
-                    color: AppUiPalette.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Reset Password',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Reset Password',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Update your account credentials securely.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: AppUiPalette.textSecondary,
+                        const SizedBox(height: 2),
+                        Text(
+                          'Update your account credentials securely.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: AppUiPalette.textSecondary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Close',
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+            ],
             TextFormField(
               controller: _currentPasswordController,
               obscureText: _obscureCurrentPassword,
@@ -221,18 +225,27 @@ class _ResetPasswordPanelState extends ConsumerState<ResetPasswordPanel> {
               },
             ),
             const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: _saving ? null : _submit,
-                child: _saving
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Reset Password'),
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _saving
+                      ? null
+                      : () => Navigator.of(context).maybePop(),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _saving ? null : _submit,
+                  child: _saving
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Reset Password'),
+                ),
+              ],
             ),
           ],
         ),

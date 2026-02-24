@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
 import 'package:mugen_ui/features/auth/infrastructure/repositories/auth_repository_impl.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/infrastructure/auth/cookie_store.dart';
@@ -354,6 +355,299 @@ void main() {
 
       expect(result.isFailure, isTrue);
       expect(result.failure, isA<NetworkFailure>());
+    });
+  });
+
+  group('AuthRepositoryImpl.fetchOwnProfile', () {
+    test(
+      'returns unauthorized failure when there is no auth session',
+      () async {
+        final fixture = _AuthFixture();
+
+        final result = await fixture.repository.fetchOwnProfile();
+
+        expect(result.isFailure, isTrue);
+        expect(result.failure, isA<UnauthorizedFailure>());
+        expect(fixture.client.requests, isEmpty);
+      },
+    );
+
+    test('parses profile payload from expanded Person', () async {
+      final fixture = _AuthFixture(
+        sessionCookie: _sessionCookie(userId: 'u-42'),
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'Id': 'u-42',
+              'PersonId': 'p-42',
+              'Person': <String, dynamic>{
+                'Id': 'p-42',
+                'RowVersion': '9',
+                'FirstName': 'Alice',
+                'LastName': 'Example',
+              },
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.fetchOwnProfile();
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.userId, 'u-42');
+      expect(result.data?.personId, 'p-42');
+      expect(result.data?.personRowVersion, 9);
+      expect(result.data?.firstName, 'Alice');
+      expect(result.data?.lastName, 'Example');
+      expect(fixture.client.requests.single.path, 'core/acp/v1/Users/u-42');
+      expect(
+        fixture.client.requests.single.queryParameters[r'$expand'],
+        'Person',
+      );
+    });
+
+    test('parses profile payload from collection response format', () async {
+      final fixture = _AuthFixture(
+        sessionCookie: _sessionCookie(userId: 'u-50'),
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'value': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'Id': 'u-50',
+                  'PersonId': 'p-50',
+                  'Person': <Map<String, dynamic>>[
+                    <String, dynamic>{
+                      'Id': 'p-50',
+                      'RowVersion': 4,
+                      'FirstName': 'Bob',
+                      'LastName': 'Example',
+                    },
+                  ],
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.fetchOwnProfile();
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.userId, 'u-50');
+      expect(result.data?.personRowVersion, 4);
+    });
+
+    test(
+      'falls back to session and PersonId when payload IDs are empty',
+      () async {
+        final fixture = _AuthFixture(
+          sessionCookie: _sessionCookie(userId: 'u-session'),
+          handlers: <_AuthHandler>[
+            (_) => _response(
+              statusCode: 200,
+              body: jsonEncode(<String, dynamic>{
+                'Id': '',
+                'PersonId': 'p-fallback',
+                'Person': <String, dynamic>{
+                  'Id': '',
+                  'RowVersion': 2,
+                  'FirstName': 'Fallback',
+                  'LastName': 'Profile',
+                },
+              }),
+            ),
+          ],
+        );
+
+        final result = await fixture.repository.fetchOwnProfile();
+
+        expect(result.isSuccess, isTrue);
+        expect(result.data?.userId, 'u-session');
+        expect(result.data?.personId, 'p-fallback');
+      },
+    );
+
+    test('maps session expired and clears cookie', () async {
+      final fixture = _AuthFixture(
+        sessionCookie: _sessionCookie(),
+        handlers: <_AuthHandler>[
+          (_) => _response(statusCode: 401, sessionExpired: true),
+        ],
+      );
+
+      final result = await fixture.repository.fetchOwnProfile();
+
+      expect(result.isFailure, isTrue);
+      expect(result.failure, isA<SessionExpiredFailure>());
+      expect(fixture.cookieStore.removed, contains('auth:/'));
+    });
+
+    test('maps API, unexpected payload, and network failures', () async {
+      final apiFixture = _AuthFixture(
+        sessionCookie: _sessionCookie(),
+        handlers: <_AuthHandler>[(_) => _response(statusCode: 400)],
+      );
+      final api = await apiFixture.repository.fetchOwnProfile();
+      expect(api.isFailure, isTrue);
+      expect(api.failure, isA<ApiFailure>());
+
+      final invalidMapFixture = _AuthFixture(
+        sessionCookie: _sessionCookie(),
+        handlers: <_AuthHandler>[(_) => _response(statusCode: 200, body: '{}')],
+      );
+      final invalidMap = await invalidMapFixture.repository.fetchOwnProfile();
+      expect(invalidMap.isFailure, isTrue);
+      expect(invalidMap.failure, isA<UnexpectedFailure>());
+
+      final invalidBodyFixture = _AuthFixture(
+        sessionCookie: _sessionCookie(),
+        handlers: <_AuthHandler>[(_) => _response(statusCode: 200, body: '[]')],
+      );
+      final invalidBody = await invalidBodyFixture.repository.fetchOwnProfile();
+      expect(invalidBody.isFailure, isTrue);
+      expect(invalidBody.failure, isA<UnexpectedFailure>());
+
+      final missingRowVersionFixture = _AuthFixture(
+        sessionCookie: _sessionCookie(),
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'Id': 'u-1',
+              'Person': <String, dynamic>{
+                'Id': 'p-1',
+                'FirstName': 'No',
+                'LastName': 'Version',
+              },
+            }),
+          ),
+        ],
+      );
+      final missingRowVersion = await missingRowVersionFixture.repository
+          .fetchOwnProfile();
+      expect(missingRowVersion.isFailure, isTrue);
+      expect(missingRowVersion.failure, isA<UnexpectedFailure>());
+
+      final networkFixture = _AuthFixture(
+        sessionCookie: _sessionCookie(),
+        handlers: <_AuthHandler>[(_) => throw Exception('boom')],
+      );
+      final network = await networkFixture.repository.fetchOwnProfile();
+      expect(network.isFailure, isTrue);
+      expect(network.failure, isA<NetworkFailure>());
+    });
+  });
+
+  group('AuthRepositoryImpl.updateOwnProfile', () {
+    test(
+      'returns unauthorized failure when there is no auth session',
+      () async {
+        final fixture = _AuthFixture();
+
+        final result = await fixture.repository.updateOwnProfile(
+          const UpdateOwnProfileInput(
+            firstName: 'Alice',
+            lastName: 'Example',
+            personRowVersion: 1,
+          ),
+        );
+
+        expect(result.isFailure, isTrue);
+        expect(result.failure, isA<UnauthorizedFailure>());
+        expect(fixture.client.requests, isEmpty);
+      },
+    );
+
+    test('returns validation failure when row version is invalid', () async {
+      final fixture = _AuthFixture(sessionCookie: _sessionCookie());
+
+      final result = await fixture.repository.updateOwnProfile(
+        const UpdateOwnProfileInput(
+          firstName: 'Alice',
+          lastName: 'Example',
+          personRowVersion: 0,
+        ),
+      );
+
+      expect(result.isFailure, isTrue);
+      expect(result.failure, isA<ValidationFailure>());
+      expect(fixture.client.requests, isEmpty);
+    });
+
+    test('sends expected action payload for profile update', () async {
+      final fixture = _AuthFixture(
+        sessionCookie: _sessionCookie(userId: 'u-9'),
+        handlers: <_AuthHandler>[(_) => _response(statusCode: 204)],
+      );
+
+      final result = await fixture.repository.updateOwnProfile(
+        const UpdateOwnProfileInput(
+          firstName: 'Alice',
+          lastName: 'Updated',
+          personRowVersion: 11,
+        ),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(
+        fixture.client.requests.single.path,
+        r'core/acp/v1/Users/u-9/$action/updateprofile',
+      );
+      expect(fixture.client.requests.single.body, <String, dynamic>{
+        'RowVersion': 11,
+        'FirstName': 'Alice',
+        'LastName': 'Updated',
+      });
+    });
+
+    test('maps session-expired, API, and network failures', () async {
+      final expiredFixture = _AuthFixture(
+        sessionCookie: _sessionCookie(),
+        handlers: <_AuthHandler>[
+          (_) => _response(statusCode: 401, sessionExpired: true),
+        ],
+      );
+      final expired = await expiredFixture.repository.updateOwnProfile(
+        const UpdateOwnProfileInput(
+          firstName: 'A',
+          lastName: 'B',
+          personRowVersion: 2,
+        ),
+      );
+      expect(expired.isFailure, isTrue);
+      expect(expired.failure, isA<SessionExpiredFailure>());
+      expect(expiredFixture.cookieStore.removed, contains('auth:/'));
+
+      final apiFixture = _AuthFixture(
+        sessionCookie: _sessionCookie(),
+        handlers: <_AuthHandler>[(_) => _response(statusCode: 400)],
+      );
+      final api = await apiFixture.repository.updateOwnProfile(
+        const UpdateOwnProfileInput(
+          firstName: 'A',
+          lastName: 'B',
+          personRowVersion: 2,
+        ),
+      );
+      expect(api.isFailure, isTrue);
+      expect(api.failure, isA<ApiFailure>());
+
+      final networkFixture = _AuthFixture(
+        sessionCookie: _sessionCookie(),
+        handlers: <_AuthHandler>[(_) => throw Exception('boom')],
+      );
+      final network = await networkFixture.repository.updateOwnProfile(
+        const UpdateOwnProfileInput(
+          firstName: 'A',
+          lastName: 'B',
+          personRowVersion: 2,
+        ),
+      );
+      expect(network.isFailure, isTrue);
+      expect(network.failure, isA<NetworkFailure>());
     });
   });
 }

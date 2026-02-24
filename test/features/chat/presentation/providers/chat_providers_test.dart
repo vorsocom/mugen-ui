@@ -6,6 +6,8 @@ import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
+import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/chat/domain/entities/chat_composed_attachment_entity.dart';
@@ -2829,6 +2831,18 @@ class _FakeAuthRepository implements AuthRepository {
     required String newPassword,
     required String confirmNewPassword,
   }) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<OwnProfileEntity>> fetchOwnProfile() async {
+    return const Result<OwnProfileEntity>.failure(
+      UnauthorizedFailure('Not implemented'),
+    );
+  }
+
+  @override
+  Future<Result<void>> updateOwnProfile(UpdateOwnProfileInput input) async {
     return const Result<void>.success(null);
   }
 }

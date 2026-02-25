@@ -85,6 +85,7 @@ Endpoint keys available in `ApiEndpointsOverride`:
 - `rbacPermissionObject`, `rbacPermissionObjectActionDeprecate`, `rbacPermissionObjectActionReactivate`
 - `rbacPermissionType`, `rbacPermissionTypeActionDeprecate`, `rbacPermissionTypeActionReactivate`
 - `rbacGlobalPermissionEntry`, `rbacTenantPermissionEntry`
+- `auditEvent`, `auditEventTenant`
 - `authTenantInvitationRedeem`
 - `authDeleteUser`, `refreshTokenActionRevoke`
 

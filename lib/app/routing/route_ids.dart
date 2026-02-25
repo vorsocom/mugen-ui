@@ -21,6 +21,7 @@ abstract class RouteIds {
   static const String localUsers = 'local-users';
   static const String tenantManagement = 'tenant-management';
   static const String rolePermissionManagement = 'role-permission-management';
+  static const String auditManagement = 'audit-management';
   static const String invitePrefix = '/invite';
 
   static String buildInviteRoute({

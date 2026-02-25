@@ -17,6 +17,7 @@ void main() {
             authDeleteUser: 'custom/users/{user_id}/delete',
             tenantMembershipActionSuspend:
                 'custom/tenants/{tenant_id}/memberships/{membership_id}/suspend',
+            auditEvent: 'custom/audit-events',
           ),
         ),
         drawerItems: <DrawerItemConfig>[
@@ -106,9 +107,19 @@ void main() {
       defaults.api.endpoints.rbacTenantPermissionEntry,
       'core/acp/v1/tenants/{tenant_id}/PermissionEntries',
     );
+    expect(defaults.api.endpoints.auditEvent, 'core/acp/v1/AuditEvents');
+    expect(
+      defaults.api.endpoints.auditEventTenant,
+      'core/acp/v1/tenants/{tenant_id}/AuditEvents',
+    );
     expect(
       merged.api.endpoints.tenantMembershipActionSuspend,
       'custom/tenants/{tenant_id}/memberships/{membership_id}/suspend',
+    );
+    expect(merged.api.endpoints.auditEvent, 'custom/audit-events');
+    expect(
+      merged.api.endpoints.auditEventTenant,
+      defaults.api.endpoints.auditEventTenant,
     );
     expect(
       merged.api.endpoints.authDeleteUser,
@@ -144,6 +155,12 @@ void main() {
     expect(
       defaults.drawerItems.any(
         (item) => item.route == RouteIds.rolePermissionManagement,
+      ),
+      isTrue,
+    );
+    expect(
+      defaults.drawerItems.any(
+        (item) => item.route == RouteIds.auditManagement,
       ),
       isTrue,
     );
@@ -185,6 +202,10 @@ void main() {
       defaults.spaRoutes.any(
         (route) => route.id == RouteIds.rolePermissionManagement,
       ),
+      isTrue,
+    );
+    expect(
+      defaults.spaRoutes.any((route) => route.id == RouteIds.auditManagement),
       isTrue,
     );
     expect(runtimeOverride.appName, isNull);

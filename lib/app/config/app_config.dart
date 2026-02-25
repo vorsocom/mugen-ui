@@ -45,6 +45,8 @@ class ApiEndpointsConfig {
     required this.rbacPermissionTypeActionReactivate,
     required this.rbacGlobalPermissionEntry,
     required this.rbacTenantPermissionEntry,
+    required this.auditEvent,
+    required this.auditEventTenant,
     required this.webMessages,
     required this.webEvents,
     required this.webMediaBase,
@@ -89,6 +91,8 @@ class ApiEndpointsConfig {
   final String rbacPermissionTypeActionReactivate;
   final String rbacGlobalPermissionEntry;
   final String rbacTenantPermissionEntry;
+  final String auditEvent;
+  final String auditEventTenant;
   final String webMessages;
   final String webEvents;
   final String webMediaBase;
@@ -166,6 +170,8 @@ class ApiEndpointsConfig {
           override.rbacGlobalPermissionEntry ?? rbacGlobalPermissionEntry,
       rbacTenantPermissionEntry:
           override.rbacTenantPermissionEntry ?? rbacTenantPermissionEntry,
+      auditEvent: override.auditEvent ?? auditEvent,
+      auditEventTenant: override.auditEventTenant ?? auditEventTenant,
       webMessages: override.webMessages ?? webMessages,
       webEvents: override.webEvents ?? webEvents,
       webMediaBase: override.webMediaBase ?? webMediaBase,
@@ -214,6 +220,8 @@ class ApiEndpointsOverride {
     this.rbacPermissionTypeActionReactivate,
     this.rbacGlobalPermissionEntry,
     this.rbacTenantPermissionEntry,
+    this.auditEvent,
+    this.auditEventTenant,
     this.webMessages,
     this.webEvents,
     this.webMediaBase,
@@ -258,6 +266,8 @@ class ApiEndpointsOverride {
   final String? rbacPermissionTypeActionReactivate;
   final String? rbacGlobalPermissionEntry;
   final String? rbacTenantPermissionEntry;
+  final String? auditEvent;
+  final String? auditEventTenant;
   final String? webMessages;
   final String? webEvents;
   final String? webMediaBase;
@@ -425,6 +435,8 @@ class AppConfig {
           rbacGlobalPermissionEntry: 'core/acp/v1/GlobalPermissionEntries',
           rbacTenantPermissionEntry:
               'core/acp/v1/tenants/{tenant_id}/PermissionEntries',
+          auditEvent: 'core/acp/v1/AuditEvents',
+          auditEventTenant: 'core/acp/v1/tenants/{tenant_id}/AuditEvents',
           webMessages: 'core/web/v1/messages',
           webEvents: 'core/web/v1/events',
           webMediaBase: 'core/web/v1/media',
@@ -467,6 +479,13 @@ class AppConfig {
           section: 'Platform Configuration',
           roles: <String>['$acpNamespace:administrator'],
         ),
+        DrawerItemConfig(
+          title: 'Audit Events',
+          icon: Icons.fact_check_outlined,
+          route: RouteIds.auditManagement,
+          section: 'Platform Configuration',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
       ],
       settingsPanels: const <SettingsPanelConfig>[
         SettingsPanelConfig(
@@ -491,6 +510,7 @@ class AppConfig {
           id: RouteIds.rolePermissionManagement,
           title: 'Roles & Permissions',
         ),
+        SpaRouteConfig(id: RouteIds.auditManagement, title: 'Audit Events'),
       ],
     );
   }

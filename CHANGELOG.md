@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added admin-only Audit Events SPA management with global and tenant scopes, event lifecycle row actions, and audit set actions (`run_lifecycle`, `verify_chain`, `seal_backlog`) with dry-run guardrails.
 - Enforced Conventional Commit headers in CI and local `commit-msg` hooks.
 - Added a contributor guide with branch, commit, and PR expectations.
 - Enforced Keep a Changelog updates for pull requests in CI.

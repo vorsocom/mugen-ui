@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mugen_ui/app/routing/route_ids.dart';
+import 'package:mugen_ui/features/audit_admin/presentation/widgets/audit_management_panel.dart';
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/widgets/rbac_management_panel.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/route_views.dart';
@@ -51,5 +52,12 @@ void main() {
     expect(widget, isA<Padding>());
     final padded = widget as Padding;
     expect(padded.child, isA<RbacManagementPanel>());
+  });
+
+  test('Audit route maps to AuditManagementPanel widget', () {
+    final widget = buildSpaRouteWidget(RouteIds.auditManagement);
+    expect(widget, isA<Padding>());
+    final padded = widget as Padding;
+    expect(padded.child, isA<AuditManagementPanel>());
   });
 }

@@ -374,7 +374,10 @@ class AppConfig {
       appName: 'muGen UI',
       appVersion: '0.1',
       api: const ApiConfig(
-        baseUrl: 'https://localdev.vorsocomputing.com:8081/api',
+        baseUrl: String.fromEnvironment(
+          'MUGEN_UI_API_BASE_URL',
+          defaultValue: 'https://localdev.vorsocomputing.com:8081/api',
+        ),
         endpoints: ApiEndpointsConfig(
           authTenantInvitationRedeem:
               'core/acp/v1/auth/tenants/{tenant_id}/invitations/{invitation_id}/redeem',

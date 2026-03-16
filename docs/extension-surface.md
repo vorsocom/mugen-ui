@@ -49,6 +49,34 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
       section: 'Platform Configuration',
       roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
+    DrawerItemConfig(
+      title: 'Runtime Control',
+      icon: Icons.settings_input_component_outlined,
+      route: RouteIds.runtimeControl,
+      section: 'Platform Configuration',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+    ),
+    DrawerItemConfig(
+      title: 'Channel Orchestration',
+      icon: Icons.alt_route_outlined,
+      route: RouteIds.channelOrchestration,
+      section: 'Platform Configuration',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+    ),
+    DrawerItemConfig(
+      title: 'Context Engine',
+      icon: Icons.hub_outlined,
+      route: RouteIds.contextEngine,
+      section: 'Platform Configuration',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+    ),
+    DrawerItemConfig(
+      title: 'ACP Console',
+      icon: Icons.data_object_outlined,
+      route: RouteIds.acpConsole,
+      section: 'Platform Configuration',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+    ),
   ],
   spaDefaultRoute: RouteIds.dashboard,
   spaRoutes: <SpaRouteConfig>[
@@ -62,6 +90,13 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
       id: RouteIds.rolePermissionManagement,
       title: 'Role & Permission Management',
     ),
+    SpaRouteConfig(id: RouteIds.runtimeControl, title: 'Runtime Control'),
+    SpaRouteConfig(
+      id: RouteIds.channelOrchestration,
+      title: 'Channel Orchestration',
+    ),
+    SpaRouteConfig(id: RouteIds.contextEngine, title: 'Context Engine'),
+    SpaRouteConfig(id: RouteIds.acpConsole, title: 'ACP Console'),
   ],
 );
 ```
@@ -69,13 +104,14 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
 ### What You Can Override
 
 - app metadata: `appName`, `appVersion`
-- API config: `api.baseUrl` and endpoint paths (including tenant management + invite redeem endpoints)
+- API config: `api.baseUrl` and endpoint paths (including ACP base path, tenant management, and invite redeem endpoints)
 - role catalog: `activeRoles`
 - navigation structure: `drawerItems`, `spaDefaultRoute`, `spaRoutes`
 - settings UX: `settingsPanels`
 
 Endpoint keys available in `ApiEndpointsOverride`:
 
+- `acpBase`
 - `tenant`, `tenantDomain`, `tenantInvitation`, `tenantMembership`
 - `tenantActionDeactivate`, `tenantActionReactivate`
 - `tenantInvitationActionResend`, `tenantInvitationActionRevoke`
@@ -88,6 +124,18 @@ Endpoint keys available in `ApiEndpointsOverride`:
 - `auditEvent`, `auditEventTenant`
 - `authTenantInvitationRedeem`
 - `authDeleteUser`, `refreshTokenActionRevoke`
+
+Built-in route IDs available in `RouteIds` now include:
+
+- `chat`
+- `localUsers`
+- `tenantManagement`
+- `rolePermissionManagement`
+- `auditManagement`
+- `runtimeControl`
+- `channelOrchestration`
+- `contextEngine`
+- `acpConsole`
 
 ### Merge Semantics
 
@@ -132,3 +180,7 @@ When customizing, preserve these externally visible contracts unless intentional
 2. ACP payload/field casing expected by backend endpoints.
 3. Auth refresh/logout behavior tied to the configured endpoint paths.
 4. Invite route shape and parser assumptions (`/invite/{tenant_id}/{invitation_id}`).
+
+## ACP Console Note
+
+`ACP Console` is a static descriptor-driven surface. Extend it by changing the descriptor code in `lib/features/acp_console/application/` rather than expecting backend-driven widget discovery.

@@ -82,8 +82,27 @@ Rules enforced by `tool/architecture/check_dependencies.dart`:
 - `lib/features/user_admin` user management domain/application/infrastructure/presentation
 - `lib/features/tenant_admin` tenant/domain/invitation/membership administration domain/application/infrastructure/presentation
 - `lib/features/tenant_invite` authenticated tenant invitation redeem flow (login-first) domain/infrastructure/presentation
+- `lib/features/runtime_admin` ACP runtime control for messaging clients, runtime profiles, keys, and system flags
+- `lib/features/orchestration_admin` channel orchestration ACP admin for profiles, rules, states, work items, and events
+- `lib/features/context_admin` context engine ACP admin for profiles, policies, bindings, and trace policies
+- `lib/features/acp_console` descriptor-driven ACP console for advanced long-tail resources
 - `lib/features/shell` drawer/settings/shell presentation state and pages
 - `lib/extension` typed configuration overrides and Riverpod provider overrides
+
+## Admin ACP Surfaces
+
+Admin-only routes under `Platform Configuration` now include:
+
+- `LocalUsers`
+- `Tenants`
+- `Roles & Permissions`
+- `Audit Events`
+- `Runtime Control`
+- `Channel Orchestration`
+- `Context Engine`
+- `ACP Console`
+
+`ACP Console` is intentionally static and descriptor-driven. It covers advanced ACP resources with JSON-first forms and action dialogs without relying on backend schema introspection.
 
 ## Chat Composition Modes
 

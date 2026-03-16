@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
 import 'package:mugen_ui/app/routing/route_ids.dart';
+import 'package:mugen_ui/features/acp_console/presentation/widgets/acp_console_panel.dart';
 import 'package:mugen_ui/features/audit_admin/presentation/widgets/audit_management_panel.dart';
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
+import 'package:mugen_ui/features/context_admin/presentation/widgets/context_engine_panel.dart';
+import 'package:mugen_ui/features/orchestration_admin/presentation/widgets/channel_orchestration_panel.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/widgets/rbac_management_panel.dart';
 import 'package:mugen_ui/features/tenant_admin/presentation/widgets/tenant_management_panel.dart';
 import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
+import 'package:mugen_ui/features/runtime_admin/presentation/widgets/runtime_control_panel.dart';
 
 Widget buildSpaRouteWidget(String route) {
   switch (route) {
@@ -31,6 +35,26 @@ Widget buildSpaRouteWidget(String route) {
       return const Padding(
         padding: EdgeInsets.all(16),
         child: AuditManagementPanel(),
+      );
+    case RouteIds.runtimeControl:
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: RuntimeControlPanel(),
+      );
+    case RouteIds.channelOrchestration:
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: ChannelOrchestrationPanel(),
+      );
+    case RouteIds.contextEngine:
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: ContextEnginePanel(),
+      );
+    case RouteIds.acpConsole:
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: AcpConsolePanel(),
       );
     default:
       return const _RoutePlaceholder(

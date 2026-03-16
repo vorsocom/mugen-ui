@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mugen_ui/app/routing/route_ids.dart';
+import 'package:mugen_ui/features/acp_console/presentation/widgets/acp_console_panel.dart';
 import 'package:mugen_ui/features/audit_admin/presentation/widgets/audit_management_panel.dart';
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
+import 'package:mugen_ui/features/context_admin/presentation/widgets/context_engine_panel.dart';
+import 'package:mugen_ui/features/orchestration_admin/presentation/widgets/channel_orchestration_panel.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/widgets/rbac_management_panel.dart';
+import 'package:mugen_ui/features/runtime_admin/presentation/widgets/runtime_control_panel.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/route_views.dart';
 import 'package:mugen_ui/features/tenant_admin/presentation/widgets/tenant_management_panel.dart';
 import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
@@ -59,5 +63,33 @@ void main() {
     expect(widget, isA<Padding>());
     final padded = widget as Padding;
     expect(padded.child, isA<AuditManagementPanel>());
+  });
+
+  test('Runtime route maps to RuntimeControlPanel widget', () {
+    final widget = buildSpaRouteWidget(RouteIds.runtimeControl);
+    expect(widget, isA<Padding>());
+    final padded = widget as Padding;
+    expect(padded.child, isA<RuntimeControlPanel>());
+  });
+
+  test('Orchestration route maps to ChannelOrchestrationPanel widget', () {
+    final widget = buildSpaRouteWidget(RouteIds.channelOrchestration);
+    expect(widget, isA<Padding>());
+    final padded = widget as Padding;
+    expect(padded.child, isA<ChannelOrchestrationPanel>());
+  });
+
+  test('Context route maps to ContextEnginePanel widget', () {
+    final widget = buildSpaRouteWidget(RouteIds.contextEngine);
+    expect(widget, isA<Padding>());
+    final padded = widget as Padding;
+    expect(padded.child, isA<ContextEnginePanel>());
+  });
+
+  test('ACP console route maps to AcpConsolePanel widget', () {
+    final widget = buildSpaRouteWidget(RouteIds.acpConsole);
+    expect(widget, isA<Padding>());
+    final padded = widget as Padding;
+    expect(padded.child, isA<AcpConsolePanel>());
   });
 }

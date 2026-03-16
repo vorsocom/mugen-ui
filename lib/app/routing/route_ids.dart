@@ -22,6 +22,10 @@ abstract class RouteIds {
   static const String tenantManagement = 'tenant-management';
   static const String rolePermissionManagement = 'role-permission-management';
   static const String auditManagement = 'audit-management';
+  static const String runtimeControl = 'runtime-control';
+  static const String channelOrchestration = 'channel-orchestration';
+  static const String contextEngine = 'context-engine';
+  static const String acpConsole = 'acp-console';
   static const String invitePrefix = '/invite';
 
   static String buildInviteRoute({

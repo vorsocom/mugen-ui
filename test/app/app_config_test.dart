@@ -13,6 +13,7 @@ void main() {
         appName: 'Custom Name',
         api: ApiConfigOverride(
           endpoints: ApiEndpointsOverride(
+            acpBase: 'custom/acp/v2',
             webMessages: 'custom/messages',
             authDeleteUser: 'custom/users/{user_id}/delete',
             tenantMembershipActionSuspend:
@@ -41,6 +42,8 @@ void main() {
     expect(merged.appVersion, defaults.appVersion);
     expect(merged.drawerItems.length, 1);
     expect(merged.api.baseUrl, defaults.api.baseUrl);
+    expect(defaults.api.endpoints.acpBase, 'core/acp/v1');
+    expect(merged.api.endpoints.acpBase, 'custom/acp/v2');
     expect(merged.api.endpoints.webMessages, 'custom/messages');
     expect(defaults.api.endpoints.webMessages, 'core/web/v1/messages');
     expect(defaults.api.endpoints.webEvents, 'core/web/v1/events');
@@ -165,6 +168,24 @@ void main() {
       isTrue,
     );
     expect(
+      defaults.drawerItems.any((item) => item.route == RouteIds.runtimeControl),
+      isTrue,
+    );
+    expect(
+      defaults.drawerItems.any(
+        (item) => item.route == RouteIds.channelOrchestration,
+      ),
+      isTrue,
+    );
+    expect(
+      defaults.drawerItems.any((item) => item.route == RouteIds.contextEngine),
+      isTrue,
+    );
+    expect(
+      defaults.drawerItems.any((item) => item.route == RouteIds.acpConsole),
+      isTrue,
+    );
+    expect(
       defaults.settingsPanels.any(
         (panel) => panel.type == SettingsPanelType.account,
       ),
@@ -206,6 +227,24 @@ void main() {
     );
     expect(
       defaults.spaRoutes.any((route) => route.id == RouteIds.auditManagement),
+      isTrue,
+    );
+    expect(
+      defaults.spaRoutes.any((route) => route.id == RouteIds.runtimeControl),
+      isTrue,
+    );
+    expect(
+      defaults.spaRoutes.any(
+        (route) => route.id == RouteIds.channelOrchestration,
+      ),
+      isTrue,
+    );
+    expect(
+      defaults.spaRoutes.any((route) => route.id == RouteIds.contextEngine),
+      isTrue,
+    );
+    expect(
+      defaults.spaRoutes.any((route) => route.id == RouteIds.acpConsole),
       isTrue,
     );
     expect(runtimeOverride.appName, isNull);

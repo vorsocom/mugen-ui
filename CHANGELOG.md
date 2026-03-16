@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added login-first invite deep-link handling for `/invite/{tenant_id}/{invitation_id}?token=...` with authenticated ACP redeem and `/app` success landing.
 - Reintroduced the RBAC Admin SPA for ACP global and tenant-scoped role, permission-object, permission-type, and grant management.
 - Added LocalUsers delete + per-user session revocation actions and account self-service `Manage Account` entries for `Edit Profile` and `Reset Password` in separate panels.
+- Added admin-only Runtime Control, Channel Orchestration, Context Engine, and ACP Console routes backed by a shared descriptor-driven ACP admin layer with generic CRUD/action handling and JSON form support.
 
 ### Changed
 

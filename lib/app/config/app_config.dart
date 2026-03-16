@@ -6,6 +6,7 @@ const String acpNamespace = 'com.vorsocomputing.mugen.acp';
 
 class ApiEndpointsConfig {
   const ApiEndpointsConfig({
+    required this.acpBase,
     required this.authTenantInvitationRedeem,
     required this.authDeleteUser,
     required this.authDisableUser,
@@ -52,6 +53,7 @@ class ApiEndpointsConfig {
     required this.webMediaBase,
   });
 
+  final String acpBase;
   final String authTenantInvitationRedeem;
   final String authDeleteUser;
   final String authDisableUser;
@@ -103,6 +105,7 @@ class ApiEndpointsConfig {
     }
 
     return ApiEndpointsConfig(
+      acpBase: override.acpBase ?? acpBase,
       authTenantInvitationRedeem:
           override.authTenantInvitationRedeem ?? authTenantInvitationRedeem,
       authDeleteUser: override.authDeleteUser ?? authDeleteUser,
@@ -181,6 +184,7 @@ class ApiEndpointsConfig {
 
 class ApiEndpointsOverride {
   const ApiEndpointsOverride({
+    this.acpBase,
     this.authTenantInvitationRedeem,
     this.authDeleteUser,
     this.authDisableUser,
@@ -227,6 +231,7 @@ class ApiEndpointsOverride {
     this.webMediaBase,
   });
 
+  final String? acpBase;
   final String? authTenantInvitationRedeem;
   final String? authDeleteUser;
   final String? authDisableUser;
@@ -379,6 +384,7 @@ class AppConfig {
           defaultValue: 'https://localdev.vorsocomputing.com:8081/api',
         ),
         endpoints: ApiEndpointsConfig(
+          acpBase: 'core/acp/v1',
           authTenantInvitationRedeem:
               'core/acp/v1/auth/tenants/{tenant_id}/invitations/{invitation_id}/redeem',
           authDeleteUser: 'core/acp/v1/Users/{user_id}/\$action/delete',
@@ -489,6 +495,34 @@ class AppConfig {
           section: 'Platform Configuration',
           roles: <String>['$acpNamespace:administrator'],
         ),
+        DrawerItemConfig(
+          title: 'Runtime Control',
+          icon: Icons.settings_input_component_outlined,
+          route: RouteIds.runtimeControl,
+          section: 'Platform Configuration',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
+        DrawerItemConfig(
+          title: 'Channel Orchestration',
+          icon: Icons.alt_route_outlined,
+          route: RouteIds.channelOrchestration,
+          section: 'Platform Configuration',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
+        DrawerItemConfig(
+          title: 'Context Engine',
+          icon: Icons.hub_outlined,
+          route: RouteIds.contextEngine,
+          section: 'Platform Configuration',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
+        DrawerItemConfig(
+          title: 'ACP Console',
+          icon: Icons.data_object_outlined,
+          route: RouteIds.acpConsole,
+          section: 'Platform Configuration',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
       ],
       settingsPanels: const <SettingsPanelConfig>[
         SettingsPanelConfig(
@@ -514,6 +548,13 @@ class AppConfig {
           title: 'Roles & Permissions',
         ),
         SpaRouteConfig(id: RouteIds.auditManagement, title: 'Audit Events'),
+        SpaRouteConfig(id: RouteIds.runtimeControl, title: 'Runtime Control'),
+        SpaRouteConfig(
+          id: RouteIds.channelOrchestration,
+          title: 'Channel Orchestration',
+        ),
+        SpaRouteConfig(id: RouteIds.contextEngine, title: 'Context Engine'),
+        SpaRouteConfig(id: RouteIds.acpConsole, title: 'ACP Console'),
       ],
     );
   }

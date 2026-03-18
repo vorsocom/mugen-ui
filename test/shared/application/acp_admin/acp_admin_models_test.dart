@@ -11,7 +11,6 @@ void main() {
       requiredWhenEquals: <String, List<String>>{
         'PlatformKey': <String>['wechat'],
       },
-      submitEmptyValueWhenBlank: true,
       hintText: 'Encrypted material',
       minLines: 3,
       maxLines: 5,
@@ -59,7 +58,6 @@ void main() {
     expect(field.requiredWhenEquals, <String, List<String>>{
       'PlatformKey': <String>['wechat'],
     });
-    expect(field.submitEmptyValueWhenBlank, isTrue);
     expect(field.hintText, 'Encrypted material');
     expect(field.minLines, 3);
     expect(field.maxLines, 5);

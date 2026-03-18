@@ -18,26 +18,15 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       _column('IsActive', 'Active'),
     ],
     createFields: <AcpFieldDescriptor>[
-      _text(
-        'PlatformKey',
-        'Platform Key',
-        required: true,
-        submitEmptyValueWhenBlank: true,
-      ),
-      _text(
-        'ProfileKey',
-        'Profile Key',
-        required: true,
-        submitEmptyValueWhenBlank: true,
-      ),
-      _text('DisplayName', 'Display Name', submitEmptyValueWhenBlank: true),
+      _text('PlatformKey', 'Platform Key', required: true),
+      _text('ProfileKey', 'Profile Key', required: true),
+      _text('DisplayName', 'Display Name'),
       _bool('IsActive', 'Is Active', initialValue: true),
       _json('Settings', 'Settings'),
       _json('SecretRefs', 'Secret References'),
       _text(
         'PathToken',
         'Path Token',
-        submitEmptyValueWhenBlank: true,
         requiredWhenEquals: <String, List<String>>{
           'PlatformKey': <String>['line', 'telegram', 'wechat', 'whatsapp'],
         },
@@ -45,7 +34,6 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       _text(
         'RecipientUserId',
         'Recipient User ID',
-        submitEmptyValueWhenBlank: true,
         requiredWhenEquals: <String, List<String>>{
           'PlatformKey': <String>['matrix'],
         },
@@ -53,7 +41,6 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       _text(
         'AccountNumber',
         'Account Number',
-        submitEmptyValueWhenBlank: true,
         requiredWhenEquals: <String, List<String>>{
           'PlatformKey': <String>['signal'],
         },
@@ -61,7 +48,6 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       _text(
         'PhoneNumberId',
         'Phone Number ID',
-        submitEmptyValueWhenBlank: true,
         requiredWhenEquals: <String, List<String>>{
           'PlatformKey': <String>['whatsapp'],
         },
@@ -69,7 +55,6 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       _text(
         'Provider',
         'Provider',
-        submitEmptyValueWhenBlank: true,
         requiredWhenEquals: <String, List<String>>{
           'PlatformKey': <String>['wechat'],
         },
@@ -116,10 +101,10 @@ runtimeAdminResources = <AcpResourceDescriptor>[
     createFields: <AcpFieldDescriptor>[
       _text('Category', 'Category', required: true),
       _text('ProfileKey', 'Profile Key', required: true),
-      _text('DisplayName', 'Display Name', required: true),
+      _text('DisplayName', 'Display Name'),
       _bool('IsActive', 'Is Active', initialValue: true),
-      _json('SettingsJson', 'Settings JSON', required: true),
-      _json('Attributes', 'Attributes', required: true),
+      _json('SettingsJson', 'Settings JSON'),
+      _json('Attributes', 'Attributes'),
     ],
     updateFields: <AcpFieldDescriptor>[
       _text('Category', 'Category'),
@@ -234,7 +219,6 @@ AcpFieldDescriptor _text(
   String label, {
   bool required = false,
   Map<String, List<String>> requiredWhenEquals = const <String, List<String>>{},
-  bool submitEmptyValueWhenBlank = false,
   String? hintText,
   bool obscureText = false,
   Object? initialValue,
@@ -244,7 +228,6 @@ AcpFieldDescriptor _text(
     label: label,
     required: required,
     requiredWhenEquals: requiredWhenEquals,
-    submitEmptyValueWhenBlank: submitEmptyValueWhenBlank,
     hintText: hintText,
     obscureText: obscureText,
     initialValue: initialValue,
@@ -256,7 +239,6 @@ AcpFieldDescriptor _multiline(
   String label, {
   bool required = false,
   Map<String, List<String>> requiredWhenEquals = const <String, List<String>>{},
-  bool submitEmptyValueWhenBlank = false,
 }) {
   return AcpFieldDescriptor(
     key: key,
@@ -264,7 +246,6 @@ AcpFieldDescriptor _multiline(
     kind: AcpFieldKind.multiline,
     required: required,
     requiredWhenEquals: requiredWhenEquals,
-    submitEmptyValueWhenBlank: submitEmptyValueWhenBlank,
     minLines: 3,
     maxLines: 5,
   );
@@ -284,7 +265,6 @@ AcpFieldDescriptor _json(
   String label, {
   bool required = false,
   Map<String, List<String>> requiredWhenEquals = const <String, List<String>>{},
-  bool submitEmptyValueWhenBlank = false,
   Object? initialValue = const <String, dynamic>{},
 }) {
   return AcpFieldDescriptor(
@@ -293,7 +273,6 @@ AcpFieldDescriptor _json(
     kind: AcpFieldKind.json,
     required: required,
     requiredWhenEquals: requiredWhenEquals,
-    submitEmptyValueWhenBlank: submitEmptyValueWhenBlank,
     minLines: 6,
     maxLines: 10,
     initialValue: initialValue,

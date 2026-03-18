@@ -206,7 +206,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
       _multiline('ErrorMessage', 'Error Message'),
       _text('OwnerInstance', 'Owner Instance'),
       _dateTime('LeaseExpiresAt', 'Lease Expires At'),
-      _dateTime('ExpiresAt', 'Expires At'),
+      _dateTime('ExpiresAt', 'Expires At', required: true),
     ],
     collectionActions: <AcpActionDescriptor>[
       AcpActionDescriptor(
@@ -519,11 +519,16 @@ AcpFieldDescriptor _int(
   );
 }
 
-AcpFieldDescriptor _dateTime(String key, String label) {
+AcpFieldDescriptor _dateTime(
+  String key,
+  String label, {
+  bool required = false,
+}) {
   return AcpFieldDescriptor(
     key: key,
     label: label,
     kind: AcpFieldKind.dateTime,
+    required: required,
   );
 }
 

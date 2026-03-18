@@ -1209,6 +1209,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     final isMultiline = field.kind == AcpFieldKind.multiline || isJson;
 
     return TextFormField(
+      key: Key('acp-dynamic-field-${field.key}'),
       controller: controller,
       obscureText: field.obscureText,
       minLines: isMultiline ? (field.minLines ?? (isJson ? 6 : 3)) : 1,
@@ -1224,7 +1225,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
 
   String? _validateField(AcpFieldDescriptor field, String value) {
     final trimmed = value.trim();
-    if (field.required && trimmed.isEmpty) {
+    if (_isRequired(field) && trimmed.isEmpty) {
       return '${field.label} is required.';
     }
     if (trimmed.isEmpty) {
@@ -1252,6 +1253,46 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     }
   }
 
+  bool _isRequired(AcpFieldDescriptor field) {
+    if (field.required) {
+      return true;
+    }
+    if (field.requiredWhenEquals.isEmpty) {
+      return false;
+    }
+
+    for (final entry in field.requiredWhenEquals.entries) {
+      final currentValue = _currentFieldValue(entry.key);
+      if (currentValue == null) {
+        return false;
+      }
+
+      final normalizedCurrentValue = currentValue.trim().toLowerCase();
+      final matches = entry.value.any(
+        (candidate) => normalizedCurrentValue == candidate.trim().toLowerCase(),
+      );
+      if (!matches) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  String? _currentFieldValue(String key) {
+    final textController = _textControllers[key];
+    if (textController != null) {
+      return textController.text;
+    }
+
+    if (_boolValues.containsKey(key)) {
+      return (_boolValues[key] ?? false).toString();
+    }
+
+    final initialValue = widget.initialValues[key];
+    return initialValue?.toString();
+  }
+
   void _submit() {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) {
@@ -1268,6 +1309,11 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       final raw = _textControllers[field.key]!.text;
       final trimmed = raw.trim();
       if (trimmed.isEmpty) {
+        if (field.submitEmptyValueWhenBlank &&
+            (field.kind == AcpFieldKind.text ||
+                field.kind == AcpFieldKind.multiline)) {
+          payload[field.key] = '';
+        }
         continue;
       }
 

@@ -1309,11 +1309,6 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       final raw = _textControllers[field.key]!.text;
       final trimmed = raw.trim();
       if (trimmed.isEmpty) {
-        if (field.submitEmptyValueWhenBlank &&
-            (field.kind == AcpFieldKind.text ||
-                field.kind == AcpFieldKind.multiline)) {
-          payload[field.key] = '';
-        }
         continue;
       }
 

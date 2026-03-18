@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/features/context_admin/application/context_admin_resources.dart';
 import 'package:mugen_ui/features/context_admin/presentation/providers/context_admin_providers.dart';
 import 'package:mugen_ui/features/context_admin/presentation/widgets/context_engine_panel.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
@@ -66,6 +68,33 @@ void main() {
     );
   });
 
+  test(
+    'context admin create requirements match backend validation surface',
+    () {
+      final profileDescriptor = contextAdminResources.firstWhere(
+        (descriptor) => descriptor.entitySet == 'ContextProfiles',
+      );
+      final contributorDescriptor = contextAdminResources.firstWhere(
+        (descriptor) => descriptor.entitySet == 'ContextContributorBindings',
+      );
+      final sourceDescriptor = contextAdminResources.firstWhere(
+        (descriptor) => descriptor.entitySet == 'ContextSourceBindings',
+      );
+
+      expect(_requiredFieldKeys(profileDescriptor.createFields), <String>[
+        'Name',
+      ]);
+      expect(_requiredFieldKeys(contributorDescriptor.createFields), <String>[
+        'BindingKey',
+        'ContributorKey',
+      ]);
+      expect(_requiredFieldKeys(sourceDescriptor.createFields), <String>[
+        'SourceKind',
+        'SourceKey',
+      ]);
+    },
+  );
+
   test('context admin refreshes auth on session expiry', () async {
     final repository = FakeAcpAdminRepository()
       ..createResult = const Result<Object?>.failure(SessionExpiredFailure());
@@ -87,4 +116,11 @@ void main() {
     expect(result.isFailure, isTrue);
     expect(authController.refreshCount, 1);
   });
+}
+
+List<String> _requiredFieldKeys(List<AcpFieldDescriptor> fields) {
+  return fields
+      .where((field) => field.required)
+      .map((field) => field.key)
+      .toList(growable: false);
 }

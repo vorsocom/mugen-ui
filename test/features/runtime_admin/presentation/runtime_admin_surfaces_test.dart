@@ -119,15 +119,62 @@ void main() {
       expect(repository.createCalls, hasLength(1));
       expect(repository.createCalls.single['PlatformKey'], 'matrix');
       expect(repository.createCalls.single['ProfileKey'], 'primary');
-      expect(repository.createCalls.single['DisplayName'], '');
       expect(
         repository.createCalls.single['RecipientUserId'],
         '@assistant:example.org',
       );
-      expect(repository.createCalls.single['PathToken'], '');
-      expect(repository.createCalls.single['AccountNumber'], '');
-      expect(repository.createCalls.single['PhoneNumberId'], '');
-      expect(repository.createCalls.single['Provider'], '');
+      expect(repository.createCalls.single.containsKey('DisplayName'), isFalse);
+      expect(repository.createCalls.single.containsKey('PathToken'), isFalse);
+      expect(
+        repository.createCalls.single.containsKey('AccountNumber'),
+        isFalse,
+      );
+      expect(
+        repository.createCalls.single.containsKey('PhoneNumberId'),
+        isFalse,
+      );
+      expect(repository.createCalls.single.containsKey('Provider'), isFalse);
+    },
+  );
+
+  testWidgets(
+    'runtime config profile create form only requires category and profile key',
+    (WidgetTester tester) async {
+      final repository = _RecordingAcpAdminRepository();
+      await _pumpRuntimeControlPanel(tester, repository);
+
+      await tester.tap(
+        find.byKey(const Key('acp-admin-tab-runtime-config-profiles')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Category is required.'), findsOneWidget);
+      expect(find.text('Profile Key is required.'), findsOneWidget);
+      expect(find.text('Display Name is required.'), findsNothing);
+      expect(repository.createCalls, isEmpty);
+
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Category')),
+        'messaging.platform_defaults',
+      );
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-ProfileKey')),
+        'whatsapp',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(repository.createCalls, hasLength(1));
+      expect(
+        repository.createCalls.single['Category'],
+        'messaging.platform_defaults',
+      );
+      expect(repository.createCalls.single['ProfileKey'], 'whatsapp');
+      expect(repository.createCalls.single.containsKey('DisplayName'), isFalse);
     },
   );
 

@@ -34,3 +34,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed Messaging Client Profile create-form validation so only universal and platform-specific identifier fields are required instead of every profile field.
+- Synced ACP admin create-form requirements and blank optional text submission with the backend Pydantic validation surface for runtime, context, and orchestration resources.

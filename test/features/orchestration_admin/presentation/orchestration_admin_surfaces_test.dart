@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/features/orchestration_admin/application/orchestration_admin_resources.dart';
 import 'package:mugen_ui/features/orchestration_admin/presentation/providers/orchestration_admin_providers.dart';
 import 'package:mugen_ui/features/orchestration_admin/presentation/widgets/channel_orchestration_panel.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
@@ -70,6 +72,20 @@ void main() {
     );
   });
 
+  test(
+    'channel profile create requirements match backend validation surface',
+    () {
+      final descriptor = orchestrationAdminResources.firstWhere(
+        (resource) => resource.entitySet == 'ChannelProfiles',
+      );
+
+      expect(_requiredFieldKeys(descriptor.createFields), <String>[
+        'ChannelKey',
+        'ProfileKey',
+      ]);
+    },
+  );
+
   test('orchestration admin refreshes auth on session expiry', () async {
     final repository = FakeAcpAdminRepository()
       ..collectionActionResult = const Result<Object?>.failure(
@@ -97,4 +113,11 @@ void main() {
     expect(result.isFailure, isTrue);
     expect(authController.refreshCount, 1);
   });
+}
+
+List<String> _requiredFieldKeys(List<AcpFieldDescriptor> fields) {
+  return fields
+      .where((field) => field.required)
+      .map((field) => field.key)
+      .toList(growable: false);
 }

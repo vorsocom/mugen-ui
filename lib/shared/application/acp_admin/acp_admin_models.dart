@@ -14,6 +14,8 @@ class AcpFieldDescriptor {
     required this.label,
     this.kind = AcpFieldKind.text,
     this.required = false,
+    this.requiredWhenEquals = const <String, List<String>>{},
+    this.submitEmptyValueWhenBlank = false,
     this.hintText,
     this.minLines,
     this.maxLines,
@@ -25,6 +27,8 @@ class AcpFieldDescriptor {
   final String label;
   final AcpFieldKind kind;
   final bool required;
+  final Map<String, List<String>> requiredWhenEquals;
+  final bool submitEmptyValueWhenBlank;
   final String? hintText;
   final int? minLines;
   final int? maxLines;

@@ -8,6 +8,10 @@ void main() {
       label: 'Secret Value',
       kind: AcpFieldKind.multiline,
       required: true,
+      requiredWhenEquals: <String, List<String>>{
+        'PlatformKey': <String>['wechat'],
+      },
+      submitEmptyValueWhenBlank: true,
       hintText: 'Encrypted material',
       minLines: 3,
       maxLines: 5,
@@ -52,6 +56,10 @@ void main() {
     expect(field.key, 'SecretValue');
     expect(field.kind, AcpFieldKind.multiline);
     expect(field.required, isTrue);
+    expect(field.requiredWhenEquals, <String, List<String>>{
+      'PlatformKey': <String>['wechat'],
+    });
+    expect(field.submitEmptyValueWhenBlank, isTrue);
     expect(field.hintText, 'Encrypted material');
     expect(field.minLines, 3);
     expect(field.maxLines, 5);

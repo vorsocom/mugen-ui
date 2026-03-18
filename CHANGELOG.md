@@ -30,3 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated RBAC Admin test coverage with additional repository/domain tests and coverage pragmas so CI 100% line coverage is preserved.
 - Renamed Platform Configuration menu labels to `LocalUsers`, `Tenants`, and `Roles & Permissions`.
 - Constrained tenant and RBAC admin dialog form panels to the same fixed-width presentation used by LocalUsers forms.
+
+### Fixed
+
+- Fixed Messaging Client Profile create-form validation so only universal and platform-specific identifier fields are required instead of every profile field.

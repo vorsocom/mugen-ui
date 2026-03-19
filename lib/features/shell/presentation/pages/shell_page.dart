@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mugen_ui/app/config/app_config.dart';
@@ -8,12 +9,14 @@ import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dar
 import 'package:mugen_ui/features/auth/presentation/widgets/edit_profile_panel.dart';
 import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
 import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dart';
+import 'package:mugen_ui/features/shell/application/shell_route_access.dart';
 import 'package:mugen_ui/features/shell/presentation/providers/shell_providers.dart';
-import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/route_views.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/settings_panel.dart';
+import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
+const Key _shellNoAccessibleRoutesKey = Key('shell-no-access-routes');
 const Key _shellUserBarTitleKey = Key('shell-user-bar-title');
 const Key _shellReplayResyncBadgeKey = Key('shell-replay-resync-badge');
 const Key _shellAccountMenuTriggerKey = Key('shell-account-menu-trigger');
@@ -25,12 +28,27 @@ const double _shellTopBarHeight = 52;
 
 enum _AccountMenuAction { logout }
 
-class ShellPage extends ConsumerWidget {
+class ShellPage extends ConsumerStatefulWidget {
   const ShellPage({super.key}); // coverage:ignore-line
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ShellPage> createState() => _ShellPageState();
+}
+
+class _ShellPageState extends ConsumerState<ShellPage> {
+  String? _pendingRedirectToken;
+
+  @override
+  Widget build(BuildContext context) {
     final shellState = ref.watch(shellControllerProvider);
+    final config = ref.watch(appConfigProvider);
+    final authState = ref.watch(authControllerProvider);
+    final routeAccess = resolveShellRouteAccess(
+      config: config,
+      sessionRoles: authState.session?.roles ?? const <String>[],
+      requestedRoute: shellState.activeRoute,
+    );
+    _scheduleRouteCorrection(routeAccess);
 
     return PopScope(
       canPop: false,
@@ -50,7 +68,7 @@ class ShellPage extends ConsumerWidget {
                   Expanded(
                     child: shellState.showSettings
                         ? const ShellSettingsPanel()
-                        : buildSpaRouteWidget(shellState.activeRoute),
+                        : _buildShellRouteBody(routeAccess),
                   ),
                 ],
               ),
@@ -59,6 +77,64 @@ class ShellPage extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildShellRouteBody(ShellRouteAccess routeAccess) {
+    final displayedRouteId = routeAccess.displayedRouteId;
+    if (displayedRouteId == null) {
+      return const _NoAccessibleRoutesView();
+    }
+
+    return buildSpaRouteWidget(displayedRouteId);
+  }
+
+  void _scheduleRouteCorrection(ShellRouteAccess routeAccess) {
+    if (!routeAccess.shouldRedirect) {
+      _pendingRedirectToken = null;
+      return;
+    }
+
+    final redirectToken =
+        '${routeAccess.requestedRoute}->${routeAccess.fallbackRoute?.id ?? ''}';
+    if (_pendingRedirectToken == redirectToken) {
+      return;
+    }
+    _pendingRedirectToken = redirectToken;
+
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      final currentState = ref.read(shellControllerProvider);
+      final currentAccess = resolveShellRouteAccess(
+        config: ref.read(appConfigProvider),
+        sessionRoles:
+            ref.read(authControllerProvider).session?.roles ?? const <String>[],
+        requestedRoute: currentState.activeRoute,
+      );
+      // coverage:ignore-start
+      if (!currentAccess.shouldRedirect) {
+        if (_pendingRedirectToken == redirectToken) {
+          _pendingRedirectToken = null;
+        }
+        return;
+      }
+      // coverage:ignore-end
+
+      final didCorrect = ref
+          .read(shellControllerProvider.notifier)
+          .revalidateRoute();
+      if (didCorrect) {
+        ref
+            .read(snackBarDispatcherProvider)
+            .showInContext(context, 'You do not have access to that section.');
+      }
+
+      if (_pendingRedirectToken == redirectToken) {
+        _pendingRedirectToken = null;
+      }
+    });
   }
 }
 
@@ -69,9 +145,19 @@ class _ShellUserBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final shellState = ref.watch(shellControllerProvider);
     final config = ref.watch(appConfigProvider);
-    final session = ref.watch(authControllerProvider).session;
+    final authState = ref.watch(authControllerProvider);
+    final session = authState.session;
+    final routeAccess = resolveShellRouteAccess(
+      config: config,
+      sessionRoles: session?.roles ?? const <String>[],
+      requestedRoute: shellState.activeRoute,
+    );
+    final displayedRouteId = routeAccess.displayedRouteId;
     final displayName = session?.username ?? session?.userId ?? 'User';
-    final showConnectionIndicator = _isChatRouteActive(shellState);
+    final showConnectionIndicator = _isChatRouteActive(
+      showSettings: shellState.showSettings,
+      routeId: displayedRouteId,
+    );
     final isConnected = showConnectionIndicator
         ? ref.watch(chatControllerProvider.select((state) => state.isConnected))
         : false;
@@ -81,7 +167,7 @@ class _ShellUserBar extends ConsumerWidget {
           )
         : false;
     final showReplayResyncBadge =
-        !shellState.showSettings && shellState.activeRoute == RouteIds.chat
+        !shellState.showSettings && displayedRouteId == RouteIds.chat
         ? ref.watch(
             chatControllerProvider.select((state) => state.hasReplayNotice),
           )
@@ -94,6 +180,7 @@ class _ShellUserBar extends ConsumerWidget {
     final routeTitle = _resolveShellRouteTitle(
       config: config,
       shellState: shellState,
+      routeAccess: routeAccess,
     );
 
     return Container(
@@ -147,32 +234,34 @@ class _ShellUserBar extends ConsumerWidget {
 String _resolveShellRouteTitle({
   required AppConfig config,
   required ShellState shellState,
+  required ShellRouteAccess routeAccess,
 }) {
   if (shellState.showSettings) {
     return 'Settings';
   }
 
+  final displayedRouteId = routeAccess.displayedRouteId;
+  if (displayedRouteId == null) {
+    return 'Access Restricted';
+  }
+
   for (final route in config.spaRoutes) {
-    if (route.id == shellState.activeRoute) {
+    if (route.id == displayedRouteId) {
       return route.title;
     }
   }
 
-  for (final item in config.drawerItems) {
-    if (item.route == shellState.activeRoute) {
-      return item.title;
-    }
-  }
-
-  return shellState.activeRoute;
+  return displayedRouteId;
 }
 
-bool _isChatRouteActive(ShellState shellState) {
-  if (shellState.showSettings) {
+bool _isChatRouteActive({
+  required bool showSettings,
+  required String? routeId,
+}) {
+  if (showSettings || routeId == null) {
     return false;
   }
-  return shellState.activeRoute == RouteIds.chat ||
-      shellState.activeRoute == RouteIds.dashboard;
+  return routeId == RouteIds.chat || routeId == RouteIds.dashboard;
 }
 
 class _ShellConnectionIndicator extends StatelessWidget {
@@ -766,13 +855,17 @@ class _AppDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
-    final authController = ref.read(authControllerProvider.notifier);
     final shellState = ref.watch(shellControllerProvider);
-    final activeRoute = shellState.activeRoute;
+    final sessionRoles =
+        ref.watch(authControllerProvider).session?.roles ?? const <String>[];
+    final routeAccess = resolveShellRouteAccess(
+      config: config,
+      sessionRoles: sessionRoles,
+      requestedRoute: shellState.activeRoute,
+    );
+    final activeRoute = routeAccess.displayedRouteId;
     final visibleDrawerItems = config.drawerItems
-        .where(
-          (item) => item.roles.isEmpty || authController.hasRoles(item.roles),
-        )
+        .where((item) => routeAccess.allowedRouteIds.contains(item.route))
         .toList(growable: false);
     final primaryItems = <DrawerItemConfig>[];
     final sectionedItems = <String, List<DrawerItemConfig>>{};
@@ -951,6 +1044,46 @@ class _DrawerIconBadge extends StatelessWidget {
         icon,
         size: compact ? 19 : 18,
         color: AppUiPalette.textPrimary,
+      ),
+    );
+  }
+}
+
+class _NoAccessibleRoutesView extends StatelessWidget {
+  const _NoAccessibleRoutesView();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Container(
+          key: _shellNoAccessibleRoutesKey,
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppUiPalette.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.lock_outline,
+                size: 32,
+                color: AppUiPalette.textSecondary,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No accessible sections are available for this account.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.titleMedium,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

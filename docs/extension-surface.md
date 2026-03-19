@@ -40,42 +40,36 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
       icon: Icons.apartment_outlined,
       route: RouteIds.tenantManagement,
       section: 'Platform Configuration',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
     DrawerItemConfig(
       title: 'Role & Permission Management',
       icon: Icons.admin_panel_settings_outlined,
       route: RouteIds.rolePermissionManagement,
       section: 'Platform Configuration',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
     DrawerItemConfig(
       title: 'Runtime Control',
       icon: Icons.settings_input_component_outlined,
       route: RouteIds.runtimeControl,
       section: 'Platform Configuration',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
     DrawerItemConfig(
       title: 'Channel Orchestration',
       icon: Icons.alt_route_outlined,
       route: RouteIds.channelOrchestration,
       section: 'Platform Configuration',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
     DrawerItemConfig(
       title: 'Context Engine',
       icon: Icons.hub_outlined,
       route: RouteIds.contextEngine,
       section: 'Platform Configuration',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
     DrawerItemConfig(
       title: 'ACP Console',
       icon: Icons.data_object_outlined,
       route: RouteIds.acpConsole,
       section: 'Platform Configuration',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
   ],
   spaDefaultRoute: RouteIds.dashboard,
@@ -85,18 +79,33 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
     SpaRouteConfig(
       id: RouteIds.tenantManagement,
       title: 'Tenant Management',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
     SpaRouteConfig(
       id: RouteIds.rolePermissionManagement,
       title: 'Role & Permission Management',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
-    SpaRouteConfig(id: RouteIds.runtimeControl, title: 'Runtime Control'),
+    SpaRouteConfig(
+      id: RouteIds.runtimeControl,
+      title: 'Runtime Control',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+    ),
     SpaRouteConfig(
       id: RouteIds.channelOrchestration,
       title: 'Channel Orchestration',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
     ),
-    SpaRouteConfig(id: RouteIds.contextEngine, title: 'Context Engine'),
-    SpaRouteConfig(id: RouteIds.acpConsole, title: 'ACP Console'),
+    SpaRouteConfig(
+      id: RouteIds.contextEngine,
+      title: 'Context Engine',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+    ),
+    SpaRouteConfig(
+      id: RouteIds.acpConsole,
+      title: 'ACP Console',
+      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+    ),
   ],
 );
 ```
@@ -107,6 +116,7 @@ const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
 - API config: `api.baseUrl` and endpoint paths (including ACP base path, tenant management, and invite redeem endpoints)
 - role catalog: `activeRoles`
 - navigation structure: `drawerItems`, `spaDefaultRoute`, `spaRoutes`
+  - route access rules are defined on `SpaRouteConfig.roles`
 - settings UX: `settingsPanels`
 
 Endpoint keys available in `ApiEndpointsOverride`:

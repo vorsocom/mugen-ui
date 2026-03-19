@@ -320,14 +320,12 @@ class DrawerItemConfig {
     required this.icon,
     required this.route,
     this.section,
-    this.roles = const <String>[],
   });
 
   final String title;
   final IconData icon;
   final String route;
   final String? section;
-  final List<String> roles;
 }
 
 enum SettingsPanelType { account, resetPassword, users }
@@ -347,14 +345,19 @@ class SettingsPanelConfig {
 }
 
 class SpaRouteConfig {
-  const SpaRouteConfig({required this.id, required this.title});
+  const SpaRouteConfig({
+    required this.id,
+    required this.title,
+    this.roles = const <String>[],
+  });
 
   final String id;
   final String title;
+  final List<String> roles;
 }
 
 class AppConfig {
-  const AppConfig({
+  AppConfig({
     required this.appName,
     required this.appVersion,
     required this.api,
@@ -363,7 +366,14 @@ class AppConfig {
     required this.settingsPanels,
     required this.spaDefaultRoute,
     required this.spaRoutes,
-  });
+  }) : assert(
+         _containsSpaRoute(spaRoutes, spaDefaultRoute),
+         'spaDefaultRoute must match a configured spaRoute.',
+       ),
+       assert(
+         _drawerRoutesAreRegistered(drawerItems, spaRoutes),
+         'drawerItems must reference configured spaRoutes.',
+       );
 
   final String appName;
   final String appVersion;
@@ -373,6 +383,21 @@ class AppConfig {
   final List<SettingsPanelConfig> settingsPanels;
   final String spaDefaultRoute;
   final List<SpaRouteConfig> spaRoutes;
+
+  static bool _containsSpaRoute(
+    List<SpaRouteConfig> spaRoutes,
+    String routeId,
+  ) {
+    return spaRoutes.any((route) => route.id == routeId);
+  }
+
+  static bool _drawerRoutesAreRegistered(
+    List<DrawerItemConfig> drawerItems,
+    List<SpaRouteConfig> spaRoutes,
+  ) {
+    final spaRouteIds = spaRoutes.map((route) => route.id).toSet();
+    return drawerItems.every((item) => spaRouteIds.contains(item.route));
+  }
 
   factory AppConfig.defaults() {
     return AppConfig(
@@ -472,56 +497,48 @@ class AppConfig {
           icon: Icons.groups_outlined,
           route: RouteIds.localUsers,
           section: 'Platform Configuration',
-          roles: <String>['$acpNamespace:administrator'],
         ),
         DrawerItemConfig(
           title: 'Tenants',
           icon: Icons.apartment_outlined,
           route: RouteIds.tenantManagement,
           section: 'Platform Configuration',
-          roles: <String>['$acpNamespace:administrator'],
         ),
         DrawerItemConfig(
           title: 'Roles & Permissions',
           icon: Icons.admin_panel_settings_outlined,
           route: RouteIds.rolePermissionManagement,
           section: 'Platform Configuration',
-          roles: <String>['$acpNamespace:administrator'],
         ),
         DrawerItemConfig(
           title: 'Audit Events',
           icon: Icons.fact_check_outlined,
           route: RouteIds.auditManagement,
           section: 'Platform Configuration',
-          roles: <String>['$acpNamespace:administrator'],
         ),
         DrawerItemConfig(
           title: 'Runtime Control',
           icon: Icons.settings_input_component_outlined,
           route: RouteIds.runtimeControl,
           section: 'Platform Configuration',
-          roles: <String>['$acpNamespace:administrator'],
         ),
         DrawerItemConfig(
           title: 'Channel Orchestration',
           icon: Icons.alt_route_outlined,
           route: RouteIds.channelOrchestration,
           section: 'Platform Configuration',
-          roles: <String>['$acpNamespace:administrator'],
         ),
         DrawerItemConfig(
           title: 'Context Engine',
           icon: Icons.hub_outlined,
           route: RouteIds.contextEngine,
           section: 'Platform Configuration',
-          roles: <String>['$acpNamespace:administrator'],
         ),
         DrawerItemConfig(
           title: 'ACP Console',
           icon: Icons.data_object_outlined,
           route: RouteIds.acpConsole,
           section: 'Platform Configuration',
-          roles: <String>['$acpNamespace:administrator'],
         ),
       ],
       settingsPanels: const <SettingsPanelConfig>[
@@ -541,20 +558,46 @@ class AppConfig {
       spaDefaultRoute: RouteIds.chat,
       spaRoutes: const <SpaRouteConfig>[
         SpaRouteConfig(id: RouteIds.chat, title: 'AI Assist'),
-        SpaRouteConfig(id: RouteIds.localUsers, title: 'LocalUsers'),
-        SpaRouteConfig(id: RouteIds.tenantManagement, title: 'Tenants'),
+        SpaRouteConfig(
+          id: RouteIds.localUsers,
+          title: 'LocalUsers',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
+        SpaRouteConfig(
+          id: RouteIds.tenantManagement,
+          title: 'Tenants',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
         SpaRouteConfig(
           id: RouteIds.rolePermissionManagement,
           title: 'Roles & Permissions',
+          roles: <String>['$acpNamespace:administrator'],
         ),
-        SpaRouteConfig(id: RouteIds.auditManagement, title: 'Audit Events'),
-        SpaRouteConfig(id: RouteIds.runtimeControl, title: 'Runtime Control'),
+        SpaRouteConfig(
+          id: RouteIds.auditManagement,
+          title: 'Audit Events',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
+        SpaRouteConfig(
+          id: RouteIds.runtimeControl,
+          title: 'Runtime Control',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
         SpaRouteConfig(
           id: RouteIds.channelOrchestration,
           title: 'Channel Orchestration',
+          roles: <String>['$acpNamespace:administrator'],
         ),
-        SpaRouteConfig(id: RouteIds.contextEngine, title: 'Context Engine'),
-        SpaRouteConfig(id: RouteIds.acpConsole, title: 'ACP Console'),
+        SpaRouteConfig(
+          id: RouteIds.contextEngine,
+          title: 'Context Engine',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
+        SpaRouteConfig(
+          id: RouteIds.acpConsole,
+          title: 'ACP Console',
+          roles: <String>['$acpNamespace:administrator'],
+        ),
       ],
     );
   }

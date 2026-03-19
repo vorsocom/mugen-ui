@@ -29,6 +29,7 @@ import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
 
 const String _reportsRoute = 'reports';
+const Key _shellNoAccessibleRoutesKey = Key('shell-no-access-routes');
 const Key _shellAccountMenuTriggerKey = Key('shell-account-menu-trigger');
 const Key _shellAccountMenuSettingsKey = Key('shell-account-menu-settings');
 const Key _shellAccountMenuLogoutKey = Key('shell-account-menu-logout');
@@ -788,7 +789,27 @@ void main() {
   testWidgets('drawer toggle and nav item taps call shell controller actions', (
     tester,
   ) async {
-    final config = AppConfig.defaults();
+    final config = AppConfig.defaults().merge(
+      const AppConfigurationOverride(
+        drawerItems: <DrawerItemConfig>[
+          DrawerItemConfig(
+            title: 'AI Assist',
+            icon: Icons.chat_bubble_outline,
+            route: RouteIds.chat,
+          ),
+          DrawerItemConfig(
+            title: 'LocalUsers',
+            icon: Icons.groups_outlined,
+            route: RouteIds.localUsers,
+            section: 'Platform Configuration',
+          ),
+        ],
+        spaRoutes: <SpaRouteConfig>[
+          SpaRouteConfig(id: RouteIds.chat, title: 'AI Assist'),
+          SpaRouteConfig(id: RouteIds.localUsers, title: 'LocalUsers'),
+        ],
+      ),
+    );
     final shellController = _TrackingShellController(
       initialState: const ShellState(
         isDrawerCollapsed: false,
@@ -887,9 +908,9 @@ void main() {
   });
 
   testWidgets(
-    'route title falls back to drawer item title when spa route is missing',
+    'route title follows spa route metadata instead of drawer labels',
     (tester) async {
-      final fromDrawerConfig = AppConfig.defaults().merge(
+      final routeTitleConfig = AppConfig.defaults().merge(
         const AppConfigurationOverride(
           drawerItems: <DrawerItemConfig>[
             DrawerItemConfig(
@@ -899,7 +920,9 @@ void main() {
             ),
           ],
           spaDefaultRoute: _reportsRoute,
-          spaRoutes: <SpaRouteConfig>[],
+          spaRoutes: <SpaRouteConfig>[
+            SpaRouteConfig(id: _reportsRoute, title: 'Reports Route'),
+          ],
         ),
       );
       final authController = _TestAuthController(
@@ -912,7 +935,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: <Override>[
-            appConfigProvider.overrideWith((ref) => fromDrawerConfig),
+            appConfigProvider.overrideWith((ref) => routeTitleConfig),
             shellControllerProvider.overrideWith(
               () => _TestShellController(
                 initialState: const ShellState(
@@ -928,23 +951,18 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      final drawerTitle = tester.widget<Text>(
+
+      final routeTitle = tester.widget<Text>(
         find.byKey(const Key('shell-user-bar-title')),
       );
-      expect(drawerTitle.data, 'Reports Drawer');
+      expect(routeTitle.data, 'Reports Route');
     },
   );
 
   testWidgets('route title falls back to active route when unresolved', (
     tester,
   ) async {
-    final fallbackConfig = AppConfig.defaults().merge(
-      const AppConfigurationOverride(
-        drawerItems: <DrawerItemConfig>[],
-        spaDefaultRoute: 'mystery-route',
-        spaRoutes: <SpaRouteConfig>[],
-      ),
-    );
+    final fallbackConfig = AppConfig.defaults();
     final authController = _TestAuthController(
       initialState: const AuthControllerState(isLoading: false, session: null),
     );
@@ -973,6 +991,206 @@ void main() {
       find.byKey(const Key('shell-user-bar-title')),
     );
     expect(fallbackTitle.data, 'mystery-route');
+  });
+
+  testWidgets(
+    'unauthorized seeded route redirects to fallback and shows snackbar',
+    (tester) async {
+      final config = AppConfig.defaults();
+      final shellController = _TestShellController(
+        initialState: const ShellState(
+          isDrawerCollapsed: false,
+          showSettings: false,
+          activeRoute: RouteIds.localUsers,
+        ),
+      );
+      final authController = _RoleAwareAuthController(
+        initialState: const AuthControllerState(
+          isLoading: false,
+          session: AuthSession(
+            accessToken: 'token',
+            refreshToken: 'refresh',
+            userId: 'user-1',
+            roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+          ),
+        ),
+      );
+      final chatController = _TestChatController(
+        initialState: ChatControllerState(
+          conversationId: 'conv-test',
+          messages: const <ChatMessageEntity>[],
+          mediaResources: const <String, ChatMediaResourceState>{},
+          attachments: const <ChatAttachmentDraft>[],
+          compositionMode: ChatCompositionMode.messageWithAttachments,
+          isConnected: true,
+          isConnecting: false,
+          isSending: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            appConfigProvider.overrideWith((ref) => config),
+            shellControllerProvider.overrideWith(() => shellController),
+            authControllerProvider.overrideWith(() => authController),
+            chatControllerProvider.overrideWith(() => chatController),
+          ],
+          child: const MaterialApp(home: ShellPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final title = tester.widget<Text>(
+        find.byKey(const Key('shell-user-bar-title')),
+      );
+      expect(title.data, 'AI Assist');
+      expect(shellController.state.activeRoute, RouteIds.chat);
+      expect(
+        find.text('You do not have access to that section.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'role loss on an active admin route revalidates to the fallback route',
+    (tester) async {
+      final config = AppConfig.defaults();
+      final shellController = _TestShellController(
+        initialState: const ShellState(
+          isDrawerCollapsed: false,
+          showSettings: false,
+          activeRoute: RouteIds.localUsers,
+        ),
+      );
+      final authController = _MutableRoleAwareAuthController(
+        initialState: const AuthControllerState(
+          isLoading: false,
+          session: AuthSession(
+            accessToken: 'token',
+            refreshToken: 'refresh',
+            userId: 'admin-1',
+            roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+          ),
+        ),
+      );
+      final chatController = _TestChatController(
+        initialState: ChatControllerState(
+          conversationId: 'conv-test',
+          messages: const <ChatMessageEntity>[],
+          mediaResources: const <String, ChatMediaResourceState>{},
+          attachments: const <ChatAttachmentDraft>[],
+          compositionMode: ChatCompositionMode.messageWithAttachments,
+          isConnected: true,
+          isConnecting: false,
+          isSending: false,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            appConfigProvider.overrideWith((ref) => config),
+            shellControllerProvider.overrideWith(() => shellController),
+            authControllerProvider.overrideWith(() => authController),
+            chatControllerProvider.overrideWith(() => chatController),
+            userAdminRepositoryProvider.overrideWithValue(
+              _NoopUserAdminRepository(),
+            ),
+          ],
+          child: const MaterialApp(home: ShellPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialTitle = tester.widget<Text>(
+        find.byKey(const Key('shell-user-bar-title')),
+      );
+      expect(initialTitle.data, 'LocalUsers');
+
+      authController.setSession(
+        const AuthSession(
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          userId: 'user-1',
+          roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      final fallbackTitle = tester.widget<Text>(
+        find.byKey(const Key('shell-user-bar-title')),
+      );
+      expect(fallbackTitle.data, 'AI Assist');
+      expect(shellController.state.activeRoute, RouteIds.chat);
+      expect(
+        find.text('You do not have access to that section.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('locked-out users see the no-access shell state', (tester) async {
+    final config = AppConfig.defaults().merge(
+      const AppConfigurationOverride(
+        drawerItems: <DrawerItemConfig>[
+          DrawerItemConfig(
+            title: 'Runtime Control',
+            icon: Icons.settings_input_component_outlined,
+            route: RouteIds.runtimeControl,
+            section: 'Platform Configuration',
+          ),
+        ],
+        spaDefaultRoute: RouteIds.runtimeControl,
+        spaRoutes: <SpaRouteConfig>[
+          SpaRouteConfig(
+            id: RouteIds.runtimeControl,
+            title: 'Runtime Control',
+            roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+          ),
+        ],
+      ),
+    );
+    final shellController = _TestShellController(
+      initialState: const ShellState(
+        isDrawerCollapsed: false,
+        showSettings: false,
+        activeRoute: RouteIds.runtimeControl,
+      ),
+    );
+    final authController = _RoleAwareAuthController(
+      initialState: const AuthControllerState(
+        isLoading: false,
+        session: AuthSession(
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          userId: 'user-1',
+          roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => config),
+          shellControllerProvider.overrideWith(() => shellController),
+          authControllerProvider.overrideWith(() => authController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final title = tester.widget<Text>(
+      find.byKey(const Key('shell-user-bar-title')),
+    );
+    expect(title.data, 'Access Restricted');
+    expect(find.byKey(_shellNoAccessibleRoutesKey), findsOneWidget);
+    expect(find.text('Runtime Control'), findsNothing);
+    expect(find.text('You do not have access to that section.'), findsNothing);
   });
 
   testWidgets('replay badge tooltip maps generation_mismatch reason', (
@@ -1143,6 +1361,10 @@ void main() {
             route: RouteIds.localUsers,
             section: 'Platform Configuration',
           ),
+        ],
+        spaRoutes: <SpaRouteConfig>[
+          SpaRouteConfig(id: RouteIds.chat, title: 'AI Assist'),
+          SpaRouteConfig(id: RouteIds.localUsers, title: 'LocalUsers'),
         ],
       ),
     );
@@ -1315,7 +1537,7 @@ class _RoleAwareAuthController extends _TestAuthController {
 
   @override
   bool hasRoles(List<String> roles, {String operator = 'and'}) {
-    final sessionRoles = initialState.session?.roles ?? const <String>[];
+    final sessionRoles = state.session?.roles ?? const <String>[];
     if (roles.isEmpty) {
       return true;
     }
@@ -1325,6 +1547,14 @@ class _RoleAwareAuthController extends _TestAuthController {
     }
 
     return roles.every(sessionRoles.contains);
+  }
+}
+
+class _MutableRoleAwareAuthController extends _RoleAwareAuthController {
+  _MutableRoleAwareAuthController({required super.initialState});
+
+  void setSession(AuthSession? session) {
+    state = AuthControllerState(isLoading: false, session: session);
   }
 }
 

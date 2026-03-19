@@ -25,7 +25,7 @@ void main() {
           DrawerItemConfig(
             title: 'Only Item',
             icon: Icons.home,
-            route: 'dashboard',
+            route: RouteIds.chat,
           ),
         ],
       ),
@@ -246,6 +246,16 @@ void main() {
     expect(
       defaults.spaRoutes.any((route) => route.id == RouteIds.acpConsole),
       isTrue,
+    );
+    expect(
+      defaults.spaRoutes
+          .firstWhere((route) => route.id == RouteIds.localUsers)
+          .roles,
+      <String>['com.vorsocomputing.mugen.acp:administrator'],
+    );
+    expect(
+      defaults.spaRoutes.firstWhere((route) => route.id == RouteIds.chat).roles,
+      isEmpty,
     );
     expect(runtimeOverride.appName, isNull);
   });

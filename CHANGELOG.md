@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Enforced internal `/app` shell route authorization from `SpaRouteConfig.roles`, with automatic fallback redirects, access-denied snackbar feedback, and a locked-out empty state when no SPA routes are available.
 - Updated app config to allow overriding the web API base URL at build time via `MUGEN_UI_API_BASE_URL`.
 - Updated Local Users table pagination defaults to 15 rows with options of 15, 25, and 50, added vertical table scrolling support for larger page sizes, and reduced row height for a more compact layout.
 - Updated tenant management ACP subresource/action endpoint defaults to use lowercase `/core/acp/v1/tenants/...` paths so browser preflight requests resolve correctly.

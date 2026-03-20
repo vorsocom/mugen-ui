@@ -35,5 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed Runtime Control key-reference actions so the UI no longer offers `New Row`, `Rotate` remains available from the toolbar for create-through-rotation, and existing key refs expose a visible right-side row `Rotate` action with all fields prefilled except the secret value.
 - Fixed Messaging Client Profile create-form validation so only universal and platform-specific identifier fields are required instead of every profile field.
 - Synced ACP admin create-form requirements and blank optional text submission with the backend Pydantic validation surface for runtime, context, and orchestration resources.

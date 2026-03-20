@@ -15,6 +15,12 @@ import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const double _acpAdminTableMinWidth = 1120;
+const double _acpAdminColumnUnitWidth = 72;
+const double _acpAdminColumnMinWidth = 72;
+const double _acpAdminColumnMaxWidth = 180;
+const double _acpAdminActionColumnWidth = 128;
+const double _acpAdminColumnSpacing = 20;
+const double _acpAdminTableHorizontalMargin = 16;
 const Duration _acpAdminSearchDebounce = Duration(milliseconds: 300);
 
 class AcpAdminPanel<T extends AcpAdminController>
@@ -320,7 +326,11 @@ class _ActionRow<T extends AcpAdminController> extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!descriptor.allowCreate && descriptor.collectionActions.isEmpty) {
+    final toolbarActions = descriptor.collectionActions
+        .where((action) => action.showInToolbar)
+        .toList(growable: false);
+
+    if (!descriptor.allowCreate && toolbarActions.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -342,7 +352,7 @@ class _ActionRow<T extends AcpAdminController> extends ConsumerWidget {
             icon: const Icon(Icons.add),
             label: const Text('New Row'),
           ),
-        for (final action in descriptor.collectionActions)
+        for (final action in toolbarActions)
           OutlinedButton.icon(
             key: Key('acp-admin-collection-action-${action.name}'),
             onPressed: tenantMissing
@@ -402,31 +412,70 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
             width: tableWidth,
             child: SingleChildScrollView(
               child: DataTable(
+                horizontalMargin: _acpAdminTableHorizontalMargin,
+                columnSpacing: _acpAdminColumnSpacing,
                 headingRowColor: const WidgetStatePropertyAll<Color?>(
                   AppUiPalette.surfaceMuted,
                 ),
                 columns: [
+                  if (descriptor.actionsColumnLeading)
+                    const DataColumn(
+                      label: SizedBox(
+                        width: _acpAdminActionColumnWidth,
+                        child: Text('Actions'),
+                      ),
+                    ),
                   for (final column in descriptor.columns)
-                    DataColumn(label: Text(column.label)),
-                  const DataColumn(label: Text('Actions')),
+                    DataColumn(
+                      label: SizedBox(
+                        width: _columnWidthFor(column),
+                        child: Text(
+                          column.label,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  if (!descriptor.actionsColumnLeading)
+                    const DataColumn(
+                      label: SizedBox(
+                        width: _acpAdminActionColumnWidth,
+                        child: Text('Actions'),
+                      ),
+                    ),
                 ],
                 rows: resourceState.rows
                     .map(
                       (row) => DataRow(
                         cells: [
+                          if (descriptor.actionsColumnLeading)
+                            DataCell(
+                              SizedBox(
+                                width: _acpAdminActionColumnWidth,
+                                child: _RowActions<T>(
+                                  controllerProvider: controllerProvider,
+                                  descriptor: descriptor,
+                                  row: row,
+                                ),
+                              ),
+                            ),
                           for (final column in descriptor.columns)
                             DataCell(
                               _TableCellText(
+                                width: _columnWidthFor(column),
                                 value: _formatCellValue(row[column.key]),
                               ),
                             ),
-                          DataCell(
-                            _RowActions<T>(
-                              controllerProvider: controllerProvider,
-                              descriptor: descriptor,
-                              row: row,
+                          if (!descriptor.actionsColumnLeading)
+                            DataCell(
+                              SizedBox(
+                                width: _acpAdminActionColumnWidth,
+                                child: _RowActions<T>(
+                                  controllerProvider: controllerProvider,
+                                  descriptor: descriptor,
+                                  row: row,
+                                ),
+                              ),
                             ),
-                          ),
                         ],
                       ),
                     )
@@ -453,10 +502,16 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
   }
 }
 
+double _columnWidthFor(AcpColumnDescriptor column) {
+  final scaledWidth = column.flex * _acpAdminColumnUnitWidth;
+  return scaledWidth.clamp(_acpAdminColumnMinWidth, _acpAdminColumnMaxWidth);
+}
+
 class _TableCellText extends StatelessWidget {
-  const _TableCellText({required this.value});
+  const _TableCellText({required this.value, required this.width});
 
   final String value;
+  final double width;
 
   @override
   Widget build(BuildContext context) {
@@ -468,7 +523,7 @@ class _TableCellText extends StatelessWidget {
     return Tooltip(
       message: trimmed,
       child: SizedBox(
-        width: 180,
+        width: width,
         child: Text(display, overflow: TextOverflow.ellipsis, maxLines: 2),
       ),
     );
@@ -489,6 +544,31 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rowId = row.id;
+    final rowButtonActions = <_RowMenuAction>[
+      for (final action in descriptor.collectionActions)
+        if (action.showInRowMenu && action.showAsRowButton)
+          _RowMenuAction.collection(
+            action: action,
+            initialValues: _collectionActionInitialValues(
+              action: action,
+              row: row,
+            ),
+          ),
+    ];
+    final rowMenuActions = <_RowMenuAction>[
+      for (final action in descriptor.collectionActions)
+        if (action.showInRowMenu && !action.showAsRowButton)
+          _RowMenuAction.collection(
+            action: action,
+            initialValues: _collectionActionInitialValues(
+              action: action,
+              row: row,
+            ),
+          ),
+      if (rowId != null)
+        for (final action in descriptor.entityActions)
+          _RowMenuAction.entity(action: action),
+    ];
 
     return Wrap(
       spacing: 4,
@@ -500,6 +580,19 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
           onPressed: () =>
               _showRowDetailDialog(context, descriptor: descriptor, row: row),
         ),
+        for (final action in rowButtonActions)
+          IconButton(
+            tooltip: action.action.label,
+            icon: Icon(action.action.icon ?? Icons.autorenew),
+            onPressed: () => _runCollectionAction(
+              context: context,
+              ref: ref,
+              controllerProvider: controllerProvider,
+              descriptor: descriptor,
+              action: action.action,
+              initialValues: action.initialValues,
+            ),
+          ),
         if (descriptor.allowUpdate && rowId != null)
           IconButton(
             tooltip: 'Edit row',
@@ -536,29 +629,40 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
               row: row,
             ),
           ),
-        if (descriptor.entityActions.isNotEmpty && rowId != null)
+        if (rowMenuActions.isNotEmpty)
           PopupMenuButton<String>(
             tooltip: 'More actions',
             icon: const Icon(Icons.more_horiz),
             onSelected: (actionName) {
-              final action = descriptor.entityActions.firstWhere(
-                (candidate) => candidate.name == actionName,
+              final action = rowMenuActions.firstWhere(
+                (candidate) => candidate.action.name == actionName,
               );
+              if (action.isCollectionAction) {
+                _runCollectionAction(
+                  context: context,
+                  ref: ref,
+                  controllerProvider: controllerProvider,
+                  descriptor: descriptor,
+                  action: action.action,
+                  initialValues: action.initialValues,
+                );
+                return;
+              }
               _runEntityAction(
                 context: context,
                 ref: ref,
                 controllerProvider: controllerProvider,
                 descriptor: descriptor,
-                action: action,
+                action: action.action,
                 row: row,
               );
             },
             itemBuilder: (context) {
-              return descriptor.entityActions
+              return rowMenuActions
                   .map(
                     (action) => PopupMenuItem<String>(
-                      value: action.name,
-                      child: Text(action.label),
+                      value: action.action.name,
+                      child: Text(action.action.label),
                     ),
                   )
                   .toList(growable: false);
@@ -567,6 +671,21 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
       ],
     );
   }
+}
+
+Map<String, dynamic> _collectionActionInitialValues({
+  required AcpActionDescriptor action,
+  required AcpRow row,
+}) {
+  if (!action.prefillFieldsFromRow) {
+    return const <String, dynamic>{};
+  }
+
+  return <String, dynamic>{
+    for (final field in action.fields)
+      if (row.containsKey(field.key) && row[field.key] != null)
+        field.key: row[field.key],
+  };
 }
 
 class _ResourcePaginator<T extends AcpAdminController> extends ConsumerWidget {
@@ -786,6 +905,7 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
   required StateNotifierProvider<T, AcpAdminState> controllerProvider,
   required AcpResourceDescriptor descriptor,
   required AcpActionDescriptor action,
+  Map<String, dynamic> initialValues = const <String, dynamic>{},
 }) async {
   Map<String, dynamic>? payload = const <String, dynamic>{};
   if (action.fields.isNotEmpty) {
@@ -794,6 +914,7 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
       title: action.label,
       submitLabel: action.label,
       fields: action.fields,
+      initialValues: initialValues,
     );
   } else if (action.confirmMessage != null) {
     final confirmed = await showAppConfirmationDialog(
@@ -841,6 +962,21 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
     successMessage: action.successMessage ?? 'Action completed.',
     showResult: true,
   );
+}
+
+class _RowMenuAction {
+  const _RowMenuAction.collection({
+    required this.action,
+    required this.initialValues,
+  }) : isCollectionAction = true;
+
+  const _RowMenuAction.entity({required this.action})
+    : isCollectionAction = false,
+      initialValues = const <String, dynamic>{};
+
+  final AcpActionDescriptor action;
+  final bool isCollectionAction;
+  final Map<String, dynamic> initialValues;
 }
 
 Future<void> _runEntityAction<T extends AcpAdminController>({

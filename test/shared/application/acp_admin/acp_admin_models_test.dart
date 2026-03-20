@@ -30,6 +30,10 @@ void main() {
       fields: <AcpFieldDescriptor>[field],
       includeRowVersion: true,
       successMessage: 'Rotation completed.',
+      showInToolbar: false,
+      showInRowMenu: true,
+      prefillFieldsFromRow: true,
+      showAsRowButton: true,
     );
     const resource = AcpResourceDescriptor(
       key: 'key-refs',
@@ -50,6 +54,7 @@ void main() {
       allowDelete: true,
       allowRestore: true,
       pageSize: 25,
+      actionsColumnLeading: false,
     );
 
     expect(field.key, 'SecretValue');
@@ -70,6 +75,10 @@ void main() {
     expect(action.fields.single, same(field));
     expect(action.includeRowVersion, isTrue);
     expect(action.successMessage, 'Rotation completed.');
+    expect(action.showInToolbar, isFalse);
+    expect(action.showInRowMenu, isTrue);
+    expect(action.prefillFieldsFromRow, isTrue);
+    expect(action.showAsRowButton, isTrue);
 
     expect(resource.description, 'Managed key references.');
     expect(resource.columns.single, same(column));
@@ -85,6 +94,7 @@ void main() {
     expect(resource.allowDelete, isTrue);
     expect(resource.allowRestore, isTrue);
     expect(resource.pageSize, 25);
+    expect(resource.actionsColumnLeading, isFalse);
   });
 
   test('tenant labels and row pages normalize display values', () {

@@ -127,21 +127,14 @@ runtimeAdminResources = <AcpResourceDescriptor>[
     description:
         'Managed key-reference metadata for runtime secret rotation and lifecycle actions.',
     columns: <AcpColumnDescriptor>[
-      _column('Purpose', 'Purpose'),
-      _column('KeyId', 'Key ID'),
+      _column('Purpose', 'Purpose', flex: 2),
+      _column('KeyId', 'Key ID', flex: 2),
       _column('Provider', 'Provider'),
       _column('Status', 'Status'),
       _column('HasMaterial', 'Has Material'),
-      _column('ActivatedAt', 'Activated'),
+      _column('ActivatedAt', 'Activated', flex: 2),
       _column('RetiredAt', 'Retired'),
       _column('DestroyedAt', 'Destroyed'),
-    ],
-    createFields: <AcpFieldDescriptor>[
-      _text('Purpose', 'Purpose', required: true),
-      _text('KeyId', 'Key ID', required: true),
-      _text('Provider', 'Provider', initialValue: 'local'),
-      _text('Status', 'Status', initialValue: 'active'),
-      _json('Attributes', 'Attributes'),
     ],
     collectionActions: <AcpActionDescriptor>[
       AcpActionDescriptor(
@@ -157,6 +150,10 @@ runtimeAdminResources = <AcpResourceDescriptor>[
           _text('SecretValue', 'Secret Value', obscureText: true),
           _json('Attributes', 'Attributes'),
         ],
+        showInToolbar: true,
+        showInRowMenu: true,
+        prefillFieldsFromRow: true,
+        showAsRowButton: true,
       ),
     ],
     entityActions: <AcpActionDescriptor>[
@@ -181,7 +178,6 @@ runtimeAdminResources = <AcpResourceDescriptor>[
     ],
     searchFields: const <String>['Purpose', 'KeyId', 'Provider', 'Status'],
     defaultOrderBy: 'Purpose asc, ActivatedAt desc',
-    allowCreate: true,
   ),
   AcpResourceDescriptor(
     key: 'system-flags',
@@ -210,8 +206,8 @@ runtimeAdminResources = <AcpResourceDescriptor>[
   ),
 ];
 
-AcpColumnDescriptor _column(String key, String label) {
-  return AcpColumnDescriptor(key: key, label: label);
+AcpColumnDescriptor _column(String key, String label, {int flex = 1}) {
+  return AcpColumnDescriptor(key: key, label: label, flex: flex);
 }
 
 AcpFieldDescriptor _text(

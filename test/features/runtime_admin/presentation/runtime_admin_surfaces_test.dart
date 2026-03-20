@@ -5,6 +5,7 @@ import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dar
 import 'package:mugen_ui/features/runtime_admin/presentation/providers/runtime_admin_providers.dart';
 import 'package:mugen_ui/features/runtime_admin/presentation/widgets/runtime_control_panel.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
@@ -34,6 +35,23 @@ void main() {
     expect(controller.descriptors, hasLength(4));
     expect(controller.descriptors.first.title, 'Messaging Client Profiles');
     expect(controller.descriptors[2].entityActions, hasLength(2));
+    expect(controller.descriptors[2].allowCreate, isFalse);
+    expect(
+      controller.descriptors[2].collectionActions.single.showInRowMenu,
+      isTrue,
+    );
+    expect(
+      controller.descriptors[2].collectionActions.single.showInToolbar,
+      isTrue,
+    );
+    expect(
+      controller.descriptors[2].collectionActions.single.showAsRowButton,
+      isTrue,
+    );
+    expect(controller.descriptors[2].actionsColumnLeading, isFalse);
+    expect(controller.descriptors[2].columns[0].flex, 2);
+    expect(controller.descriptors[2].columns[1].flex, 2);
+    expect(controller.descriptors[2].columns[5].flex, 2);
   });
 
   testWidgets('RuntimeControlPanel renders description and resource tabs', (
@@ -178,6 +196,108 @@ void main() {
     },
   );
 
+  testWidgets(
+    'key references use rotate from toolbar for create and from row actions for prefilled rotation',
+    (WidgetTester tester) async {
+      final repository = _KeyRefRecordingAcpAdminRepository();
+      await _pumpRuntimeControlPanel(tester, repository);
+
+      await tester.tap(find.byKey(const Key('acp-admin-tab-key-refs')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('acp-admin-create-button')), findsNothing);
+      expect(
+        find.byKey(const Key('acp-admin-collection-action-rotate')),
+        findsOneWidget,
+      );
+      expect(find.text('Actions'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const Key('acp-admin-collection-action-rotate')),
+      );
+      await tester.pumpAndSettle();
+
+      var purposeField = tester.widget<TextFormField>(
+        find.byKey(const Key('acp-dynamic-field-Purpose')),
+      );
+      var keyIdField = tester.widget<TextFormField>(
+        find.byKey(const Key('acp-dynamic-field-KeyId')),
+      );
+      var providerField = tester.widget<TextFormField>(
+        find.byKey(const Key('acp-dynamic-field-Provider')),
+      );
+      var secretValueField = tester.widget<TextFormField>(
+        find.byKey(const Key('acp-dynamic-field-SecretValue')),
+      );
+      var attributesField = tester.widget<TextFormField>(
+        find.byKey(const Key('acp-dynamic-field-Attributes')),
+      );
+
+      expect(purposeField.controller!.text, isEmpty);
+      expect(keyIdField.controller!.text, isEmpty);
+      expect(providerField.controller!.text, 'local');
+      expect(secretValueField.controller!.text, isEmpty);
+      expect(attributesField.controller!.text, anyOf(isEmpty, '{}'));
+
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Rotate'), findsOneWidget);
+      await tester.tap(find.byTooltip('Rotate'));
+      await tester.pumpAndSettle();
+
+      purposeField = tester.widget<TextFormField>(
+        find.byKey(const Key('acp-dynamic-field-Purpose')),
+      );
+      keyIdField = tester.widget<TextFormField>(
+        find.byKey(const Key('acp-dynamic-field-KeyId')),
+      );
+      providerField = tester.widget<TextFormField>(
+        find.byKey(const Key('acp-dynamic-field-Provider')),
+      );
+      secretValueField = tester.widget<TextFormField>(
+        find.byKey(const Key('acp-dynamic-field-SecretValue')),
+      );
+      attributesField = tester.widget<TextFormField>(
+        find.byKey(const Key('acp-dynamic-field-Attributes')),
+      );
+
+      expect(purposeField.controller!.text, 'signing');
+      expect(keyIdField.controller!.text, 'app-primary');
+      expect(providerField.controller!.text, 'local');
+      expect(secretValueField.controller!.text, isEmpty);
+      expect(
+        attributesField.controller!.text,
+        contains('"region": "us-east-1"'),
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-SecretValue')),
+        'next-secret',
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Rotate'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Rotate'));
+      await tester.pumpAndSettle();
+
+      expect(repository.collectionActionPayloads, hasLength(1));
+      expect(repository.collectionActionPayloads.single['Purpose'], 'signing');
+      expect(
+        repository.collectionActionPayloads.single['KeyId'],
+        'app-primary',
+      );
+      expect(repository.collectionActionPayloads.single['Provider'], 'local');
+      expect(
+        repository.collectionActionPayloads.single['SecretValue'],
+        'next-secret',
+      );
+      expect(
+        repository.collectionActionPayloads.single['Attributes'],
+        <String, Object?>{'region': 'us-east-1'},
+      );
+    },
+  );
+
   test('runtime admin refreshes auth on session expiry', () async {
     final repository = FakeAcpAdminRepository()
       ..collectionActionResult = const Result<Object?>.failure(
@@ -237,6 +357,65 @@ class _RecordingAcpAdminRepository extends FakeAcpAdminRepository {
     createCalls.add(Map<String, dynamic>.from(values));
     return super.createRow(
       descriptor: descriptor,
+      values: values,
+      tenantId: tenantId,
+    );
+  }
+}
+
+class _KeyRefRecordingAcpAdminRepository extends FakeAcpAdminRepository {
+  final List<Map<String, dynamic>> collectionActionPayloads =
+      <Map<String, dynamic>>[];
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+  }) async {
+    if (descriptor.key != 'key-refs') {
+      return super.listRows(
+        descriptor: descriptor,
+        pageRequest: pageRequest,
+        tenantId: tenantId,
+        searchTerm: searchTerm,
+        extraFilters: extraFilters,
+      );
+    }
+
+    return const Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: <AcpRow>[
+          <String, Object?>{
+            'TenantId': 'global-id',
+            'RowVersion': 2,
+            'Purpose': 'signing',
+            'KeyId': 'app-primary',
+            'Provider': 'local',
+            'Status': 'active',
+            'Attributes': <String, Object?>{'region': 'us-east-1'},
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 15,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<Object?>> runCollectionAction({
+    required AcpResourceDescriptor descriptor,
+    required AcpActionDescriptor action,
+    required Map<String, dynamic> values,
+    String? tenantId,
+  }) async {
+    collectionActionPayloads.add(Map<String, dynamic>.from(values));
+    return super.runCollectionAction(
+      descriptor: descriptor,
+      action: action,
       values: values,
       tenantId: tenantId,
     );

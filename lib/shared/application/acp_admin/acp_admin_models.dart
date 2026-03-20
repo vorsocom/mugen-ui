@@ -56,6 +56,10 @@ class AcpActionDescriptor {
     this.includeRowVersion = false,
     this.icon,
     this.successMessage,
+    this.showInToolbar = true,
+    this.showInRowMenu = false,
+    this.prefillFieldsFromRow = false,
+    this.showAsRowButton = false,
   });
 
   final String name;
@@ -66,6 +70,10 @@ class AcpActionDescriptor {
   final bool includeRowVersion;
   final IconData? icon;
   final String? successMessage;
+  final bool showInToolbar;
+  final bool showInRowMenu;
+  final bool prefillFieldsFromRow;
+  final bool showAsRowButton;
 }
 
 class AcpResourceDescriptor {
@@ -88,6 +96,7 @@ class AcpResourceDescriptor {
     this.allowDelete = false,
     this.allowRestore = false,
     this.pageSize = 15,
+    this.actionsColumnLeading = false,
   });
 
   final String key;
@@ -108,6 +117,7 @@ class AcpResourceDescriptor {
   final bool allowDelete;
   final bool allowRestore;
   final int pageSize;
+  final bool actionsColumnLeading;
 }
 
 class AcpTenantOption {

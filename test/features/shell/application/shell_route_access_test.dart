@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/shell/application/shell_route_access.dart';
 
@@ -9,10 +9,9 @@ void main() {
   test(
     'resolveShellRouteAccess redirects unauthorized routes to allowed default',
     () {
-      final config = _routeAccessConfig();
-
       final access = resolveShellRouteAccess(
-        config: config,
+        shellRoutes: _routeAccessRoutes(),
+        defaultShellRouteId: RouteIds.chat,
         sessionRoles: const <String>[
           'com.vorsocomputing.mugen.acp:authenticated',
         ],
@@ -30,10 +29,9 @@ void main() {
   test(
     'resolveShellRouteAccess falls back to first allowed route when default is unauthorized',
     () {
-      final config = _routeAccessConfig(spaDefaultRoute: RouteIds.localUsers);
-
       final access = resolveShellRouteAccess(
-        config: config,
+        shellRoutes: _routeAccessRoutes(),
+        defaultShellRouteId: RouteIds.localUsers,
         sessionRoles: const <String>[
           'com.vorsocomputing.mugen.acp:authenticated',
         ],
@@ -47,10 +45,9 @@ void main() {
   );
 
   test('resolveShellRouteAccess preserves unknown routes', () {
-    final config = _routeAccessConfig();
-
     final access = resolveShellRouteAccess(
-      config: config,
+      shellRoutes: _routeAccessRoutes(),
+      defaultShellRouteId: RouteIds.chat,
       sessionRoles: const <String>[
         'com.vorsocomputing.mugen.acp:authenticated',
       ],
@@ -66,28 +63,19 @@ void main() {
   test(
     'resolveShellRouteAccess returns locked-out state when no routes are allowed',
     () {
-      final config = AppConfig.defaults().merge(
-        const AppConfigurationOverride(
-          drawerItems: <DrawerItemConfig>[
-            DrawerItemConfig(
-              title: 'Runtime Control',
-              icon: Icons.settings_input_component_outlined,
-              route: RouteIds.runtimeControl,
-            ),
-          ],
-          spaDefaultRoute: RouteIds.runtimeControl,
-          spaRoutes: <SpaRouteConfig>[
-            SpaRouteConfig(
-              id: RouteIds.runtimeControl,
-              title: 'Runtime Control',
-              roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
-            ),
-          ],
-        ),
-      );
-
       final access = resolveShellRouteAccess(
-        config: config,
+        shellRoutes: const <ShellRouteDefinition>[
+          ShellRouteDefinition(
+            id: RouteIds.runtimeControl,
+            title: 'Runtime Control',
+            icon: Icons.settings_input_component_outlined,
+            requiredRoles: <String>[
+              'com.vorsocomputing.mugen.acp:administrator',
+            ],
+            builder: _buildPlaceholderPage,
+          ),
+        ],
+        defaultShellRouteId: RouteIds.runtimeControl,
         sessionRoles: const <String>[
           'com.vorsocomputing.mugen.acp:authenticated',
         ],
@@ -102,32 +90,24 @@ void main() {
   );
 }
 
-AppConfig _routeAccessConfig({String spaDefaultRoute = RouteIds.chat}) {
-  return AppConfig.defaults()
-      .merge(
-        const AppConfigurationOverride(
-          drawerItems: <DrawerItemConfig>[
-            DrawerItemConfig(
-              title: 'AI Assist',
-              icon: Icons.chat_bubble_outline,
-              route: RouteIds.chat,
-            ),
-            DrawerItemConfig(
-              title: 'LocalUsers',
-              icon: Icons.groups_outlined,
-              route: RouteIds.localUsers,
-              section: 'Platform Configuration',
-            ),
-          ],
-          spaRoutes: <SpaRouteConfig>[
-            SpaRouteConfig(id: RouteIds.chat, title: 'AI Assist'),
-            SpaRouteConfig(
-              id: RouteIds.localUsers,
-              title: 'LocalUsers',
-              roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
-            ),
-          ],
-        ),
-      )
-      .merge(AppConfigurationOverride(spaDefaultRoute: spaDefaultRoute));
+List<ShellRouteDefinition> _routeAccessRoutes() {
+  return const <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: RouteIds.chat,
+      title: 'AI Assist',
+      icon: Icons.chat_bubble_outline,
+      builder: _buildPlaceholderPage,
+    ),
+    ShellRouteDefinition(
+      id: RouteIds.localUsers,
+      title: 'LocalUsers',
+      icon: Icons.groups_outlined,
+      requiredRoles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+      builder: _buildPlaceholderPage,
+    ),
+  ];
+}
+
+Widget _buildPlaceholderPage(BuildContext context) {
+  return const SizedBox.shrink();
 }

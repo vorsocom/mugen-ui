@@ -11,6 +11,7 @@ import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 class InviteRedeemPage extends ConsumerStatefulWidget {
   const InviteRedeemPage({
+    // coverage:ignore-line
     super.key,
     required this.inviteRoute,
   }); // coverage:ignore-line
@@ -115,7 +116,7 @@ class _InviteRedeemPageState extends ConsumerState<InviteRedeemPage> {
           return;
         }
 
-        await ref.read(appNavigatorProvider).navigateTo(RouteIds.app);
+        await ref.read(appNavigatorProvider).navigateTo(AppRoutePaths.app);
       }),
     );
   }

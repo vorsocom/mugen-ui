@@ -2,18 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
-import 'package:mugen_ui/features/auth/presentation/widgets/edit_profile_panel.dart';
-import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
 import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dart';
 import 'package:mugen_ui/features/shell/application/shell_route_access.dart';
 import 'package:mugen_ui/features/shell/presentation/providers/shell_providers.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/route_views.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/settings_panel.dart';
-import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const Key _shellNoAccessibleRoutesKey = Key('shell-no-access-routes');
@@ -41,10 +38,11 @@ class _ShellPageState extends ConsumerState<ShellPage> {
   @override
   Widget build(BuildContext context) {
     final shellState = ref.watch(shellControllerProvider);
-    final config = ref.watch(appConfigProvider);
+    final definition = ref.watch(appDefinitionProvider);
     final authState = ref.watch(authControllerProvider);
     final routeAccess = resolveShellRouteAccess(
-      config: config,
+      shellRoutes: definition.shellRoutes,
+      defaultShellRouteId: definition.defaultShellRouteId,
       sessionRoles: authState.session?.roles ?? const <String>[],
       requestedRoute: shellState.activeRoute,
     );
@@ -68,7 +66,11 @@ class _ShellPageState extends ConsumerState<ShellPage> {
                   Expanded(
                     child: shellState.showSettings
                         ? const ShellSettingsPanel()
-                        : _buildShellRouteBody(routeAccess),
+                        : _buildShellRouteBody(
+                            context: context,
+                            routeAccess: routeAccess,
+                            shellRoutes: definition.shellRoutes,
+                          ),
                   ),
                 ],
               ),
@@ -79,13 +81,21 @@ class _ShellPageState extends ConsumerState<ShellPage> {
     );
   }
 
-  Widget _buildShellRouteBody(ShellRouteAccess routeAccess) {
+  Widget _buildShellRouteBody({
+    required BuildContext context,
+    required ShellRouteAccess routeAccess,
+    required List<ShellRouteDefinition> shellRoutes,
+  }) {
     final displayedRouteId = routeAccess.displayedRouteId;
     if (displayedRouteId == null) {
       return const _NoAccessibleRoutesView();
     }
 
-    return buildSpaRouteWidget(displayedRouteId);
+    return buildRegisteredShellRouteWidget(
+      context: context,
+      routes: shellRoutes,
+      routeId: displayedRouteId,
+    );
   }
 
   void _scheduleRouteCorrection(ShellRouteAccess routeAccess) {
@@ -107,8 +117,10 @@ class _ShellPageState extends ConsumerState<ShellPage> {
       }
 
       final currentState = ref.read(shellControllerProvider);
+      final definition = ref.read(appDefinitionProvider);
       final currentAccess = resolveShellRouteAccess(
-        config: ref.read(appConfigProvider),
+        shellRoutes: definition.shellRoutes,
+        defaultShellRouteId: definition.defaultShellRouteId,
         sessionRoles:
             ref.read(authControllerProvider).session?.roles ?? const <String>[],
         requestedRoute: currentState.activeRoute,
@@ -144,11 +156,12 @@ class _ShellUserBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shellState = ref.watch(shellControllerProvider);
-    final config = ref.watch(appConfigProvider);
+    final definition = ref.watch(appDefinitionProvider);
     final authState = ref.watch(authControllerProvider);
     final session = authState.session;
     final routeAccess = resolveShellRouteAccess(
-      config: config,
+      shellRoutes: definition.shellRoutes,
+      defaultShellRouteId: definition.defaultShellRouteId,
       sessionRoles: session?.roles ?? const <String>[],
       requestedRoute: shellState.activeRoute,
     );
@@ -178,7 +191,7 @@ class _ShellUserBar extends ConsumerWidget {
           )
         : null;
     final routeTitle = _resolveShellRouteTitle(
-      config: config,
+      shellRoutes: definition.shellRoutes,
       shellState: shellState,
       routeAccess: routeAccess,
     );
@@ -232,7 +245,7 @@ class _ShellUserBar extends ConsumerWidget {
 }
 
 String _resolveShellRouteTitle({
-  required AppConfig config,
+  required List<ShellRouteDefinition> shellRoutes,
   required ShellState shellState,
   required ShellRouteAccess routeAccess,
 }) {
@@ -245,10 +258,12 @@ String _resolveShellRouteTitle({
     return 'Access Restricted';
   }
 
-  for (final route in config.spaRoutes) {
-    if (route.id == displayedRouteId) {
-      return route.title;
-    }
+  final displayedRoute = findShellRouteDefinition(
+    routes: shellRoutes,
+    routeId: displayedRouteId,
+  );
+  if (displayedRoute != null) {
+    return displayedRoute.title;
   }
 
   return displayedRouteId;
@@ -563,8 +578,8 @@ class _AccountInlineSettingsSection extends StatefulWidget {
     required this.onSelectPanel,
   });
 
-  final List<SettingsPanelConfig> panels;
-  final Future<void> Function(SettingsPanelConfig panel) onSelectPanel;
+  final List<SettingsPanelDefinition> panels;
+  final Future<void> Function(SettingsPanelDefinition panel) onSelectPanel;
 
   @override
   State<_AccountInlineSettingsSection> createState() =>
@@ -614,7 +629,7 @@ class _AccountInlineSettingsSectionState
                             padding: const EdgeInsets.only(bottom: 6),
                             child: _AccountSettingsPanelAction(
                               key: ValueKey<String>(
-                                '$_shellSettingsPanelKeyPrefix-${panel.type.name}',
+                                '$_shellSettingsPanelKeyPrefix-${panel.id}',
                               ),
                               panel: panel,
                               onTap: () => widget.onSelectPanel(panel),
@@ -638,7 +653,7 @@ class _AccountSettingsPanelAction extends StatelessWidget {
     super.key,
   });
 
-  final SettingsPanelConfig panel;
+  final SettingsPanelDefinition panel;
   final VoidCallback onTap;
 
   @override
@@ -686,59 +701,18 @@ String _buildReplayResyncTooltip(String? reasonCode) {
   return '$detail ($reasonCode)';
 }
 
-List<SettingsPanelConfig> _visibleSettingsPanels(WidgetRef ref) {
-  final config = ref.read(appConfigProvider);
-  final auth = ref.read(authControllerProvider.notifier);
-  return config.settingsPanels
-      .where((panel) => auth.hasRoles(panel.roles))
-      .toList(growable: false);
+List<SettingsPanelDefinition> _visibleSettingsPanels(WidgetRef ref) {
+  return visibleSettingsPanels(
+    panels: ref.read(settingsPanelDefinitionsProvider),
+    hasRoles: ref.read(authControllerProvider.notifier).hasRoles,
+  );
 }
 
 Future<void> _openSettingsOverlay(
   BuildContext context,
-  SettingsPanelConfig panel,
+  SettingsPanelDefinition panel,
 ) async {
-  final (
-    maxWidth,
-    maxHeight,
-    body,
-    showHeader,
-    expandBody,
-  ) = switch (panel.type) {
-    SettingsPanelType.account => (
-      760.0,
-      640.0,
-      const EditProfilePanel(),
-      false,
-      false,
-    ),
-    SettingsPanelType.resetPassword => (
-      760.0,
-      620.0,
-      const ResetPasswordPanel(),
-      false,
-      false,
-    ),
-    SettingsPanelType.users => (
-      1280.0,
-      860.0,
-      const LocalUserPanel(),
-      true,
-      true,
-    ),
-  };
-
-  await showDialog<void>(
-    context: context,
-    builder: (_) => _AccountSettingsOverlayDialog(
-      title: panel.title,
-      maxWidth: maxWidth,
-      maxHeight: maxHeight,
-      showHeader: showHeader,
-      expandBody: expandBody,
-      child: body,
-    ),
-  );
+  await showSettingsPanelOverlay(context, panel);
 }
 
 Future<void> _handleLogout(WidgetRef ref) async {
@@ -746,7 +720,7 @@ Future<void> _handleLogout(WidgetRef ref) async {
   if (!success) {
     return;
   }
-  await ref.read(appNavigatorProvider).navigateTo(RouteIds.login);
+  await ref.read(appNavigatorProvider).navigateTo(AppRoutePaths.login);
 }
 
 String _buildUserInitials(String displayName) {
@@ -780,72 +754,6 @@ String _firstCharacter(String value) {
   return trimmed.substring(0, 1);
 }
 
-class _AccountSettingsOverlayDialog extends StatelessWidget {
-  const _AccountSettingsOverlayDialog({
-    required this.title,
-    required this.maxWidth,
-    required this.maxHeight,
-    required this.child,
-    this.showHeader = true,
-    this.expandBody = true,
-  });
-
-  final String title;
-  final double maxWidth;
-  final double maxHeight;
-  final Widget child;
-  final bool showHeader;
-  final bool expandBody;
-
-  @override
-  Widget build(BuildContext context) {
-    final media = MediaQuery.sizeOf(context);
-
-    return Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: maxWidth.clamp(320.0, media.width - 48),
-          maxHeight: maxHeight.clamp(280.0, media.height - 48),
-        ),
-        child: Column(
-          mainAxisSize: expandBody ? MainAxisSize.max : MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (showHeader)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: AppUiPalette.border),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: 'Close',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-              ),
-            if (expandBody) Expanded(child: child) else child,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _AppDrawer extends ConsumerWidget {
   const _AppDrawer({required this.isCollapsed, required this.showSettings});
 
@@ -855,20 +763,23 @@ class _AppDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
+    final definition = ref.watch(appDefinitionProvider);
     final shellState = ref.watch(shellControllerProvider);
     final sessionRoles =
         ref.watch(authControllerProvider).session?.roles ?? const <String>[];
     final routeAccess = resolveShellRouteAccess(
-      config: config,
+      shellRoutes: definition.shellRoutes,
+      defaultShellRouteId: definition.defaultShellRouteId,
       sessionRoles: sessionRoles,
       requestedRoute: shellState.activeRoute,
     );
     final activeRoute = routeAccess.displayedRouteId;
-    final visibleDrawerItems = config.drawerItems
-        .where((item) => routeAccess.allowedRouteIds.contains(item.route))
+    final visibleDrawerItems = definition.shellRoutes
+        .where((item) => item.showInDrawer)
+        .where((item) => routeAccess.allowedRouteIds.contains(item.id))
         .toList(growable: false);
-    final primaryItems = <DrawerItemConfig>[];
-    final sectionedItems = <String, List<DrawerItemConfig>>{};
+    final primaryItems = <ShellRouteDefinition>[];
+    final sectionedItems = <String, List<ShellRouteDefinition>>{};
     for (final item in visibleDrawerItems) {
       final sectionName = item.section?.trim();
       if (sectionName == null || sectionName.isEmpty) {
@@ -876,7 +787,7 @@ class _AppDrawer extends ConsumerWidget {
         continue;
       }
       sectionedItems
-          .putIfAbsent(sectionName, () => <DrawerItemConfig>[])
+          .putIfAbsent(sectionName, () => <ShellRouteDefinition>[])
           .add(item);
     }
     final sectionEntries = sectionedItems.entries.toList(growable: false);
@@ -912,7 +823,7 @@ class _AppDrawer extends ConsumerWidget {
                       context: context,
                       ref: ref,
                       item: item,
-                      isSelected: !showSettings && activeRoute == item.route,
+                      isSelected: !showSettings && activeRoute == item.id,
                       isCollapsed: isCollapsed,
                     ),
                   for (
@@ -951,7 +862,7 @@ class _AppDrawer extends ConsumerWidget {
                         context: context,
                         ref: ref,
                         item: item,
-                        isSelected: !showSettings && activeRoute == item.route,
+                        isSelected: !showSettings && activeRoute == item.id,
                         isCollapsed: isCollapsed,
                       ),
                   ],
@@ -968,7 +879,7 @@ class _AppDrawer extends ConsumerWidget {
 Widget _buildDrawerNavItem({
   required BuildContext context,
   required WidgetRef ref,
-  required DrawerItemConfig item,
+  required ShellRouteDefinition item,
   required bool isSelected,
   required bool isCollapsed,
 }) {
@@ -979,7 +890,7 @@ Widget _buildDrawerNavItem({
     child: InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: () {
-        ref.read(shellControllerProvider.notifier).setRoute(item.route);
+        ref.read(shellControllerProvider.notifier).setRoute(item.id);
       },
       child: Container(
         padding: EdgeInsets.symmetric(

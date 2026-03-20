@@ -44,8 +44,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (success) {
       final pendingInvite = ref.read(pendingInviteControllerProvider);
       final targetRoute = pendingInvite == null
-          ? RouteIds.app
-          : RouteIds.buildInviteRoute(
+          ? AppRoutePaths.app
+          : AppRoutePaths.buildInviteRoute(
               tenantId: pendingInvite.tenantId,
               invitationId: pendingInvite.invitationId,
             );

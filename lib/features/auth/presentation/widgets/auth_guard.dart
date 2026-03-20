@@ -19,7 +19,7 @@ class AuthGuard extends ConsumerWidget {
     final authState = ref.watch(authControllerProvider);
     final navigator = ref.watch(appNavigatorProvider);
     final route = navigator.currentRoute();
-    final inviteRoute = RouteIds.parseInviteRoute(route);
+    final inviteRoute = AppRoutePaths.parseInviteRoute(route);
 
     if (!authState.isAuthenticated) {
       if (inviteRoute != null) {
@@ -30,9 +30,9 @@ class AuthGuard extends ConsumerWidget {
         });
       }
 
-      if (route != RouteIds.login) {
+      if (route != AppRoutePaths.login) {
         SchedulerBinding.instance.addPostFrameCallback((_) {
-          navigator.navigateTo(RouteIds.login);
+          navigator.navigateTo(AppRoutePaths.login);
         });
 
         return const _AuthGuardLoadingView();
@@ -41,11 +41,11 @@ class AuthGuard extends ConsumerWidget {
       return child;
     }
 
-    if (route == RouteIds.login) {
+    if (route == AppRoutePaths.login) {
       final pendingInvite = ref.read(pendingInviteControllerProvider);
       final targetRoute = pendingInvite == null
-          ? RouteIds.app
-          : RouteIds.buildInviteRoute(
+          ? AppRoutePaths.app
+          : AppRoutePaths.buildInviteRoute(
               tenantId: pendingInvite.tenantId,
               invitationId: pendingInvite.invitationId,
             );
@@ -62,7 +62,7 @@ class AuthGuard extends ConsumerWidget {
             .read(pendingInviteControllerProvider.notifier)
             .setPending(inviteRoute);
         navigator.navigateTo(
-          RouteIds.buildInviteRoute(
+          AppRoutePaths.buildInviteRoute(
             tenantId: inviteRoute.tenantId,
             invitationId: inviteRoute.invitationId,
           ),

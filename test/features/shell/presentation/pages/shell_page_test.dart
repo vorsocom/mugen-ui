@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/features/auth/presentation/widgets/edit_profile_panel.dart';
+import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
 import 'package:mugen_ui/features/chat/domain/entities/chat_composition_mode.dart';
 import 'package:mugen_ui/features/chat/domain/entities/chat_message_entity.dart';
 import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dart';
@@ -22,6 +25,7 @@ import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
 import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
+import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -34,31 +38,27 @@ const Key _shellAccountMenuTriggerKey = Key('shell-account-menu-trigger');
 const Key _shellAccountMenuSettingsKey = Key('shell-account-menu-settings');
 const Key _shellAccountMenuLogoutKey = Key('shell-account-menu-logout');
 const Key _shellAccountSettingsPanelAccountKey = Key(
-  'shell-account-settings-panel-account',
+  'shell-account-settings-panel-core.auth.account',
 );
 const Key _shellAccountSettingsPanelResetPasswordKey = Key(
-  'shell-account-settings-panel-resetPassword',
+  'shell-account-settings-panel-core.auth.reset_password',
 );
 const Key _shellAccountSettingsPanelUsersKey = Key(
-  'shell-account-settings-panel-users',
+  'shell-account-settings-panel-test.settings.local_users',
 );
 
 void main() {
   testWidgets('user bar title follows active SPA route', (tester) async {
-    final config = AppConfig.defaults().merge(
-      const AppConfigurationOverride(
-        drawerItems: <DrawerItemConfig>[
-          DrawerItemConfig(
-            title: 'Reports',
-            icon: Icons.dashboard_outlined,
-            route: _reportsRoute,
-          ),
-        ],
-        spaDefaultRoute: _reportsRoute,
-        spaRoutes: <SpaRouteConfig>[
-          SpaRouteConfig(id: _reportsRoute, title: 'Reports'),
-        ],
-      ),
+    final definition = _buildShellTestDefinition(
+      defaultShellRouteId: _reportsRoute,
+      shellRoutes: const <ShellRouteDefinition>[
+        ShellRouteDefinition(
+          id: _reportsRoute,
+          title: 'Reports',
+          icon: Icons.dashboard_outlined,
+          builder: _buildReportsPage,
+        ),
+      ],
     );
     final shellController = _TestShellController(
       initialState: const ShellState(
@@ -74,7 +74,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
-          appConfigProvider.overrideWith((ref) => config),
+          appDefinitionProvider.overrideWith((ref) => definition),
           shellControllerProvider.overrideWith(() => shellController),
           authControllerProvider.overrideWith(() => authController),
         ],
@@ -92,20 +92,16 @@ void main() {
   testWidgets('user bar title shows Settings while settings panel is open', (
     tester,
   ) async {
-    final config = AppConfig.defaults().merge(
-      const AppConfigurationOverride(
-        drawerItems: <DrawerItemConfig>[
-          DrawerItemConfig(
-            title: 'Reports',
-            icon: Icons.dashboard_outlined,
-            route: _reportsRoute,
-          ),
-        ],
-        spaDefaultRoute: _reportsRoute,
-        spaRoutes: <SpaRouteConfig>[
-          SpaRouteConfig(id: _reportsRoute, title: 'Reports'),
-        ],
-      ),
+    final definition = _buildShellTestDefinition(
+      defaultShellRouteId: _reportsRoute,
+      shellRoutes: const <ShellRouteDefinition>[
+        ShellRouteDefinition(
+          id: _reportsRoute,
+          title: 'Reports',
+          icon: Icons.dashboard_outlined,
+          builder: _buildReportsPage,
+        ),
+      ],
     );
     final shellController = _TestShellController(
       initialState: const ShellState(
@@ -121,7 +117,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
-          appConfigProvider.overrideWith((ref) => config),
+          appDefinitionProvider.overrideWith((ref) => definition),
           shellControllerProvider.overrideWith(() => shellController),
           authControllerProvider.overrideWith(() => authController),
         ],
@@ -789,26 +785,22 @@ void main() {
   testWidgets('drawer toggle and nav item taps call shell controller actions', (
     tester,
   ) async {
-    final config = AppConfig.defaults().merge(
-      const AppConfigurationOverride(
-        drawerItems: <DrawerItemConfig>[
-          DrawerItemConfig(
-            title: 'AI Assist',
-            icon: Icons.chat_bubble_outline,
-            route: RouteIds.chat,
-          ),
-          DrawerItemConfig(
-            title: 'LocalUsers',
-            icon: Icons.groups_outlined,
-            route: RouteIds.localUsers,
-            section: 'Platform Configuration',
-          ),
-        ],
-        spaRoutes: <SpaRouteConfig>[
-          SpaRouteConfig(id: RouteIds.chat, title: 'AI Assist'),
-          SpaRouteConfig(id: RouteIds.localUsers, title: 'LocalUsers'),
-        ],
-      ),
+    final definition = _buildShellTestDefinition(
+      shellRoutes: const <ShellRouteDefinition>[
+        ShellRouteDefinition(
+          id: RouteIds.chat,
+          title: 'AI Assist',
+          icon: Icons.chat_bubble_outline,
+          builder: _buildPlaceholderShellPage,
+        ),
+        ShellRouteDefinition(
+          id: RouteIds.localUsers,
+          title: 'LocalUsers',
+          icon: Icons.groups_outlined,
+          section: 'Platform Configuration',
+          builder: _buildPlaceholderShellPage,
+        ),
+      ],
     );
     final shellController = _TrackingShellController(
       initialState: const ShellState(
@@ -836,7 +828,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
-          appConfigProvider.overrideWith((ref) => config),
+          appDefinitionProvider.overrideWith((ref) => definition),
           shellControllerProvider.overrideWith(() => shellController),
           authControllerProvider.overrideWith(() => authController),
           chatControllerProvider.overrideWith(() => chatController),
@@ -907,57 +899,49 @@ void main() {
     expect(find.text('Connecting...'), findsOneWidget);
   });
 
-  testWidgets(
-    'route title follows spa route metadata instead of drawer labels',
-    (tester) async {
-      final routeTitleConfig = AppConfig.defaults().merge(
-        const AppConfigurationOverride(
-          drawerItems: <DrawerItemConfig>[
-            DrawerItemConfig(
-              title: 'Reports Drawer',
-              icon: Icons.dashboard_outlined,
-              route: _reportsRoute,
-            ),
-          ],
-          spaDefaultRoute: _reportsRoute,
-          spaRoutes: <SpaRouteConfig>[
-            SpaRouteConfig(id: _reportsRoute, title: 'Reports Route'),
-          ],
+  testWidgets('route title follows registered shell route metadata', (
+    tester,
+  ) async {
+    final definition = _buildShellTestDefinition(
+      defaultShellRouteId: _reportsRoute,
+      shellRoutes: const <ShellRouteDefinition>[
+        ShellRouteDefinition(
+          id: _reportsRoute,
+          title: 'Reports Route',
+          icon: Icons.dashboard_outlined,
+          builder: _buildReportsPage,
         ),
-      );
-      final authController = _TestAuthController(
-        initialState: const AuthControllerState(
-          isLoading: false,
-          session: null,
-        ),
-      );
+      ],
+    );
+    final authController = _TestAuthController(
+      initialState: const AuthControllerState(isLoading: false, session: null),
+    );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: <Override>[
-            appConfigProvider.overrideWith((ref) => routeTitleConfig),
-            shellControllerProvider.overrideWith(
-              () => _TestShellController(
-                initialState: const ShellState(
-                  isDrawerCollapsed: false,
-                  showSettings: false,
-                  activeRoute: _reportsRoute,
-                ),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appDefinitionProvider.overrideWith((ref) => definition),
+          shellControllerProvider.overrideWith(
+            () => _TestShellController(
+              initialState: const ShellState(
+                isDrawerCollapsed: false,
+                showSettings: false,
+                activeRoute: _reportsRoute,
               ),
             ),
-            authControllerProvider.overrideWith(() => authController),
-          ],
-          child: const MaterialApp(home: ShellPage()),
-        ),
-      );
-      await tester.pumpAndSettle();
+          ),
+          authControllerProvider.overrideWith(() => authController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      final routeTitle = tester.widget<Text>(
-        find.byKey(const Key('shell-user-bar-title')),
-      );
-      expect(routeTitle.data, 'Reports Route');
-    },
-  );
+    final routeTitle = tester.widget<Text>(
+      find.byKey(const Key('shell-user-bar-title')),
+    );
+    expect(routeTitle.data, 'Reports Route');
+  });
 
   testWidgets('route title falls back to active route when unresolved', (
     tester,
@@ -1133,25 +1117,18 @@ void main() {
   );
 
   testWidgets('locked-out users see the no-access shell state', (tester) async {
-    final config = AppConfig.defaults().merge(
-      const AppConfigurationOverride(
-        drawerItems: <DrawerItemConfig>[
-          DrawerItemConfig(
-            title: 'Runtime Control',
-            icon: Icons.settings_input_component_outlined,
-            route: RouteIds.runtimeControl,
-            section: 'Platform Configuration',
-          ),
-        ],
-        spaDefaultRoute: RouteIds.runtimeControl,
-        spaRoutes: <SpaRouteConfig>[
-          SpaRouteConfig(
-            id: RouteIds.runtimeControl,
-            title: 'Runtime Control',
-            roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
-          ),
-        ],
-      ),
+    final definition = _buildShellTestDefinition(
+      defaultShellRouteId: RouteIds.runtimeControl,
+      shellRoutes: const <ShellRouteDefinition>[
+        ShellRouteDefinition(
+          id: RouteIds.runtimeControl,
+          title: 'Runtime Control',
+          icon: Icons.settings_input_component_outlined,
+          section: 'Platform Configuration',
+          requiredRoles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+          builder: _buildPlaceholderShellPage,
+        ),
+      ],
     );
     final shellController = _TestShellController(
       initialState: const ShellState(
@@ -1175,7 +1152,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
-          appConfigProvider.overrideWith((ref) => config),
+          appDefinitionProvider.overrideWith((ref) => definition),
           shellControllerProvider.overrideWith(() => shellController),
           authControllerProvider.overrideWith(() => authController),
         ],
@@ -1347,26 +1324,22 @@ void main() {
   testWidgets('collapsed drawer renders section divider and item tooltips', (
     tester,
   ) async {
-    final config = AppConfig.defaults().merge(
-      const AppConfigurationOverride(
-        drawerItems: <DrawerItemConfig>[
-          DrawerItemConfig(
-            title: 'Chat',
-            icon: Icons.chat_bubble_outline,
-            route: RouteIds.chat,
-          ),
-          DrawerItemConfig(
-            title: 'LocalUsers',
-            icon: Icons.groups_outlined,
-            route: RouteIds.localUsers,
-            section: 'Platform Configuration',
-          ),
-        ],
-        spaRoutes: <SpaRouteConfig>[
-          SpaRouteConfig(id: RouteIds.chat, title: 'AI Assist'),
-          SpaRouteConfig(id: RouteIds.localUsers, title: 'LocalUsers'),
-        ],
-      ),
+    final definition = _buildShellTestDefinition(
+      shellRoutes: const <ShellRouteDefinition>[
+        ShellRouteDefinition(
+          id: RouteIds.chat,
+          title: 'Chat',
+          icon: Icons.chat_bubble_outline,
+          builder: _buildPlaceholderShellPage,
+        ),
+        ShellRouteDefinition(
+          id: RouteIds.localUsers,
+          title: 'LocalUsers',
+          icon: Icons.groups_outlined,
+          section: 'Platform Configuration',
+          builder: _buildPlaceholderShellPage,
+        ),
+      ],
     );
     final shellController = _TestShellController(
       initialState: const ShellState(
@@ -1394,7 +1367,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
-          appConfigProvider.overrideWith((ref) => config),
+          appDefinitionProvider.overrideWith((ref) => definition),
           shellControllerProvider.overrideWith(() => shellController),
           authControllerProvider.overrideWith(() => authController),
           chatControllerProvider.overrideWith(() => chatController),
@@ -1411,17 +1384,15 @@ void main() {
   testWidgets(
     'users settings panel opens dialog with header and close action',
     (tester) async {
-      final config = AppConfig.defaults().merge(
-        const AppConfigurationOverride(
-          settingsPanels: <SettingsPanelConfig>[
-            SettingsPanelConfig(
-              title: 'Local Users',
-              icon: Icons.groups_outlined,
-              roles: <String>[],
-              type: SettingsPanelType.users,
-            ),
-          ],
-        ),
+      final definition = _buildShellTestDefinition(
+        settingsPanels: const <SettingsPanelDefinition>[
+          SettingsPanelDefinition(
+            id: 'test.settings.local_users',
+            title: 'Local Users',
+            icon: Icons.groups_outlined,
+            builder: _buildLocalUsersPanel,
+          ),
+        ],
       );
       final shellController = _TestShellController(
         initialState: const ShellState(
@@ -1452,7 +1423,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: <Override>[
-            appConfigProvider.overrideWith((ref) => config),
+            appDefinitionProvider.overrideWith((ref) => definition),
             shellControllerProvider.overrideWith(() => shellController),
             authControllerProvider.overrideWith(() => authController),
             chatControllerProvider.overrideWith(() => chatController),
@@ -1479,6 +1450,123 @@ void main() {
       expect(find.byType(Dialog), findsNothing);
     },
   );
+}
+
+MugenUiAppDefinition _buildShellTestDefinition({
+  AppConfig? config,
+  String defaultShellRouteId = RouteIds.chat,
+  List<ShellRouteDefinition>? shellRoutes,
+  List<SettingsPanelDefinition>? settingsPanels,
+}) {
+  return MugenUiAppDefinition(
+    config: config ?? AppConfig.defaults(),
+    defaultShellRouteId: defaultShellRouteId,
+    modules: <MugenUiModule>[
+      MugenUiModule(
+        id: 'test.shell',
+        shellRoutes:
+            shellRoutes ??
+            const <ShellRouteDefinition>[
+              ShellRouteDefinition(
+                id: RouteIds.chat,
+                title: 'AI Assist',
+                icon: Icons.chat_bubble_outline,
+                builder: _buildPlaceholderShellPage,
+              ),
+              ShellRouteDefinition(
+                id: RouteIds.localUsers,
+                title: 'LocalUsers',
+                icon: Icons.groups_outlined,
+                section: 'Platform Configuration',
+                requiredRoles: <String>[
+                  'com.vorsocomputing.mugen.acp:administrator',
+                ],
+                builder: _buildPlaceholderShellPage,
+              ),
+              ShellRouteDefinition(
+                id: RouteIds.tenantManagement,
+                title: 'Tenants',
+                icon: Icons.apartment_outlined,
+                section: 'Platform Configuration',
+                requiredRoles: <String>[
+                  'com.vorsocomputing.mugen.acp:administrator',
+                ],
+                builder: _buildPlaceholderShellPage,
+              ),
+              ShellRouteDefinition(
+                id: RouteIds.rolePermissionManagement,
+                title: 'Roles & Permissions',
+                icon: Icons.admin_panel_settings_outlined,
+                section: 'Platform Configuration',
+                requiredRoles: <String>[
+                  'com.vorsocomputing.mugen.acp:administrator',
+                ],
+                builder: _buildPlaceholderShellPage,
+              ),
+              ShellRouteDefinition(
+                id: RouteIds.auditManagement,
+                title: 'Audit Events',
+                icon: Icons.fact_check_outlined,
+                section: 'Platform Configuration',
+                requiredRoles: <String>[
+                  'com.vorsocomputing.mugen.acp:administrator',
+                ],
+                builder: _buildPlaceholderShellPage,
+              ),
+            ],
+      ),
+      MugenUiModule(
+        id: 'test.settings',
+        settingsPanels:
+            settingsPanels ??
+            const <SettingsPanelDefinition>[
+              SettingsPanelDefinition(
+                id: 'core.auth.account',
+                title: 'Edit Profile',
+                icon: Icons.person_outline,
+                builder: _buildEditProfilePanel,
+                requiredRoles: <String>[
+                  'com.vorsocomputing.mugen.acp:authenticated',
+                ],
+                showHeader: false,
+                expandBody: false,
+              ),
+              SettingsPanelDefinition(
+                id: 'core.auth.reset_password',
+                title: 'Reset Password',
+                icon: Icons.security,
+                builder: _buildResetPasswordPanel,
+                requiredRoles: <String>[
+                  'com.vorsocomputing.mugen.acp:authenticated',
+                ],
+                maxHeight: 620,
+                showHeader: false,
+                expandBody: false,
+              ),
+            ],
+      ),
+    ],
+  );
+}
+
+Widget _buildPlaceholderShellPage(BuildContext context) {
+  return const SizedBox.shrink();
+}
+
+Widget _buildReportsPage(BuildContext context) {
+  return const SizedBox.shrink();
+}
+
+Widget _buildEditProfilePanel(BuildContext context) {
+  return const EditProfilePanel();
+}
+
+Widget _buildResetPasswordPanel(BuildContext context) {
+  return const ResetPasswordPanel();
+}
+
+Widget _buildLocalUsersPanel(BuildContext context) {
+  return const LocalUserPanel();
 }
 
 class _TestShellController extends ShellController {

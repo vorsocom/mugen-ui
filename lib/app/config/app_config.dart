@@ -1,7 +1,3 @@
-import 'package:flutter/material.dart';
-
-import 'package:mugen_ui/app/routing/route_ids.dart';
-
 const String acpNamespace = 'com.vorsocomputing.mugen.acp';
 
 class ApiEndpointsConfig {
@@ -298,7 +294,6 @@ class ApiConfig {
 
 class ApiConfigOverride {
   const ApiConfigOverride({
-    // coverage:ignore-line
     this.baseUrl,
     this.endpoints,
   }); // coverage:ignore-line
@@ -314,90 +309,18 @@ class AppRoleConfig {
   final String displayName;
 }
 
-class DrawerItemConfig {
-  const DrawerItemConfig({
-    required this.title,
-    required this.icon,
-    required this.route,
-    this.section,
-  });
-
-  final String title;
-  final IconData icon;
-  final String route;
-  final String? section;
-}
-
-enum SettingsPanelType { account, resetPassword, users }
-
-class SettingsPanelConfig {
-  const SettingsPanelConfig({
-    required this.title,
-    required this.icon,
-    required this.roles,
-    required this.type,
-  });
-
-  final String title;
-  final IconData icon;
-  final List<String> roles;
-  final SettingsPanelType type;
-}
-
-class SpaRouteConfig {
-  const SpaRouteConfig({
-    required this.id,
-    required this.title,
-    this.roles = const <String>[],
-  });
-
-  final String id;
-  final String title;
-  final List<String> roles;
-}
-
 class AppConfig {
   AppConfig({
     required this.appName,
     required this.appVersion,
     required this.api,
     required this.activeRoles,
-    required this.drawerItems,
-    required this.settingsPanels,
-    required this.spaDefaultRoute,
-    required this.spaRoutes,
-  }) : assert(
-         _containsSpaRoute(spaRoutes, spaDefaultRoute),
-         'spaDefaultRoute must match a configured spaRoute.',
-       ),
-       assert(
-         _drawerRoutesAreRegistered(drawerItems, spaRoutes),
-         'drawerItems must reference configured spaRoutes.',
-       );
+  });
 
   final String appName;
   final String appVersion;
   final ApiConfig api;
   final List<AppRoleConfig> activeRoles;
-  final List<DrawerItemConfig> drawerItems;
-  final List<SettingsPanelConfig> settingsPanels;
-  final String spaDefaultRoute;
-  final List<SpaRouteConfig> spaRoutes;
-
-  static bool _containsSpaRoute(
-    List<SpaRouteConfig> spaRoutes,
-    String routeId,
-  ) {
-    return spaRoutes.any((route) => route.id == routeId);
-  }
-
-  static bool _drawerRoutesAreRegistered(
-    List<DrawerItemConfig> drawerItems,
-    List<SpaRouteConfig> spaRoutes,
-  ) {
-    final spaRouteIds = spaRoutes.map((route) => route.id).toSet();
-    return drawerItems.every((item) => spaRouteIds.contains(item.route));
-  }
 
   factory AppConfig.defaults() {
     return AppConfig(
@@ -486,119 +409,6 @@ class AppConfig {
           displayName: 'Authenticated',
         ),
       ],
-      drawerItems: const <DrawerItemConfig>[
-        DrawerItemConfig(
-          title: 'AI Assist',
-          icon: Icons.chat_bubble_outline,
-          route: RouteIds.chat,
-        ),
-        DrawerItemConfig(
-          title: 'LocalUsers',
-          icon: Icons.groups_outlined,
-          route: RouteIds.localUsers,
-          section: 'Platform Configuration',
-        ),
-        DrawerItemConfig(
-          title: 'Tenants',
-          icon: Icons.apartment_outlined,
-          route: RouteIds.tenantManagement,
-          section: 'Platform Configuration',
-        ),
-        DrawerItemConfig(
-          title: 'Roles & Permissions',
-          icon: Icons.admin_panel_settings_outlined,
-          route: RouteIds.rolePermissionManagement,
-          section: 'Platform Configuration',
-        ),
-        DrawerItemConfig(
-          title: 'Audit Events',
-          icon: Icons.fact_check_outlined,
-          route: RouteIds.auditManagement,
-          section: 'Platform Configuration',
-        ),
-        DrawerItemConfig(
-          title: 'Runtime Control',
-          icon: Icons.settings_input_component_outlined,
-          route: RouteIds.runtimeControl,
-          section: 'Platform Configuration',
-        ),
-        DrawerItemConfig(
-          title: 'Channel Orchestration',
-          icon: Icons.alt_route_outlined,
-          route: RouteIds.channelOrchestration,
-          section: 'Platform Configuration',
-        ),
-        DrawerItemConfig(
-          title: 'Context Engine',
-          icon: Icons.hub_outlined,
-          route: RouteIds.contextEngine,
-          section: 'Platform Configuration',
-        ),
-        DrawerItemConfig(
-          title: 'ACP Console',
-          icon: Icons.data_object_outlined,
-          route: RouteIds.acpConsole,
-          section: 'Platform Configuration',
-        ),
-      ],
-      settingsPanels: const <SettingsPanelConfig>[
-        SettingsPanelConfig(
-          title: 'Edit Profile',
-          icon: Icons.person_outline,
-          roles: <String>['$acpNamespace:authenticated'],
-          type: SettingsPanelType.account,
-        ),
-        SettingsPanelConfig(
-          title: 'Reset Password',
-          icon: Icons.security,
-          roles: <String>['$acpNamespace:authenticated'],
-          type: SettingsPanelType.resetPassword,
-        ),
-      ],
-      spaDefaultRoute: RouteIds.chat,
-      spaRoutes: const <SpaRouteConfig>[
-        SpaRouteConfig(id: RouteIds.chat, title: 'AI Assist'),
-        SpaRouteConfig(
-          id: RouteIds.localUsers,
-          title: 'LocalUsers',
-          roles: <String>['$acpNamespace:administrator'],
-        ),
-        SpaRouteConfig(
-          id: RouteIds.tenantManagement,
-          title: 'Tenants',
-          roles: <String>['$acpNamespace:administrator'],
-        ),
-        SpaRouteConfig(
-          id: RouteIds.rolePermissionManagement,
-          title: 'Roles & Permissions',
-          roles: <String>['$acpNamespace:administrator'],
-        ),
-        SpaRouteConfig(
-          id: RouteIds.auditManagement,
-          title: 'Audit Events',
-          roles: <String>['$acpNamespace:administrator'],
-        ),
-        SpaRouteConfig(
-          id: RouteIds.runtimeControl,
-          title: 'Runtime Control',
-          roles: <String>['$acpNamespace:administrator'],
-        ),
-        SpaRouteConfig(
-          id: RouteIds.channelOrchestration,
-          title: 'Channel Orchestration',
-          roles: <String>['$acpNamespace:administrator'],
-        ),
-        SpaRouteConfig(
-          id: RouteIds.contextEngine,
-          title: 'Context Engine',
-          roles: <String>['$acpNamespace:administrator'],
-        ),
-        SpaRouteConfig(
-          id: RouteIds.acpConsole,
-          title: 'ACP Console',
-          roles: <String>['$acpNamespace:administrator'],
-        ),
-      ],
     );
   }
 
@@ -608,10 +418,6 @@ class AppConfig {
       appVersion: override.appVersion ?? appVersion,
       api: api.merge(override.api),
       activeRoles: override.activeRoles ?? activeRoles,
-      drawerItems: override.drawerItems ?? drawerItems,
-      settingsPanels: override.settingsPanels ?? settingsPanels,
-      spaDefaultRoute: override.spaDefaultRoute ?? spaDefaultRoute,
-      spaRoutes: override.spaRoutes ?? spaRoutes,
     );
   }
 }
@@ -622,18 +428,10 @@ class AppConfigurationOverride {
     this.appVersion,
     this.api,
     this.activeRoles,
-    this.drawerItems,
-    this.settingsPanels,
-    this.spaDefaultRoute,
-    this.spaRoutes,
   });
 
   final String? appName;
   final String? appVersion;
   final ApiConfigOverride? api;
   final List<AppRoleConfig>? activeRoles;
-  final List<DrawerItemConfig>? drawerItems;
-  final List<SettingsPanelConfig>? settingsPanels;
-  final String? spaDefaultRoute;
-  final List<SpaRouteConfig>? spaRoutes;
 }

@@ -94,7 +94,7 @@ class MugenApp extends ConsumerWidget {
           ),
         ),
       ),
-      initialRoute: RouteIds.app,
+      initialRoute: AppRoutePaths.app,
       onGenerateRoute: AppRouter.onGenerateRoute,
       navigatorKey: navigator.navigatorKey,
     );

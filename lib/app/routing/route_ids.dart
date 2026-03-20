@@ -12,20 +12,9 @@ class InviteRouteMatch {
   bool get hasToken => token != null && token!.isNotEmpty;
 }
 
-abstract class RouteIds {
+abstract class AppRoutePaths {
   static const String app = '/app';
   static const String login = '/login';
-
-  static const String dashboard = 'dashboard';
-  static const String chat = 'chat';
-  static const String localUsers = 'local-users';
-  static const String tenantManagement = 'tenant-management';
-  static const String rolePermissionManagement = 'role-permission-management';
-  static const String auditManagement = 'audit-management';
-  static const String runtimeControl = 'runtime-control';
-  static const String channelOrchestration = 'channel-orchestration';
-  static const String contextEngine = 'context-engine';
-  static const String acpConsole = 'acp-console';
   static const String invitePrefix = '/invite';
 
   static String buildInviteRoute({
@@ -73,3 +62,52 @@ abstract class RouteIds {
     );
   }
 }
+
+abstract class CoreShellRouteIds {
+  static const String dashboard = 'dashboard';
+  static const String chat = 'chat';
+  static const String localUsers = 'local-users';
+  static const String tenantManagement = 'tenant-management';
+  static const String rolePermissionManagement = 'role-permission-management';
+  static const String auditManagement = 'audit-management';
+  static const String runtimeControl = 'runtime-control';
+  static const String channelOrchestration = 'channel-orchestration';
+  static const String contextEngine = 'context-engine';
+  static const String acpConsole = 'acp-console';
+}
+
+abstract class RouteIds {
+  static const String app = AppRoutePaths.app;
+  static const String login = AppRoutePaths.login;
+  static const String invitePrefix = AppRoutePaths.invitePrefix;
+
+  static const String dashboard = CoreShellRouteIds.dashboard;
+  static const String chat = CoreShellRouteIds.chat;
+  static const String localUsers = CoreShellRouteIds.localUsers;
+  static const String tenantManagement = CoreShellRouteIds.tenantManagement;
+  static const String rolePermissionManagement =
+      CoreShellRouteIds.rolePermissionManagement;
+  static const String auditManagement = CoreShellRouteIds.auditManagement;
+  static const String runtimeControl = CoreShellRouteIds.runtimeControl;
+  static const String channelOrchestration =
+      CoreShellRouteIds.channelOrchestration;
+  static const String contextEngine = CoreShellRouteIds.contextEngine;
+  static const String acpConsole = CoreShellRouteIds.acpConsole;
+
+  static String buildInviteRoute({
+    required String tenantId,
+    required String invitationId,
+    String? token,
+  }) {
+    return AppRoutePaths.buildInviteRoute(
+      tenantId: tenantId,
+      invitationId: invitationId,
+      token: token,
+    );
+  }
+
+  static InviteRouteMatch? parseInviteRoute(String? routeName) {
+    return AppRoutePaths.parseInviteRoute(routeName);
+  }
+}
+

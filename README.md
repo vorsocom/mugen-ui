@@ -75,7 +75,7 @@ Rules enforced by `tool/architecture/check_dependencies.dart`:
 
 ## Project Layout
 
-- `lib/app` composition root, app router, typed app config, global providers
+- `lib/app` composition root, app router, typed app config, global providers, and typed UI registries
 - `lib/shared` common domain/application primitives + infrastructure/presentation adapters
 - `lib/features/auth` auth/session domain/application/infrastructure/presentation
 - `lib/features/chat` single-conversation web chat (REST + SSE + media) domain/application/infrastructure/presentation
@@ -87,7 +87,7 @@ Rules enforced by `tool/architecture/check_dependencies.dart`:
 - `lib/features/context_admin` context engine ACP admin for profiles, policies, bindings, and trace policies
 - `lib/features/acp_console` descriptor-driven ACP console for advanced long-tail resources
 - `lib/features/shell` drawer/settings/shell presentation state and pages
-- `lib/extension` typed configuration overrides and Riverpod provider overrides
+- `lib/extension` downstream app-definition assembly
 
 ## Admin ACP Surfaces
 
@@ -121,8 +121,9 @@ The UI serializes these through structured multipart fields (`composition_mode`,
 
 ## Extension Surface
 
-- `lib/extension/configuration.dart` exposes typed `AppConfigurationOverride`
-- `lib/extension/provider_overrides.dart` exposes typed `List<Override>`
+- `lib/extension/app_definition.dart` assembles a typed `MugenUiAppDefinition`
+- downstream modules contribute shell routes, top-level browser routes, settings panels, and provider overrides
+- branding/endpoints/role catalog still come from typed `AppConfig`
 
 ## Documentation
 

@@ -34,11 +34,12 @@ class ShellState {
 class ShellController extends _$ShellController {
   @override
   ShellState build() {
-    final config = ref.read(appConfigProvider);
+    final definition = ref.read(appDefinitionProvider);
     final routeAccess = resolveShellRouteAccess(
-      config: config,
+      shellRoutes: definition.shellRoutes,
+      defaultShellRouteId: definition.defaultShellRouteId,
       sessionRoles: _currentSessionRoles(),
-      requestedRoute: config.spaDefaultRoute,
+      requestedRoute: definition.defaultShellRouteId,
     );
     return ShellState(
       isDrawerCollapsed: false,
@@ -81,8 +82,10 @@ class ShellController extends _$ShellController {
   }
 
   ShellRouteAccess _resolveRouteAccess(String route) {
+    final definition = ref.read(appDefinitionProvider);
     return resolveShellRouteAccess(
-      config: ref.read(appConfigProvider),
+      shellRoutes: definition.shellRoutes,
+      defaultShellRouteId: definition.defaultShellRouteId,
       sessionRoles: _currentSessionRoles(),
       requestedRoute: route,
     );

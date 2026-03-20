@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
-import 'package:mugen_ui/features/auth/presentation/widgets/edit_profile_panel.dart';
-import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
-import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 class ShellSettingsPanel extends ConsumerWidget {
@@ -14,14 +11,10 @@ class ShellSettingsPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
-    final auth = ref.watch(authControllerProvider.notifier);
-
-    final visiblePanels = config.settingsPanels
-        .where((panel) {
-          return auth.hasRoles(panel.roles);
-        })
-        .toList(growable: false);
+    final visiblePanels = visibleSettingsPanels(
+      panels: ref.watch(settingsPanelDefinitionsProvider),
+      hasRoles: ref.read(authControllerProvider.notifier).hasRoles,
+    );
 
     if (visiblePanels.isEmpty) {
       return const Center(
@@ -56,7 +49,7 @@ class ShellSettingsPanel extends ConsumerWidget {
                 leading: Icon(panel.icon),
                 title: Text(panel.title),
                 trailing: const Icon(Icons.open_in_new_outlined),
-                onTap: () => _openOverlay(context, panel),
+                onTap: () => showSettingsPanelOverlay(context, panel),
               );
             },
           ),
@@ -64,57 +57,37 @@ class ShellSettingsPanel extends ConsumerWidget {
       ],
     );
   }
-
-  Future<void> _openOverlay(
-    BuildContext context,
-    SettingsPanelConfig panel,
-  ) async {
-    final (
-      maxWidth,
-      maxHeight,
-      body,
-      showHeader,
-      expandBody,
-    ) = switch (panel.type) {
-      SettingsPanelType.account => (
-        760.0,
-        640.0,
-        const EditProfilePanel(),
-        false,
-        false,
-      ),
-      SettingsPanelType.resetPassword => (
-        760.0,
-        620.0,
-        const ResetPasswordPanel(),
-        false,
-        false,
-      ),
-      SettingsPanelType.users => (
-        1280.0,
-        860.0,
-        const LocalUserPanel(),
-        true,
-        true,
-      ),
-    };
-
-    await showDialog<void>(
-      context: context,
-      builder: (_) => _SettingsOverlayDialog(
-        title: panel.title,
-        maxWidth: maxWidth,
-        maxHeight: maxHeight,
-        showHeader: showHeader,
-        expandBody: expandBody,
-        child: body,
-      ),
-    );
-  }
 }
 
-class _SettingsOverlayDialog extends StatelessWidget {
-  const _SettingsOverlayDialog({
+List<SettingsPanelDefinition> visibleSettingsPanels({
+  required List<SettingsPanelDefinition> panels,
+  required bool Function(List<String> requiredRoles) hasRoles,
+}) {
+  return panels
+      .where((panel) => hasRoles(panel.requiredRoles))
+      .toList(growable: false);
+}
+
+Future<void> showSettingsPanelOverlay(
+  BuildContext context,
+  SettingsPanelDefinition panel,
+) async {
+  await showDialog<void>(
+    context: context,
+    builder: (_) => SettingsOverlayDialog(
+      title: panel.title,
+      maxWidth: panel.maxWidth,
+      maxHeight: panel.maxHeight,
+      showHeader: panel.showHeader,
+      expandBody: panel.expandBody,
+      child: Builder(builder: panel.builder),
+    ),
+  );
+}
+
+class SettingsOverlayDialog extends StatelessWidget {
+  const SettingsOverlayDialog({
+    super.key,
     required this.title,
     required this.maxWidth,
     required this.maxHeight,

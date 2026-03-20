@@ -7,6 +7,29 @@ import 'package:mugen_ui/shared/infrastructure/http/authenticated_http_client.da
 import 'package:mugen_ui/shared/infrastructure/http/http_transport.dart';
 
 void main() {
+  test(
+    'AuthenticatedHttpClient returns 401 when auth is required and no session exists',
+    () async {
+      final transport = _QueueTransport(<HttpResponse>[]);
+      final client = AuthenticatedHttpClient(
+        httpClient: AcpHttpClient(
+          baseUrl: 'https://api.example.com',
+          transport: transport,
+        ),
+        cookieStore: createCookieStore(),
+        refreshPath: 'core/acp/v1/auth/refresh',
+      );
+
+      final response = await client.send(
+        AcpRequest(method: HttpMethod.get, path: 'core/acp/v1/Users'),
+      );
+
+      expect(response.response.statusCode, 401);
+      expect(response.sessionExpired, isTrue);
+      expect(transport.requests, isEmpty);
+    },
+  );
+
   test('AuthenticatedHttpClient attaches bearer token', () async {
     final transport = _QueueTransport(<HttpResponse>[
       const HttpResponse(

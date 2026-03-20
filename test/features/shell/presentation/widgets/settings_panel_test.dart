@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/app/providers.dart';
+import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
 import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
@@ -19,6 +22,7 @@ import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
 import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
+import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/settings_panel.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
@@ -97,29 +101,54 @@ void main() {
   testWidgets('ShellSettingsPanel opens local users overlay on tap', (
     WidgetTester tester,
   ) async {
-    final config = AppConfig.defaults().merge(
-      const AppConfigurationOverride(
-        settingsPanels: <SettingsPanelConfig>[
-          SettingsPanelConfig(
-            title: 'Reset Password',
-            icon: Icons.security,
-            roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
-            type: SettingsPanelType.resetPassword,
-          ),
-          SettingsPanelConfig(
-            title: 'Local Users',
-            icon: Icons.groups_outlined,
-            roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
-            type: SettingsPanelType.users,
-          ),
-        ],
-      ),
+    final definition = MugenUiAppDefinition(
+      config: AppConfig.defaults(),
+      defaultShellRouteId: RouteIds.chat,
+      modules: const <MugenUiModule>[
+        MugenUiModule(
+          id: 'test.shell',
+          shellRoutes: <ShellRouteDefinition>[
+            ShellRouteDefinition(
+              id: RouteIds.chat,
+              title: 'AI Assist',
+              icon: Icons.chat_bubble_outline,
+              builder: _buildPlaceholderShellPage,
+            ),
+          ],
+        ),
+        MugenUiModule(
+          id: 'test.settings',
+          settingsPanels: <SettingsPanelDefinition>[
+            SettingsPanelDefinition(
+              id: 'core.auth.reset_password',
+              title: 'Reset Password',
+              icon: Icons.security,
+              requiredRoles: <String>[
+                'com.vorsocomputing.mugen.acp:authenticated',
+              ],
+              builder: _buildResetPasswordPanel,
+              maxHeight: 620,
+              showHeader: false,
+              expandBody: false,
+            ),
+            SettingsPanelDefinition(
+              id: 'test.settings.local_users',
+              title: 'Local Users',
+              icon: Icons.groups_outlined,
+              requiredRoles: <String>[
+                'com.vorsocomputing.mugen.acp:administrator',
+              ],
+              builder: _buildLocalUsersPanel,
+            ),
+          ],
+        ),
+      ],
     );
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: <Override>[
-          appConfigProvider.overrideWith((ref) => config),
+          appDefinitionProvider.overrideWith((ref) => definition),
           authRepositoryProvider.overrideWithValue(
             _FakeAuthRepository(
               const AuthSession(
@@ -290,4 +319,16 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   Future<Result<void>> revokeUserSession(RevokeUserSessionInput input) async {
     return const Result<void>.success(null);
   }
+}
+
+Widget _buildResetPasswordPanel(BuildContext context) {
+  return const ResetPasswordPanel();
+}
+
+Widget _buildLocalUsersPanel(BuildContext context) {
+  return const LocalUserPanel();
+}
+
+Widget _buildPlaceholderShellPage(BuildContext context) {
+  return const SizedBox.shrink();
 }

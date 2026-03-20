@@ -1,196 +1,232 @@
 # Extension Surface Guide
 
-The project exposes two first-class extension points under `lib/extension/`.
+The primary downstream seam is now `lib/extension/app_definition.dart`.
 
-## Extension Files
+`mugen-ui` remains a compile-time typed host. It does not support reflection,
+JSON-driven widget discovery, or backend-driven UI assembly.
 
-1. `lib/extension/configuration.dart`
-2. `lib/extension/provider_overrides.dart`
+## Extension File
 
-`lib/app/providers.dart` and `lib/app/bootstrap.dart` consume these files during app startup.
+Create or update:
 
-## 1) Typed Configuration Override
+1. `lib/extension/app_definition.dart`
 
-Use `configurationOverride` to customize compile-time app behavior without dynamic maps.
+`lib/app/providers.dart`, `lib/app/bootstrap.dart`, and `lib/app/routing/app_router.dart`
+consume this file during startup.
+
+## App Definition
+
+`MugenUiAppDefinition` assembles the downstream app:
+
+- app identity/config via `AppConfig`
+- the ordered module list
+- the default shell route id
+
+```dart
+import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/app/definition/app_definition.dart';
+import 'package:mugen_ui/app/definition/core_modules.dart';
+
+final MugenUiAppDefinition appDefinition = MugenUiAppDefinition(
+  config: AppConfig.defaults().merge(
+    const AppConfigurationOverride(
+      appName: 'muGen UI (ACME)',
+      appVersion: '1.2.3',
+      api: ApiConfigOverride(
+        baseUrl: 'https://acme.example.com/api',
+      ),
+    ),
+  ),
+  defaultShellRouteId: 'acme.reports.dashboard',
+  modules: <MugenUiModule>[
+    ...buildDefaultAppDefinition().modules,
+  ],
+);
+```
+
+`AppConfig` is intentionally slim. It owns:
+
+- app metadata: `appName`, `appVersion`
+- API config: `api.baseUrl` and typed endpoint paths
+- role catalog: `activeRoles`
+
+Routes, settings panels, and provider overrides now live on modules.
+
+## Modules
+
+`MugenUiModule` is the typed contribution unit for built-in or downstream UI packages.
+
+Each module may contribute:
+
+- `shellRoutes`
+- `topLevelRoutes`
+- `settingsPanels`
+- `providerOverrides`
+
+Provider overrides are applied in module order. Later modules win when overriding
+the same provider.
+
+## Example Downstream Module Assembly
+
+This example assumes a downstream package such as `acme_reports_ui` exports typed
+definitions and providers.
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
-import 'package:mugen_ui/app/routing/route_ids.dart';
+import 'package:mugen_ui/app/definition/app_definition.dart';
+import 'package:mugen_ui/app/definition/core_modules.dart';
 
-const AppConfigurationOverride configurationOverride = AppConfigurationOverride(
-  appName: 'muGen UI (ACME)',
-  appVersion: '1.2.3',
-  api: ApiConfigOverride(
-    baseUrl: 'https://acme.example.com/api',
+import 'package:acme_reports_ui/acme_reports_ui.dart';
+
+final MugenUiAppDefinition appDefinition = MugenUiAppDefinition(
+  config: AppConfig.defaults().merge(
+    const AppConfigurationOverride(
+      appName: 'muGen UI (ACME)',
+      api: ApiConfigOverride(baseUrl: 'https://acme.example.com/api'),
+    ),
   ),
-  drawerItems: <DrawerItemConfig>[
-    DrawerItemConfig(
-      title: 'Dashboard',
-      icon: Icons.home_outlined,
-      route: RouteIds.dashboard,
-    ),
-    DrawerItemConfig(
-      title: 'Chat',
-      icon: Icons.chat_bubble_outline,
-      route: RouteIds.chat,
-    ),
-    DrawerItemConfig(
-      title: 'Tenant Management',
-      icon: Icons.apartment_outlined,
-      route: RouteIds.tenantManagement,
-      section: 'Platform Configuration',
-    ),
-    DrawerItemConfig(
-      title: 'Role & Permission Management',
-      icon: Icons.admin_panel_settings_outlined,
-      route: RouteIds.rolePermissionManagement,
-      section: 'Platform Configuration',
-    ),
-    DrawerItemConfig(
-      title: 'Runtime Control',
-      icon: Icons.settings_input_component_outlined,
-      route: RouteIds.runtimeControl,
-      section: 'Platform Configuration',
-    ),
-    DrawerItemConfig(
-      title: 'Channel Orchestration',
-      icon: Icons.alt_route_outlined,
-      route: RouteIds.channelOrchestration,
-      section: 'Platform Configuration',
-    ),
-    DrawerItemConfig(
-      title: 'Context Engine',
-      icon: Icons.hub_outlined,
-      route: RouteIds.contextEngine,
-      section: 'Platform Configuration',
-    ),
-    DrawerItemConfig(
-      title: 'ACP Console',
-      icon: Icons.data_object_outlined,
-      route: RouteIds.acpConsole,
-      section: 'Platform Configuration',
-    ),
-  ],
-  spaDefaultRoute: RouteIds.dashboard,
-  spaRoutes: <SpaRouteConfig>[
-    SpaRouteConfig(id: RouteIds.dashboard, title: 'Dashboard'),
-    SpaRouteConfig(id: RouteIds.chat, title: 'Chat'),
-    SpaRouteConfig(
-      id: RouteIds.tenantManagement,
-      title: 'Tenant Management',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
-    ),
-    SpaRouteConfig(
-      id: RouteIds.rolePermissionManagement,
-      title: 'Role & Permission Management',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
-    ),
-    SpaRouteConfig(
-      id: RouteIds.runtimeControl,
-      title: 'Runtime Control',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
-    ),
-    SpaRouteConfig(
-      id: RouteIds.channelOrchestration,
-      title: 'Channel Orchestration',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
-    ),
-    SpaRouteConfig(
-      id: RouteIds.contextEngine,
-      title: 'Context Engine',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
-    ),
-    SpaRouteConfig(
-      id: RouteIds.acpConsole,
-      title: 'ACP Console',
-      roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+  defaultShellRouteId: AcmeReportsRouteIds.dashboard,
+  modules: <MugenUiModule>[
+    ...buildDefaultAppDefinition().modules,
+    MugenUiModule(
+      id: 'acme.reports',
+      shellRoutes: <ShellRouteDefinition>[
+        ShellRouteDefinition(
+          id: AcmeReportsRouteIds.dashboard,
+          title: 'Reports',
+          icon: Icons.insights_outlined,
+          section: 'Operations',
+          requiredRoles: <String>['acme:report_viewer'],
+          builder: buildAcmeReportsPage,
+        ),
+      ],
+      topLevelRoutes: <TopLevelRouteDefinition>[
+        TopLevelRouteDefinition.exact(
+          id: 'acme.reports.browser',
+          path: '/reports',
+          builder: buildAcmeReportsBrowserPage,
+        ),
+        TopLevelRouteDefinition.parsed<AcmeReportDetailRoute>(
+          id: 'acme.reports.detail',
+          parse: parseAcmeReportDetailRoute,
+          canonicalLocation: (route) => route.location,
+          builder: buildAcmeReportDetailPage,
+        ),
+      ],
+      settingsPanels: <SettingsPanelDefinition>[
+        SettingsPanelDefinition(
+          id: 'acme.reports.preferences',
+          title: 'Report Preferences',
+          icon: Icons.tune_outlined,
+          requiredRoles: <String>['acme:report_viewer'],
+          builder: buildAcmeReportPreferencesPanel,
+          maxWidth: 900,
+          maxHeight: 700,
+        ),
+      ],
+      providerOverrides: buildAcmeReportsProviderOverrides(),
     ),
   ],
 );
 ```
 
-### What You Can Override
+## Shell Routes
 
-- app metadata: `appName`, `appVersion`
-- API config: `api.baseUrl` and endpoint paths (including ACP base path, tenant management, and invite redeem endpoints)
-- role catalog: `activeRoles`
-- navigation structure: `drawerItems`, `spaDefaultRoute`, `spaRoutes`
-  - route access rules are defined on `SpaRouteConfig.roles`
-- settings UX: `settingsPanels`
+Use `ShellRouteDefinition` for internal `/app` routes.
 
-Endpoint keys available in `ApiEndpointsOverride`:
+Fields:
 
-- `acpBase`
-- `tenant`, `tenantDomain`, `tenantInvitation`, `tenantMembership`
-- `tenantActionDeactivate`, `tenantActionReactivate`
-- `tenantInvitationActionResend`, `tenantInvitationActionRevoke`
-- `tenantMembershipActionSuspend`, `tenantMembershipActionUnsuspend`, `tenantMembershipActionRemove`
-- `rbacGlobalRole`, `rbacTenantRole`
-- `rbacTenantRoleActionDeprecate`, `rbacTenantRoleActionReactivate`
-- `rbacPermissionObject`, `rbacPermissionObjectActionDeprecate`, `rbacPermissionObjectActionReactivate`
-- `rbacPermissionType`, `rbacPermissionTypeActionDeprecate`, `rbacPermissionTypeActionReactivate`
-- `rbacGlobalPermissionEntry`, `rbacTenantPermissionEntry`
-- `auditEvent`, `auditEventTenant`
-- `authTenantInvitationRedeem`
-- `authDeleteUser`, `refreshTokenActionRevoke`
+- `id`
+- `title`
+- `icon`
+- `section`
+- `requiredRoles`
+- `showInDrawer`
+- `builder`
 
-Built-in route IDs available in `RouteIds` now include:
+The shell registry is the single source of truth for:
 
-- `chat`
-- `localUsers`
-- `tenantManagement`
-- `rolePermissionManagement`
-- `auditManagement`
-- `runtimeControl`
-- `channelOrchestration`
-- `contextEngine`
-- `acpConsole`
+- drawer entries
+- route titles
+- role gating
+- fallback selection
+- locked-out empty state handling
 
-### Merge Semantics
+Unknown shell route ids still render the existing unknown-route placeholder.
 
-`AppConfig.defaults().merge(configurationOverride)` is used at runtime:
+## Top-Level Routes
 
-1. Omitted fields keep defaults.
-2. Provided fields replace defaults.
-3. Nested API endpoint overrides are merged field-by-field.
+Use `TopLevelRouteDefinition` for browser routes.
 
-## 2) Riverpod Provider Overrides
+Two helper patterns are provided:
 
-Use `providerOverrides` for dependency replacement in the composition root.
+1. `TopLevelRouteDefinition.exact(...)`
+2. `TopLevelRouteDefinition.parsed<T>(...)`
 
-```dart
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logging/logging.dart';
-import 'package:mugen_ui/app/providers.dart';
+Top-level route resolution is deterministic:
 
-List<Override> get providerOverrides => <Override>[
-      appLoggerProvider.overrideWithValue(Logger('mugen-ui.custom')),
-    ];
-```
+1. modules are evaluated in app-definition order
+2. routes are evaluated in module order
+3. the first matching route wins
+4. if nothing matches, the router falls back to the configured `/app` route
 
-This list is passed to `ProviderScope` in `lib/app/bootstrap.dart`.
+Built-in `/app`, `/login`, and invite routes now use the same typed registry model.
 
-### Typical Uses
+## Settings Panels
 
-1. Replace infrastructure adapters for tenant-specific behavior.
-2. Swap logging/navigation integrations.
-3. Provide fake/stub dependencies for integration-style local runs.
+Use `SettingsPanelDefinition` for account/settings overlays.
 
-## Choosing the Right Extension Point
+Fields:
 
-1. Use `configurationOverride` when changing typed app settings (routes, roles, endpoint strings, labels).
-2. Use `providerOverrides` when changing implementation wiring (repositories, clients, adapters, side effects).
+- `id`
+- `title`
+- `icon`
+- `requiredRoles`
+- `builder`
+- `maxWidth`
+- `maxHeight`
+- `showHeader`
+- `expandBody`
+
+Settings panel visibility is role-gated from the registered definitions.
+
+## Registry Rules
+
+These are bootstrap-time errors:
+
+- duplicate module ids
+- duplicate shell route ids
+- duplicate settings panel ids
+- duplicate top-level route ids
+- duplicate exact top-level paths
+- `defaultShellRouteId` not matching a registered shell route
+
+There is no hidden merge behavior for replacing built-in features. Replace features
+by assembling a different module list in `app_definition.dart`.
+
+## Route Constants
+
+Core browser paths and built-in shell route ids live in:
+
+- `AppRoutePaths`
+- `CoreShellRouteIds`
+
+Downstream modules do not need to edit these constants. They may use arbitrary
+string ids for downstream shell routes.
 
 ## Compatibility Guidance
 
-When customizing, preserve these externally visible contracts unless intentionally changing behavior:
+When customizing, preserve these externally visible contracts unless intentionally
+changing behavior:
 
-1. Route names used by auth flow (`/app`, `/login`).
-2. ACP payload/field casing expected by backend endpoints.
-3. Auth refresh/logout behavior tied to the configured endpoint paths.
-4. Invite route shape and parser assumptions (`/invite/{tenant_id}/{invitation_id}`).
+1. browser routes used by auth flow (`/app`, `/login`)
+2. invite route shape and parser assumptions (`/invite/{tenant_id}/{invitation_id}`)
+3. ACP payload/field casing expected by backend endpoints
+4. auth refresh/logout behavior tied to the configured endpoint paths
 
 ## ACP Console Note
 
-`ACP Console` is a static descriptor-driven surface. Extend it by changing the descriptor code in `lib/features/acp_console/application/` rather than expecting backend-driven widget discovery.
+`ACP Console` remains a static descriptor-driven surface. Extend it by changing
+descriptor code in `lib/features/acp_console/application/`, not by expecting
+runtime widget discovery from backend schemas.

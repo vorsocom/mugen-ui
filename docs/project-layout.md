@@ -15,10 +15,10 @@ Architecture rules are enforced by `tool/architecture/check_dependencies.dart`.
 ## Top-Level Layout
 
 - `lib/main.dart`: platform entrypoint.
-- `lib/app`: composition root (bootstrap, router, global providers, typed app config).
+- `lib/app`: composition root (bootstrap, router, global providers, typed app config, and typed UI registries).
 - `lib/shared`: cross-feature primitives and adapters.
 - `lib/features`: feature modules (`auth`, `chat`, `user_admin`, `tenant_admin`, `tenant_invite`, `shell`) with layer-aligned subfolders.
-- `lib/extension`: typed extension surface for configuration and provider overrides.
+- `lib/extension`: downstream app assembly entrypoint (`app_definition.dart`).
 - `test`: unit and widget tests, including layer and behavior checks.
 - `tool/architecture`: dependency rule checker.
 
@@ -65,26 +65,33 @@ Infrastructure maps these modes to the web plugin structured multipart contract 
 5. Render UI in `presentation/pages` and `presentation/widgets`.
 6. Add tests per layer (`domain` unit tests first, then widget tests for UI behavior).
 
-### Add a New SPA Route
+### Add a New Shell Route
 
-1. Add route ID in `lib/app/routing/route_ids.dart`.
-2. Add route metadata in `AppConfig.defaults()` (`drawerItems`, `spaRoutes`, and optionally `spaDefaultRoute`) in `lib/app/config/app_config.dart`.
-3. Add content widget mapping in `lib/features/shell/presentation/widgets/route_views.dart`.
-4. Validate drawer behavior and route switching in shell widget tests.
+1. Define a `ShellRouteDefinition` in a core or downstream `MugenUiModule`.
+2. Assemble that module in `lib/extension/app_definition.dart`.
+3. If the route should be the shell landing page, set `defaultShellRouteId` to the new route id.
+4. Validate drawer behavior, role gating, and route switching in shell widget/provider tests.
 
-### Add an Invite Deep-Link Route
+### Add a New Top-Level Browser Route
 
-1. Add typed route helpers in `lib/app/routing/route_ids.dart` for path build/parse.
-2. Detect dynamic invite paths in `lib/app/routing/app_router.dart` before fallback shell routes.
-3. Route invite links through `AuthGuard` and persist pending invite context for login-first flows.
-4. Ensure login success redirects to pending invite when present, otherwise `/app`.
+1. Define a `TopLevelRouteDefinition.exact(...)` or `TopLevelRouteDefinition.parsed<T>(...)` in a module.
+2. Assemble that module in `lib/extension/app_definition.dart`.
+3. Keep route ids and exact paths unique; startup will fail fast on duplicates.
+4. Add router tests that exercise both the match and the canonical location.
 
 ### Add a New Settings Panel
 
-1. Extend `SettingsPanelType` in `lib/app/config/app_config.dart`.
-2. Add panel config in `AppConfig.defaults().settingsPanels`.
-3. Handle the new panel type in `_panelBody` inside `lib/features/shell/presentation/widgets/settings_panel.dart`.
+1. Define a `SettingsPanelDefinition` in a module.
+2. Assemble that module in `lib/extension/app_definition.dart`.
+3. Supply a typed builder and any required dialog sizing/header options.
 4. Ensure role gating and rendering behavior are covered by widget tests.
+
+### Replace a Built-In Feature Downstream
+
+1. Build a different `modules` list in `lib/extension/app_definition.dart`.
+2. Omit the built-in module you want to replace.
+3. Add your downstream replacement module with the desired shell routes, browser routes, settings panels, and provider overrides.
+4. Prefer typed provider overrides and module composition over hidden merge semantics.
 
 ## Guardrails
 
@@ -92,4 +99,5 @@ Infrastructure maps these modes to the web plugin structured multipart contract 
 2. Keep Flutter widget imports out of `application`.
 3. Keep `infrastructure` independent from `presentation`.
 4. Prefer typed models over dynamic maps.
-5. Run `dart run tool/architecture/check_dependencies.dart` after structural changes.
+5. Do not add reflection or config-driven widget lookup for route/panel registration.
+6. Run `dart run tool/architecture/check_dependencies.dart` after structural changes.

@@ -1,71 +1,42 @@
 import 'package:flutter/material.dart';
 
-import 'package:mugen_ui/app/routing/route_ids.dart';
-import 'package:mugen_ui/features/acp_console/presentation/widgets/acp_console_panel.dart';
-import 'package:mugen_ui/features/audit_admin/presentation/widgets/audit_management_panel.dart';
-import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
-import 'package:mugen_ui/features/context_admin/presentation/widgets/context_engine_panel.dart';
-import 'package:mugen_ui/features/orchestration_admin/presentation/widgets/channel_orchestration_panel.dart';
-import 'package:mugen_ui/features/rbac_admin/presentation/widgets/rbac_management_panel.dart';
-import 'package:mugen_ui/features/tenant_admin/presentation/widgets/tenant_management_panel.dart';
-import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
-import 'package:mugen_ui/features/runtime_admin/presentation/widgets/runtime_control_panel.dart';
+import 'package:mugen_ui/app/definition/app_definition.dart';
 
-Widget buildSpaRouteWidget(String route) {
-  switch (route) {
-    case RouteIds.dashboard:
-    case RouteIds.chat:
-      return const ChatPage();
-    case RouteIds.localUsers:
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: LocalUserPanel(),
-      );
-    case RouteIds.tenantManagement:
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: TenantManagementPanel(),
-      );
-    case RouteIds.rolePermissionManagement:
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: RbacManagementPanel(),
-      );
-    case RouteIds.auditManagement:
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: AuditManagementPanel(),
-      );
-    case RouteIds.runtimeControl:
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: RuntimeControlPanel(),
-      );
-    case RouteIds.channelOrchestration:
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: ChannelOrchestrationPanel(),
-      );
-    case RouteIds.contextEngine:
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: ContextEnginePanel(),
-      );
-    case RouteIds.acpConsole:
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: AcpConsolePanel(),
-      );
-    default:
-      return const _RoutePlaceholder(
-        title: 'Unknown route',
-        description: 'The selected route is not configured.',
-      );
+Widget buildRegisteredShellRouteWidget({
+  required BuildContext context,
+  required List<ShellRouteDefinition> routes,
+  required String routeId,
+}) {
+  final route = findShellRouteDefinition(routes: routes, routeId: routeId);
+  if (route == null) {
+    return const RoutePlaceholder(
+      title: 'Unknown route',
+      description: 'The selected route is not configured.',
+    );
   }
+
+  return route.builder(context);
 }
 
-class _RoutePlaceholder extends StatelessWidget {
-  const _RoutePlaceholder({required this.title, required this.description});
+ShellRouteDefinition? findShellRouteDefinition({
+  required List<ShellRouteDefinition> routes,
+  required String routeId,
+}) {
+  for (final route in routes) {
+    if (route.id == routeId) {
+      return route;
+    }
+  }
+
+  return null;
+}
+
+class RoutePlaceholder extends StatelessWidget {
+  const RoutePlaceholder({
+    super.key,
+    required this.title,
+    required this.description,
+  });
 
   final String title;
   final String description;

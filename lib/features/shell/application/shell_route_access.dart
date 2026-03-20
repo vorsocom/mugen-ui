@@ -1,19 +1,19 @@
-import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/app/definition/app_definition.dart';
 
 class ShellRouteAccess {
   const ShellRouteAccess({
     required this.requestedRoute,
-    required this.requestedRouteConfig,
+    required this.requestedRouteDefinition,
     required this.allowedRoutes,
     required this.fallbackRoute,
   });
 
   final String requestedRoute;
-  final SpaRouteConfig? requestedRouteConfig;
-  final List<SpaRouteConfig> allowedRoutes;
-  final SpaRouteConfig? fallbackRoute;
+  final ShellRouteDefinition? requestedRouteDefinition;
+  final List<ShellRouteDefinition> allowedRoutes;
+  final ShellRouteDefinition? fallbackRoute;
 
-  bool get isKnownRoute => requestedRouteConfig != null;
+  bool get isKnownRoute => requestedRouteDefinition != null;
 
   bool get isAllowedRoute =>
       isKnownRoute && allowedRoutes.any((route) => route.id == requestedRoute);
@@ -50,29 +50,34 @@ class ShellRouteAccess {
 }
 
 ShellRouteAccess resolveShellRouteAccess({
-  required AppConfig config,
+  required List<ShellRouteDefinition> shellRoutes,
+  required String defaultShellRouteId,
   required List<String> sessionRoles,
   required String requestedRoute,
 }) {
-  final requestedRouteConfig = _findSpaRoute(config.spaRoutes, requestedRoute);
-  final allowedRoutes = config.spaRoutes
-      .where((route) => _hasRequiredRoles(sessionRoles, route.roles))
+  final requestedRouteDefinition = _findShellRoute(shellRoutes, requestedRoute);
+  final allowedRoutes = shellRoutes
+      .where((route) => _hasRequiredRoles(sessionRoles, route.requiredRoles))
       .toList(growable: false);
   final fallbackRoute = _resolveFallbackRoute(
-    config: config,
+    shellRoutes: shellRoutes,
     allowedRoutes: allowedRoutes,
+    defaultShellRouteId: defaultShellRouteId,
   );
 
   return ShellRouteAccess(
     requestedRoute: requestedRoute,
-    requestedRouteConfig: requestedRouteConfig,
+    requestedRouteDefinition: requestedRouteDefinition,
     allowedRoutes: allowedRoutes,
     fallbackRoute: fallbackRoute,
   );
 }
 
-SpaRouteConfig? _findSpaRoute(List<SpaRouteConfig> spaRoutes, String routeId) {
-  for (final route in spaRoutes) {
+ShellRouteDefinition? _findShellRoute(
+  List<ShellRouteDefinition> shellRoutes,
+  String routeId,
+) {
+  for (final route in shellRoutes) {
     if (route.id == routeId) {
       return route;
     }
@@ -81,18 +86,19 @@ SpaRouteConfig? _findSpaRoute(List<SpaRouteConfig> spaRoutes, String routeId) {
   return null;
 }
 
-SpaRouteConfig? _resolveFallbackRoute({
-  required AppConfig config,
-  required List<SpaRouteConfig> allowedRoutes,
+ShellRouteDefinition? _resolveFallbackRoute({
+  required List<ShellRouteDefinition> shellRoutes,
+  required List<ShellRouteDefinition> allowedRoutes,
+  required String defaultShellRouteId,
 }) {
   if (allowedRoutes.isEmpty) {
     return null;
   }
 
-  for (final route in allowedRoutes) {
-    if (route.id == config.spaDefaultRoute) {
-      return route;
-    }
+  final defaultRoute = _findShellRoute(shellRoutes, defaultShellRouteId);
+  if (defaultRoute != null &&
+      allowedRoutes.any((route) => route.id == defaultRoute.id)) {
+    return defaultRoute;
   }
 
   return allowedRoutes.first;

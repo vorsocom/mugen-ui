@@ -3,7 +3,8 @@ import 'package:logging/logging.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'package:mugen_ui/app/config/app_config.dart';
-import 'package:mugen_ui/extension/configuration.dart';
+import 'package:mugen_ui/app/definition/app_definition.dart';
+import 'package:mugen_ui/extension/app_definition.dart';
 import 'package:mugen_ui/shared/infrastructure/auth/cookie_store.dart';
 import 'package:mugen_ui/shared/infrastructure/http/acp_http_client.dart';
 import 'package:mugen_ui/shared/infrastructure/http/authenticated_http_client.dart';
@@ -13,9 +14,22 @@ import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
 
 part 'providers.g.dart';
 
+final Provider<MugenUiAppDefinition> appDefinitionProvider =
+    Provider<MugenUiAppDefinition>((ref) => appDefinition);
+
+final Provider<List<ShellRouteDefinition>> shellRouteDefinitionsProvider =
+    Provider<List<ShellRouteDefinition>>(
+      (ref) => ref.watch(appDefinitionProvider).shellRoutes,
+    );
+
+final Provider<List<SettingsPanelDefinition>> settingsPanelDefinitionsProvider =
+    Provider<List<SettingsPanelDefinition>>(
+      (ref) => ref.watch(appDefinitionProvider).settingsPanels,
+    );
+
 @Riverpod(keepAlive: true)
 AppConfig appConfig(Ref ref) {
-  return AppConfig.defaults().merge(configurationOverride);
+  return ref.watch(appDefinitionProvider).config;
 }
 
 @Riverpod(keepAlive: true)

@@ -1,0 +1,58 @@
+name: SemVer
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+  push:
+    branches:
+      - develop
+      - main
+    tags:
+      - "v*"
+
+jobs:
+  pubspec-semver:
+    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate pubspec SemVer format
+        run: |
+          tool/semver/check_semver.sh check-pubspec --ref "${{ github.sha }}"
+
+  pr-main-release:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate main release PR versioning
+        run: |
+          git fetch origin main --no-tags
+          tool/semver/check_semver.sh check-pr-main \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}"
+
+  tag-release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag consistency
+        run: |
+          tool/semver/check_semver.sh check-tag \
+            --tag "${{ github.ref_name }}" \
+            --ref "${{ github.sha }}"

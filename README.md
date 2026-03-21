@@ -44,6 +44,25 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/). CI enforces
 - version bump + matching dated changelog release section for PRs to `main`
 - release tag consistency (`v<version>` must match `pubspec.yaml`, ignoring `+build`)
 
+Release automation is provided through `.github/workflows/release.yml` and `tool/release/release.sh`:
+
+- `prepare` creates `release/<version>` from `develop`, updates `pubspec.yaml`, promotes `CHANGELOG.md`, runs the runtime gates, and can push the branch
+- `finish` creates or detects the PR from `release/<version>` to `main`
+- `publish` tags the merged `main` commit as `v<version>`, creates or detects the sync-back PR to `develop`, and cleans up the release branch once `develop` is synced
+
+Bootstrap release rule:
+
+- `main` is intentionally seeded as an empty branch
+- the first automated release to `main` must be `0.1.0`
+- current build metadata is preserved during prepares, so the bootstrap release is produced as `0.1.0+1`
+
+Changelog and tag conventions:
+
+- release branches: `release/<x.y.z>`
+- release tags: `v<x.y.z>`
+- release headers: `## [x.y.z] - YYYY-MM-DD`
+- `prepare` recreates a fresh `## [Unreleased]` section after promoting the current entries into the new dated release section
+
 ## CI Quality Gates
 
 Runtime quality gates run in CI for pull requests and pushes to `develop` and `main`:

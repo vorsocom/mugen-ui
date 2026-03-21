@@ -42,6 +42,12 @@ git_file_at_ref() {
   git show "${ref}:${path}" 2>/dev/null || return 1
 }
 
+file_exists_at_ref() {
+  local ref="$1"
+  local path="$2"
+  git cat-file -e "${ref}:${path}" 2>/dev/null
+}
+
 extract_pubspec_version_from_content() {
   awk '
     /^[[:space:]]*version[[:space:]]*:/ {
@@ -337,18 +343,28 @@ check_pr_main_command() {
   local changelog
   local changelog_diff
   local escaped_release
+  local bootstrap_mode=0
 
-  base_version="$(get_pubspec_version_at_ref "${base}")"
   head_version="$(get_pubspec_version_at_ref "${head}")"
 
   parse_semver "${head_version}" "head"
-  cmp="$(compare_semver "${head_version}" "${base_version}")"
-  if [[ "${cmp}" != "1" ]]; then
-    fail "pubspec version must increase for a PR to main (base=${base_version}, head=${head_version})."
+
+  if file_exists_at_ref "${base}" "pubspec.yaml"; then
+    base_version="$(get_pubspec_version_at_ref "${base}")"
+    cmp="$(compare_semver "${head_version}" "${base_version}")"
+    if [[ "${cmp}" != "1" ]]; then
+      fail "pubspec version must increase for a PR to main (base=${base_version}, head=${head_version})."
+    fi
+  else
+    bootstrap_mode=1
   fi
 
   if [[ -n "${head_prerelease}" ]]; then
     fail "pre-release pubspec versions are not allowed for main release PRs: '${head_version}'."
+  fi
+
+  if ((bootstrap_mode == 1)) && [[ "${head_no_build}" != "0.1.0" ]]; then
+    fail "the first release to an empty main branch must use version 0.1.0."
   fi
 
   changelog="$(git_file_at_ref "${head}" "CHANGELOG.md")" \
@@ -361,6 +377,11 @@ check_pr_main_command() {
   changelog_diff="$(git diff --unified=0 "${base}" "${head}" -- CHANGELOG.md)"
   grep -Eq "^\+## \[${escaped_release}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}( \[YANKED\])?$" <<<"${changelog_diff}" \
     || fail "PR to main must add the release header for ${head_no_build} in CHANGELOG.md."
+
+  if ((bootstrap_mode == 1)); then
+    echo "SemVer main release PR check passed for bootstrap release (head=${head_version})."
+    return
+  fi
 
   echo "SemVer main release PR check passed (base=${base_version}, head=${head_version})."
 }

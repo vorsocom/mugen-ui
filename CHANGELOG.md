@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.1.0] - 2026-03-21
+
+### Added
+
 - Added admin-only Audit Events SPA management with global and tenant scopes, event lifecycle row actions, and audit set actions (`run_lifecycle`, `verify_chain`, `seal_backlog`) with dry-run guardrails.
 - Enforced Conventional Commit headers in CI and local `commit-msg` hooks.
 - Added a contributor guide with branch, commit, and PR expectations.
@@ -39,3 +53,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed Runtime Control key-reference actions so the UI no longer offers `New Row`, `Rotate` remains available from the toolbar for create-through-rotation, and existing key refs expose a visible right-side row `Rotate` action with all fields prefilled except the secret value.
 - Fixed Messaging Client Profile create-form validation so only universal and platform-specific identifier fields are required instead of every profile field.
 - Synced ACP admin create-form requirements and blank optional text submission with the backend Pydantic validation surface for runtime, context, and orchestration resources.
+

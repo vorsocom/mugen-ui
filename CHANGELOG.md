@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed ACP and LocalUsers table column sizing so cell text uses the full available column width instead of being constrained to narrow intrinsic/fixed text boxes.
+
 ### Security
 
 ## [0.1.0] - 2026-03-21

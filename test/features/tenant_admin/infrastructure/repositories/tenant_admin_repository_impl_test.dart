@@ -202,6 +202,10 @@ void main() {
                   'Id': 'm-1',
                   'TenantId': 'tenant-1',
                   'UserId': 'u-1',
+                  'User': <String, dynamic>{
+                    'Username': 'existing.member',
+                    'LoginEmail': 'existing.member@example.com',
+                  },
                   'RoleInTenant': 'owner',
                   'Status': 'Active',
                   'RowVersion': 5,
@@ -239,6 +243,8 @@ void main() {
 
       expect(memberships.isSuccess, isTrue);
       expect(memberships.data!.single.userId, 'u-1');
+      expect(memberships.data!.single.userName, 'existing.member');
+      expect(memberships.data!.single.userEmail, 'existing.member@example.com');
       expect(memberships.data!.single.roleInTenant, 'owner');
 
       expect(
@@ -254,6 +260,7 @@ void main() {
         fixture.client.requests[2].path,
         'core/acp/v1/tenants/tenant-1/TenantMemberships',
       );
+      expect(fixture.client.requests[2].queryParameters[r'$expand'], 'User');
     });
 
     test('maps detail fetch failures', () async {

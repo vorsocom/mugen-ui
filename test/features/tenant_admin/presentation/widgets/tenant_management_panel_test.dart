@@ -13,11 +13,26 @@ import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_membership
 import 'package:mugen_ui/features/tenant_admin/domain/repositories/tenant_admin_repository.dart';
 import 'package:mugen_ui/features/tenant_admin/presentation/providers/tenant_admin_providers.dart';
 import 'package:mugen_ui/features/tenant_admin/presentation/widgets/tenant_management_panel.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/revoke_user_session_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/toggle_user_account_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
+import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/person_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
+import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
+import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
+import 'package:mugen_ui/shared/application/query_models.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 void main() {
   testWidgets(
@@ -30,6 +45,16 @@ void main() {
       expect(find.text('Tenant 1'), findsOneWidget);
       expect(find.byTooltip('Deactivate tenant'), findsWidgets);
       expect(find.byTooltip('Reactivate tenant'), findsWidgets);
+      final selectedTenantTile = tester.widget<ListTile>(
+        find.ancestor(
+          of: find.text('Tenant 1'),
+          matching: find.byType(ListTile),
+        ),
+      );
+      expect(selectedTenantTile.selected, isTrue);
+      expect(selectedTenantTile.selectedTileColor, AppUiPalette.accentSoft);
+      final selectedTenantTitle = tester.widget<Text>(find.text('Tenant 1'));
+      expect(selectedTenantTitle.style?.fontWeight, FontWeight.w700);
 
       await tester.tap(find.byTooltip('Next page'));
       await tester.pumpAndSettle();
@@ -105,7 +130,8 @@ void main() {
     WidgetTester tester,
   ) async {
     final repository = _FakeTenantAdminRepository();
-    await _pumpPanel(tester, repository);
+    final userRepository = _FakeUserAdminRepository();
+    await _pumpPanel(tester, repository, userRepository: userRepository);
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Add Domain'));
@@ -180,19 +206,57 @@ void main() {
       find.byKey(const Key('tenant-management-tab-memberships')),
     );
     await tester.pumpAndSettle();
+    expect(find.text('existing.member'), findsOneWidget);
+    expect(find.textContaining('existing.member@example.com'), findsOneWidget);
     await tester.tap(find.text('Add Membership'));
     await tester.pumpAndSettle();
-    await _fillDialogFields(tester, values: <String>['user-55', 'member']);
+    await tester.tap(find.text('Add Membership').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Select a user.'), findsOneWidget);
+
+    await _searchMembershipUsers(tester, 'member');
+    expect(userRepository.lastUserQuery?.pageRequest.page, 1);
+    expect(userRepository.lastUserQuery?.pageRequest.pageSize, 20);
+    expect(userRepository.lastUserQuery?.searchTerm, 'member');
+    expect(find.text('Already a tenant member'), findsNWidgets(2));
+    await tester.tap(
+      find.byKey(const Key('tenant-membership-user-option-u-1')),
+      warnIfMissed: false,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add Membership').last);
+    await tester.pumpAndSettle();
+    expect(repository.createMembershipInputs, isEmpty);
+    expect(find.text('Select a user.'), findsOneWidget);
+
+    await _searchAndSelectMembershipUser(tester, 'charlie', 'u-55');
     await tester.tap(find.text('Add Membership').last);
     await tester.pumpAndSettle();
     expect(repository.createMembershipInputs, hasLength(1));
+    expect(repository.createMembershipInputs.single.userId, 'u-55');
+    expect(repository.createMembershipInputs.single.roleInTenant, 'member');
+
+    await tester.tap(find.text('Add Membership'));
+    await tester.pumpAndSettle();
+    await _searchAndSelectMembershipUser(tester, 'dana', 'u-99');
+    await _selectMembershipRole(tester, 'Admin');
+    await tester.tap(find.text('Add Membership').last);
+    await tester.pumpAndSettle();
+    expect(repository.createMembershipInputs, hasLength(2));
+    expect(repository.createMembershipInputs.last.userId, 'u-99');
+    expect(repository.createMembershipInputs.last.roleInTenant, 'admin');
 
     await tester.tap(find.byTooltip('Edit membership role').first);
     await tester.pumpAndSettle();
-    await _fillDialogFields(tester, values: <String>['owner']);
+    expect(
+      find.text('existing.member  |  existing.member@example.com'),
+      findsWidgets,
+    );
+    await _selectMembershipRole(tester, 'Owner');
     await tester.tap(find.text('Save').last);
     await tester.pumpAndSettle();
     expect(repository.updateMembershipInputs, hasLength(1));
+    expect(repository.updateMembershipInputs.single.roleInTenant, 'owner');
 
     await tester.tap(find.byTooltip('Suspend membership').first);
     await tester.pumpAndSettle();
@@ -236,6 +300,58 @@ void main() {
     expect(find.byType(Dialog), findsOneWidget);
     expect(repository.createTenantInputs, hasLength(1));
   });
+
+  testWidgets(
+    'TenantManagementPanel membership picker handles search edge cases',
+    (WidgetTester tester) async {
+      final repository = _FakeTenantAdminRepository();
+      final userRepository = _FakeUserAdminRepository();
+      await _pumpPanel(tester, repository, userRepository: userRepository);
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('tenant-management-tab-memberships')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add Membership'));
+      await tester.pumpAndSettle();
+
+      userRepository.searchShouldFail = true;
+      await _searchMembershipUsers(tester, 'error');
+      expect(find.text('user search failed'), findsOneWidget);
+
+      userRepository.searchShouldFail = false;
+      await _searchMembershipUsers(tester, 'z');
+      expect(find.text('No users found.'), findsOneWidget);
+
+      await _searchMembershipUsers(tester, '');
+      expect(find.text('No users found.'), findsNothing);
+
+      await _searchAndSelectMembershipUser(tester, 'blank', 'u-empty');
+      expect(
+        find.text('blank.user  |  blank.user@example.com'),
+        findsOneWidget,
+      );
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+
+      final legacyMembershipTile = find.ancestor(
+        of: find.text('u-legacy'),
+        matching: find.byType(ListTile),
+      );
+      await tester.tap(
+        find.descendant(
+          of: legacyMembershipTile,
+          matching: find.byTooltip('Edit membership role'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('billing'), findsOneWidget);
+      await tester.tap(find.text('Save').last);
+      await tester.pumpAndSettle();
+      expect(repository.updateMembershipInputs.single.roleInTenant, 'billing');
+    },
+  );
 
   testWidgets(
     'TenantManagementPanel covers refresh, loading, and cancel paths',
@@ -301,8 +417,10 @@ void main() {
 
 Future<void> _pumpPanel(
   WidgetTester tester,
-  _FakeTenantAdminRepository repository,
-) async {
+  _FakeTenantAdminRepository repository, {
+  _FakeUserAdminRepository? userRepository,
+}) async {
+  final resolvedUserRepository = userRepository ?? _FakeUserAdminRepository();
   await tester.binding.setSurfaceSize(const Size(1800, 1300));
   addTearDown(() async {
     await tester.binding.setSurfaceSize(null);
@@ -311,6 +429,7 @@ Future<void> _pumpPanel(
     ProviderScope(
       overrides: <Override>[
         tenantAdminRepositoryProvider.overrideWithValue(repository),
+        userAdminRepositoryProvider.overrideWithValue(resolvedUserRepository),
         authControllerProvider.overrideWith(() => _TestAuthController()),
         appNavigatorProvider.overrideWith((ref) => _FakeAppNavigator()),
         snackBarDispatcherProvider.overrideWith((ref) => _RecordingSnackBars()),
@@ -331,6 +450,42 @@ Future<void> _fillDialogFields(
   for (var i = 0; i < values.length; i++) {
     await tester.enterText(fields.at(i), values[i]);
   }
+}
+
+Future<void> _searchMembershipUsers(
+  WidgetTester tester,
+  String searchTerm,
+) async {
+  await tester.enterText(
+    find.byKey(const Key('tenant-membership-user-search-field')),
+    searchTerm,
+  );
+  await tester.pump(const Duration(milliseconds: 350));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _searchAndSelectMembershipUser(
+  WidgetTester tester,
+  String searchTerm,
+  String userId,
+) async {
+  await _searchMembershipUsers(tester, searchTerm);
+  await tester.tap(find.byKey(Key('tenant-membership-user-option-$userId')));
+  await tester.pumpAndSettle();
+  expect(
+    find.byKey(const Key('tenant-membership-selected-user')),
+    findsOneWidget,
+  );
+}
+
+Future<void> _selectMembershipRole(
+  WidgetTester tester,
+  String roleLabel,
+) async {
+  await tester.tap(find.byKey(const Key('tenant-membership-role-dropdown')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(roleLabel).last);
+  await tester.pumpAndSettle();
 }
 
 class _TestAuthController extends AuthController {
@@ -359,6 +514,175 @@ class _FakeAppNavigator extends AppNavigator {}
 class _RecordingSnackBars extends SnackBarDispatcher {
   @override
   void show(AppNavigator navigator, String content) {}
+}
+
+class _FakeUserAdminRepository implements UserAdminRepository {
+  _FakeUserAdminRepository()
+    : _users = <UserEntity>[
+        _user(
+          id: 'u-1',
+          userName: 'existing.member',
+          email: 'existing.member@example.com',
+          firstName: 'Existing',
+          lastName: 'Member',
+        ),
+        _user(
+          id: 'u-2',
+          userName: 'suspended.member',
+          email: 'suspended.member@example.com',
+          firstName: 'Suspended',
+          lastName: 'Member',
+        ),
+        _user(
+          id: 'u-55',
+          userName: 'charlie.picker',
+          email: 'charlie.picker@example.com',
+          firstName: 'Charlie',
+          lastName: 'Picker',
+        ),
+        _user(
+          id: 'u-99',
+          userName: 'dana.admin',
+          email: 'dana.admin@example.com',
+          firstName: 'Dana',
+          lastName: 'Admin',
+        ),
+        _user(
+          id: 'u-empty',
+          userName: 'blank.user',
+          email: 'blank.user@example.com',
+          firstName: '',
+          lastName: '',
+        ),
+      ];
+
+  final List<UserEntity> _users;
+  UserListQuery? lastUserQuery;
+  bool searchShouldFail = false;
+
+  @override
+  Future<Result<void>> deleteUser(DeleteUserInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> disableUserAccount(ToggleUserAccountInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> editUserRoles(EditUserRolesInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> enableUserAccount(ToggleUserAccountInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<List<UserRoleEntity>>> fetchRoles() async {
+    return const Result<List<UserRoleEntity>>.success(<UserRoleEntity>[]);
+  }
+
+  @override
+  Future<Result<List<UserSessionEntity>>> fetchUserSessions(
+    String userId,
+  ) async {
+    return const Result<List<UserSessionEntity>>.success(<UserSessionEntity>[]);
+  }
+
+  @override
+  Future<Result<PageResult<UserEntity>>> fetchUsers(UserListQuery query) async {
+    lastUserQuery = query;
+    if (searchShouldFail) {
+      return const Result<PageResult<UserEntity>>.failure(
+        UnexpectedFailure('user search failed'),
+      );
+    }
+
+    final term = query.searchTerm?.trim().toLowerCase() ?? '';
+    final filtered = _users
+        .where((user) {
+          if (term.isEmpty) {
+            return true;
+          }
+
+          final fullName = '${user.person.firstName} ${user.person.lastName}'
+              .toLowerCase();
+          return user.userName.toLowerCase().contains(term) ||
+              user.email.toLowerCase().contains(term) ||
+              fullName.contains(term);
+        })
+        .toList(growable: false);
+
+    final pageSize = query.pageRequest.pageSize;
+    final items = pageSize <= 0 || filtered.length <= pageSize
+        ? filtered
+        : filtered.take(pageSize).toList(growable: false);
+    return Result<PageResult<UserEntity>>.success(
+      PageResult<UserEntity>(
+        items: items,
+        total: filtered.length,
+        page: query.pageRequest.page,
+        pageSize: query.pageRequest.pageSize,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<void>> registerUser(UserRegistrationInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> resetUserPasswordAdmin(
+    UserResetPasswordAdminInput input,
+  ) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> revokeUserSession(RevokeUserSessionInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  @override
+  Future<Result<void>> updateUser(UpdateUserInput input) async {
+    return const Result<void>.success(null);
+  }
+
+  static UserEntity _user({
+    required String id,
+    required String userName,
+    required String email,
+    required String firstName,
+    required String lastName,
+  }) {
+    return UserEntity(
+      id: id,
+      userName: userName,
+      email: email,
+      personRef: 'person-$id',
+      dateCreated: DateTime.utc(2024, 1, 1),
+      dateLastModified: DateTime.utc(2024, 1, 1),
+      deleted: false,
+      isLocked: false,
+      rowVersion: 1,
+      seedData: false,
+      person: PersonEntity(
+        id: 'person-$id',
+        firstName: firstName,
+        lastName: lastName,
+        fullName: '$firstName $lastName'.trim(),
+        dateCreated: DateTime.utc(2024, 1, 1),
+        dateLastModified: DateTime.utc(2024, 1, 1),
+        deleted: false,
+        seedData: false,
+      ),
+      roles: const <String>[],
+    );
+  }
 }
 
 class _FakeTenantAdminRepository implements TenantAdminRepository {
@@ -435,6 +759,8 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
           id: 'm-1',
           tenantId: 't-1',
           userId: 'u-1',
+          userName: 'existing.member',
+          userEmail: 'existing.member@example.com',
           roleInTenant: 'member',
           status: 'Active',
           rowVersion: 1,
@@ -447,9 +773,23 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
           id: 'm-2',
           tenantId: 't-1',
           userId: 'u-2',
+          userName: 'suspended.member',
+          userEmail: 'suspended.member@example.com',
           roleInTenant: 'member',
           status: 'Suspended',
           rowVersion: 2,
+          dateCreated: DateTime.utc(2024, 1, 1),
+          dateLastModified: DateTime.utc(2024, 1, 1),
+          deleted: false,
+          seedData: false,
+        ),
+        TenantMembershipEntity(
+          id: 'm-3',
+          tenantId: 't-1',
+          userId: 'u-legacy',
+          roleInTenant: 'billing',
+          status: 'Active',
+          rowVersion: 3,
           dateCreated: DateTime.utc(2024, 1, 1),
           dateLastModified: DateTime.utc(2024, 1, 1),
           deleted: false,

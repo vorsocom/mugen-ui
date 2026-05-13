@@ -66,6 +66,9 @@ void main() {
       find.textContaining('Advanced descriptor-driven ACP console'),
       findsOneWidget,
     );
+    final table = tester.widget<DataTable>(find.byType(DataTable).first);
+    expect(table.columns.first.columnWidth, isA<FlexColumnWidth>());
+    expect(table.columns.last.columnWidth, isA<FixedColumnWidth>());
   });
 
   test('ACP console create requirements match backend validation surface', () {

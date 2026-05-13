@@ -296,6 +296,7 @@ class TenantAdminRepositoryImpl implements TenantAdminRepository {
         path: _tenantMembershipBasePath(tenantId),
         queryParameters: <String, dynamic>{
           r'$top': top,
+          r'$expand': 'User',
           r'$orderby': 'CreatedAt desc',
         },
       ),
@@ -527,12 +528,15 @@ class TenantAdminRepositoryImpl implements TenantAdminRepository {
     Map<String, dynamic> raw,
     String tenantId,
   ) {
+    final user = _toNullableMap(raw['User']);
     return TenantMembershipEntity(
       id: _asString(raw['Id']),
       tenantId: _asString(raw['TenantId']).isEmpty
           ? tenantId
           : _asString(raw['TenantId']),
       userId: _asString(raw['UserId']),
+      userName: _asNullableNonEmptyString(user?['Username']),
+      userEmail: _asNullableNonEmptyString(user?['LoginEmail']),
       roleInTenant: _asString(raw['RoleInTenant']),
       status: _asString(raw['Status']),
       rowVersion: _parseInt(raw['RowVersion']) ?? 0,
@@ -629,6 +633,11 @@ class TenantAdminRepositoryImpl implements TenantAdminRepository {
 
   String _asString(dynamic value) {
     return value?.toString() ?? '';
+  }
+
+  String? _asNullableNonEmptyString(dynamic value) {
+    final text = _asString(value).trim();
+    return text.isEmpty ? null : text;
   }
 
   Map<String, dynamic>? _toNullableMap(dynamic value) {

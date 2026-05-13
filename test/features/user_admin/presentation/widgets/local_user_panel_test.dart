@@ -36,6 +36,12 @@ void main() {
 
       expect(find.text('alice'), findsOneWidget);
       expect(repository.fetchUsersQueries, isNotEmpty);
+      final userTable = tester.widget<DataTable>(find.byType(DataTable).first);
+      expect(userTable.columns[0].columnWidth, isA<FlexColumnWidth>());
+      expect(userTable.columns[1].columnWidth, isA<FlexColumnWidth>());
+      expect(userTable.columns[2].columnWidth, isA<FlexColumnWidth>());
+      expect(userTable.columns[3].columnWidth, isA<FlexColumnWidth>());
+      expect(userTable.columns[4].columnWidth, isA<FixedColumnWidth>());
 
       await tester.tap(find.byTooltip('Next page'));
       await tester.pumpAndSettle();
@@ -202,6 +208,9 @@ void main() {
       await tester.tap(find.byTooltip('Edit Roles').first);
       await tester.pumpAndSettle();
       expect(find.textContaining('Edit User Roles - alice'), findsOneWidget);
+      final roleTable = tester.widget<DataTable>(find.byType(DataTable).last);
+      expect(roleTable.columns[0].columnWidth, isA<FlexColumnWidth>());
+      expect(roleTable.columns[1].columnWidth, isA<FixedColumnWidth>());
       final checkboxes = find.byType(Checkbox);
       expect(checkboxes, findsWidgets);
       await tester.tap(checkboxes.first);

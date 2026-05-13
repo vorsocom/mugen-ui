@@ -10,6 +10,8 @@ class TenantMembershipEntity {
     required this.dateLastModified,
     required this.deleted,
     required this.seedData,
+    this.userName,
+    this.userEmail,
   });
 
   final String id;
@@ -22,4 +24,6 @@ class TenantMembershipEntity {
   final DateTime dateLastModified;
   final bool deleted;
   final bool seedData;
+  final String? userName;
+  final String? userEmail;
 }

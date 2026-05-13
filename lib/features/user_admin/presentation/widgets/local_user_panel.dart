@@ -15,6 +15,9 @@ import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_p
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
+const double _localUserActionsColumnWidth = 244;
+const double _localUserRoleStatusColumnWidth = 96;
+
 class LocalUserPanel extends ConsumerStatefulWidget {
   const LocalUserPanel({super.key}); // coverage:ignore-line
 
@@ -265,11 +268,28 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
                           horizontalMargin: 16,
                           dividerThickness: 1.0,
                           columns: const [
-                            DataColumn(label: Text('Username')),
-                            DataColumn(label: Text('First Name')),
-                            DataColumn(label: Text('Last Name')),
-                            DataColumn(label: Text('Date Created')),
-                            DataColumn(label: Text('Actions')),
+                            DataColumn(
+                              columnWidth: FlexColumnWidth(2.2),
+                              label: _UserTableHeaderText('Username'),
+                            ),
+                            DataColumn(
+                              columnWidth: FlexColumnWidth(1.4),
+                              label: _UserTableHeaderText('First Name'),
+                            ),
+                            DataColumn(
+                              columnWidth: FlexColumnWidth(1.4),
+                              label: _UserTableHeaderText('Last Name'),
+                            ),
+                            DataColumn(
+                              columnWidth: FlexColumnWidth(2),
+                              label: _UserTableHeaderText('Date Created'),
+                            ),
+                            DataColumn(
+                              columnWidth: FixedColumnWidth(
+                                _localUserActionsColumnWidth,
+                              ),
+                              label: _UserTableHeaderText('Actions'),
+                            ),
                           ],
                           rows: List<DataRow>.generate(state.pageSize, (index) {
                             final rowBackground = index.isEven
@@ -297,11 +317,11 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
                                 rowBackground,
                               ),
                               cells: [
-                                DataCell(Text(user.userName)),
-                                DataCell(Text(user.person.firstName)),
-                                DataCell(Text(user.person.lastName)),
+                                DataCell(_UserTableText(user.userName)),
+                                DataCell(_UserTableText(user.person.firstName)),
+                                DataCell(_UserTableText(user.person.lastName)),
                                 DataCell(
-                                  Text(
+                                  _UserTableText(
                                     '${user.dateCreated.toUtc()}'
                                         .split('.')
                                         .first,
@@ -626,6 +646,31 @@ class _PaginatorIconButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _UserTableHeaderText extends StatelessWidget {
+  const _UserTableHeaderText(this.value);
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(child: Text(value, overflow: TextOverflow.ellipsis));
+  }
+}
+
+class _UserTableText extends StatelessWidget {
+  const _UserTableText(this.value);
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 }
@@ -1436,14 +1481,22 @@ class _EditRolesFormState extends ConsumerState<_EditRolesForm> {
                         AppUiPalette.surfaceMuted,
                       ),
                       columns: const [
-                        DataColumn(label: Text('Role')),
-                        DataColumn(label: Text('Status')),
+                        DataColumn(
+                          columnWidth: FlexColumnWidth(),
+                          label: _UserTableHeaderText('Role'),
+                        ),
+                        DataColumn(
+                          columnWidth: FixedColumnWidth(
+                            _localUserRoleStatusColumnWidth,
+                          ),
+                          label: _UserTableHeaderText('Status'),
+                        ),
                       ],
                       rows: [
                         for (final role in state.roles)
                           DataRow(
                             cells: [
-                              DataCell(Text(role.displayName)),
+                              DataCell(_UserTableText(role.displayName)),
                               DataCell(
                                 Checkbox(
                                   value: _selectedRoleNames.contains(role.name),

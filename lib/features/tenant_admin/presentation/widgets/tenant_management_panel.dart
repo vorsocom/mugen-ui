@@ -10,10 +10,31 @@ import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_entity.dar
 import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_invitation_entity.dart';
 import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_membership_entity.dart';
 import 'package:mugen_ui/features/tenant_admin/presentation/providers/tenant_admin_providers.dart';
+import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
+import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
+import 'package:mugen_ui/shared/application/pagination.dart';
+import 'package:mugen_ui/shared/application/query_models.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const double _formDialogPanelWidth = 520;
+const Duration _membershipSearchDebounceDuration = Duration(milliseconds: 300);
+const int _membershipUserSearchPageSize = 20;
+const String _defaultTenantMembershipRole = 'member';
+
+const List<_TenantMembershipRoleOption> _tenantMembershipRoleOptions =
+    <_TenantMembershipRoleOption>[
+      _TenantMembershipRoleOption(value: 'member', label: 'Member'),
+      _TenantMembershipRoleOption(value: 'admin', label: 'Admin'),
+      _TenantMembershipRoleOption(value: 'owner', label: 'Owner'),
+    ];
+
+class _TenantMembershipRoleOption {
+  const _TenantMembershipRoleOption({required this.value, required this.label});
+
+  final String value;
+  final String label;
+}
 
 class TenantManagementPanel extends ConsumerStatefulWidget {
   const TenantManagementPanel({super.key}); // coverage:ignore-line
@@ -114,8 +135,23 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                       final isActive = _isActiveStatus(tenant.status);
                       return ListTile(
                         selected: isSelected,
-                        title: Text(tenant.name),
-                        subtitle: Text('${tenant.slug}  |  ${tenant.status}'),
+                        selectedTileColor: AppUiPalette.accentSoft,
+                        title: Text(
+                          tenant.name,
+                          style: TextStyle(
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w400,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '${tenant.slug}  |  ${tenant.status}',
+                          style: TextStyle(
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
                         onTap: () => controller.selectTenant(tenant.id),
                         trailing: Wrap(
                           spacing: 4,
@@ -581,7 +617,13 @@ class _TenantMembershipsTab extends ConsumerWidget {
     return _TenantDetailList(
       emptyMessage: 'No memberships found.',
       onCreate: () {
-        unawaited(_showMembershipDialog(context, ref, tenant: tenant));
+        unawaited(
+          _showMembershipDialog(
+            context,
+            tenant: tenant,
+            memberships: memberships,
+          ),
+        );
       },
       createLabel: 'Add Membership',
       children: memberships
@@ -589,10 +631,8 @@ class _TenantMembershipsTab extends ConsumerWidget {
             final normalizedStatus = membership.status.toLowerCase();
             final isSuspended = normalizedStatus.contains('suspend');
             return ListTile(
-              title: Text(membership.userId),
-              subtitle: Text(
-                '${membership.roleInTenant}  |  ${membership.status}',
-              ),
+              title: Text(_tenantMembershipUserTitle(membership)),
+              subtitle: Text(_tenantMembershipSubtitle(membership)),
               trailing: Wrap(
                 spacing: 4,
                 children: [
@@ -601,8 +641,8 @@ class _TenantMembershipsTab extends ConsumerWidget {
                     tooltip: 'Edit membership role',
                     onPressed: () => _showMembershipDialog(
                       context,
-                      ref,
                       tenant: tenant,
+                      memberships: memberships,
                       existing: membership,
                     ),
                   ),
@@ -744,6 +784,36 @@ bool _isActiveStatus(String status) {
   return normalized == 'active' ||
       normalized == 'enabled' ||
       normalized == 'reactivated';
+}
+
+String _tenantMembershipUserTitle(TenantMembershipEntity membership) {
+  final userName = membership.userName?.trim();
+  if (userName != null && userName.isNotEmpty) {
+    return userName;
+  }
+
+  return membership.userId;
+}
+
+String _tenantMembershipSubtitle(TenantMembershipEntity membership) {
+  final details = <String>[];
+  final email = membership.userEmail?.trim();
+  if (email != null && email.isNotEmpty) {
+    details.add(email);
+  }
+  details.add(membership.roleInTenant);
+  details.add(membership.status);
+  return details.join('  |  ');
+}
+
+String _tenantMembershipUserContext(TenantMembershipEntity membership) {
+  final title = _tenantMembershipUserTitle(membership);
+  final email = membership.userEmail?.trim();
+  if (email == null || email.isEmpty) {
+    return title;
+  }
+
+  return '$title  |  $email';
 }
 
 Future<void> _showDomainDialog(
@@ -962,116 +1032,445 @@ Future<void> _showInvitationDialog(
 }
 
 Future<void> _showMembershipDialog(
-  BuildContext context,
-  WidgetRef ref, {
+  BuildContext context, {
   required TenantEntity tenant,
+  required List<TenantMembershipEntity> memberships,
   TenantMembershipEntity? existing,
 }) async {
-  final userIdController = TextEditingController(text: existing?.userId);
-  final roleController = TextEditingController(
-    text: existing?.roleInTenant ?? 'member',
-  );
-  final formKey = GlobalKey<FormState>();
-  final controller = ref.read(tenantAdminControllerProvider.notifier);
-  final navigator = ref.read(appNavigatorProvider);
-  final snackBar = ref.read(snackBarDispatcherProvider);
-
   await showDialog<void>(
     context: context,
     builder: (_) => Dialog(
       child: SizedBox(
         width: _formDialogPanelWidth,
-        child: AppFormPanel(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  existing == null ? 'Add Membership' : 'Edit Membership Role',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: userIdController,
-                  enabled: existing == null,
-                  decoration: appFormInputDecoration(labelText: 'User Id'),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Field cannot be empty.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: roleController,
-                  decoration: appFormInputDecoration(
-                    labelText: 'Role In Tenant',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Field cannot be empty.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: () async {
-                        final isValid =
-                            formKey.currentState?.validate() ?? false;
-                        if (!isValid) {
-                          return;
-                        }
-
-                        final success = existing == null
-                            ? await controller.createMembership(
-                                CreateTenantMembershipInput(
-                                  tenantId: tenant.id,
-                                  userId: userIdController.text.trim(),
-                                  roleInTenant: roleController.text.trim(),
-                                ),
-                              )
-                            : await controller.updateMembership(
-                                UpdateTenantMembershipInput(
-                                  tenantId: tenant.id,
-                                  membershipId: existing.id,
-                                  roleInTenant: roleController.text.trim(),
-                                  rowVersion: existing.rowVersion,
-                                ),
-                              );
-                        snackBar.show(
-                          navigator,
-                          success
-                              ? 'Membership saved.'
-                              : 'Membership save failed.',
-                        );
-                        if (success && context.mounted) {
-                          Navigator.of(context).pop();
-                        }
-                      },
-                      child: Text(existing == null ? 'Add Membership' : 'Save'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+        child: _TenantMembershipDialog(
+          tenant: tenant,
+          memberships: memberships,
+          existing: existing,
         ),
       ),
     ),
   );
+}
+
+class _TenantMembershipDialog extends ConsumerStatefulWidget {
+  const _TenantMembershipDialog({
+    required this.tenant,
+    required this.memberships,
+    this.existing,
+  });
+
+  final TenantEntity tenant;
+  final List<TenantMembershipEntity> memberships;
+  final TenantMembershipEntity? existing;
+
+  @override
+  ConsumerState<_TenantMembershipDialog> createState() =>
+      _TenantMembershipDialogState();
+}
+
+class _TenantMembershipDialogState
+    extends ConsumerState<_TenantMembershipDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final GlobalKey<FormFieldState<UserEntity>> _userFieldKey =
+      GlobalKey<FormFieldState<UserEntity>>();
+  final TextEditingController _userSearchController = TextEditingController();
+
+  Timer? _searchDebounce;
+  int _searchGeneration = 0;
+  List<UserEntity> _userResults = const <UserEntity>[];
+  UserEntity? _selectedUser;
+  String? _searchError;
+  late String _selectedRole;
+  bool _isSearching = false;
+  bool _hasSearched = false;
+
+  bool get _isEditing => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = _initialMembershipRole(widget.existing?.roleInTenant);
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _userSearchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppFormPanel(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              _isEditing ? 'Edit Membership Role' : 'Add Membership',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            _isEditing ? _buildReadonlyUserField() : _buildUserPicker(),
+            const SizedBox(height: 8),
+            _buildRoleDropdown(),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _submit,
+                  child: Text(_isEditing ? 'Save' : 'Add Membership'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReadonlyUserField() {
+    final membership = widget.existing!;
+    return TextFormField(
+      key: const Key('tenant-membership-user-readonly-field'),
+      initialValue: _tenantMembershipUserContext(membership),
+      enabled: false,
+      decoration: appFormInputDecoration(labelText: 'User'),
+    );
+  }
+
+  Widget _buildUserPicker() {
+    return FormField<UserEntity>(
+      key: _userFieldKey,
+      validator: (_) => _selectedUser == null ? 'Select a user.' : null,
+      builder: (fieldState) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              key: const Key('tenant-membership-user-search-field'),
+              controller: _userSearchController,
+              decoration: appFormInputDecoration(
+                labelText: 'User',
+                hintText: 'Username, name, or email',
+                suffixIcon: const Icon(Icons.person_search_outlined),
+              ),
+              onChanged: _queueUserSearch,
+            ),
+            if (fieldState.errorText != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                fieldState.errorText!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
+              ),
+            ],
+            if (_selectedUser != null) ...[
+              const SizedBox(height: 8),
+              _SelectedUserTile(user: _selectedUser!),
+            ],
+            if (_isSearching) ...[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(),
+            ],
+            if (_searchError != null && _searchError!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                _searchError!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
+              ),
+            ],
+            if (_hasSearched && !_isSearching && _searchError == null) ...[
+              const SizedBox(height: 8),
+              _buildUserResults(),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildUserResults() {
+    if (_userResults.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppUiPalette.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Text('No users found.'),
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 220),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppUiPalette.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: _userResults.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final user = _userResults[index];
+            final isExistingMember = _isExistingMember(user);
+            final isSelected = _selectedUser?.id == user.id;
+            return ListTile(
+              key: Key('tenant-membership-user-option-${user.id}'),
+              enabled: !isExistingMember,
+              selected: isSelected,
+              leading: Icon(
+                isExistingMember
+                    ? Icons.person_off_outlined
+                    : Icons.person_outline,
+              ),
+              title: Text(user.userName),
+              subtitle: Text(
+                isExistingMember
+                    ? 'Already a tenant member'
+                    : _userSubtitle(user),
+              ),
+              onTap: isExistingMember ? null : () => _selectUser(user),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleDropdown() {
+    final options = _membershipRoleOptionsFor(_selectedRole);
+    return DropdownButtonFormField<String>(
+      key: const Key('tenant-membership-role-dropdown'),
+      initialValue: _selectedRole,
+      isExpanded: true,
+      decoration: appFormInputDecoration(labelText: 'Role In Tenant'),
+      items: options
+          .map(
+            (option) => DropdownMenuItem<String>(
+              value: option.value,
+              child: Text(option.label),
+            ),
+          )
+          .toList(growable: false),
+      onChanged: (value) {
+        if (value == null) {
+          return;
+        }
+
+        setState(() {
+          _selectedRole = value;
+        });
+      },
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Field cannot be empty.';
+        }
+
+        return null;
+      },
+    );
+  }
+
+  void _queueUserSearch(String value) {
+    _searchDebounce?.cancel();
+    final term = value.trim();
+    if (term.isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _hasSearched = false;
+        _searchError = null;
+        _userResults = const <UserEntity>[];
+      });
+      return;
+    }
+
+    if (term.length < 2) {
+      setState(() {
+        _isSearching = false;
+        _hasSearched = true;
+        _searchError = null;
+        _userResults = const <UserEntity>[];
+      });
+      return;
+    }
+
+    _searchDebounce = Timer(
+      _membershipSearchDebounceDuration,
+      () => _searchUsers(term),
+    );
+  }
+
+  Future<void> _searchUsers(String term) async {
+    final generation = ++_searchGeneration;
+    setState(() {
+      _isSearching = true;
+      _hasSearched = true;
+      _searchError = null;
+    });
+
+    final response = await ref
+        .read(userAdminRepositoryProvider)
+        .fetchUsers(
+          UserListQuery(
+            pageRequest: const PageRequest(
+              page: 1,
+              pageSize: _membershipUserSearchPageSize,
+            ),
+            searchTerm: term,
+          ),
+        );
+
+    if (!mounted || generation != _searchGeneration) {
+      return;
+    }
+
+    if (response.isFailure) {
+      setState(() {
+        _isSearching = false;
+        _userResults = const <UserEntity>[];
+        _searchError = response.failure?.message ?? 'Could not search users.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = false;
+      _userResults = response.data?.items ?? const <UserEntity>[];
+      _searchError = null;
+    });
+  }
+
+  void _selectUser(UserEntity user) {
+    setState(() {
+      _selectedUser = user;
+    });
+    _userFieldKey.currentState?.didChange(user);
+    _userFieldKey.currentState?.validate();
+  }
+
+  bool _isExistingMember(UserEntity user) {
+    return widget.memberships.any((membership) => membership.userId == user.id);
+  }
+
+  Future<void> _submit() async {
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid || (!_isEditing && _selectedUser == null)) {
+      return;
+    }
+
+    final controller = ref.read(tenantAdminControllerProvider.notifier);
+    final role = _selectedRole.trim();
+    final success = _isEditing
+        ? await controller.updateMembership(
+            UpdateTenantMembershipInput(
+              tenantId: widget.tenant.id,
+              membershipId: widget.existing!.id,
+              roleInTenant: role,
+              rowVersion: widget.existing!.rowVersion,
+            ),
+          )
+        : await controller.createMembership(
+            CreateTenantMembershipInput(
+              tenantId: widget.tenant.id,
+              userId: _selectedUser!.id,
+              roleInTenant: role,
+            ),
+          );
+
+    final snackBar = ref.read(snackBarDispatcherProvider);
+    final navigator = ref.read(appNavigatorProvider);
+    snackBar.show(
+      navigator,
+      success ? 'Membership saved.' : 'Membership save failed.',
+    );
+    if (success && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  String _userSubtitle(UserEntity user) {
+    final fullName = '${user.person.firstName} ${user.person.lastName}'.trim();
+    if (fullName.isEmpty) {
+      return '${user.email}  |  ${user.id}';
+    }
+
+    return '$fullName  |  ${user.email}';
+  }
+}
+
+class _SelectedUserTile extends StatelessWidget {
+  const _SelectedUserTile({required this.user});
+
+  final UserEntity user;
+
+  @override
+  Widget build(BuildContext context) {
+    final fullName = '${user.person.firstName} ${user.person.lastName}'.trim();
+    return Container(
+      key: const Key('tenant-membership-selected-user'),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppUiPalette.surfaceStrong,
+        border: Border.all(color: AppUiPalette.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              fullName.isEmpty
+                  ? '${user.userName}  |  ${user.email}'
+                  : '${user.userName}  |  $fullName',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _initialMembershipRole(String? rawRole) {
+  final role = rawRole?.trim();
+  if (role == null || role.isEmpty) {
+    return _defaultTenantMembershipRole;
+  }
+
+  return role;
+}
+
+List<_TenantMembershipRoleOption> _membershipRoleOptionsFor(String role) {
+  final selectedRole = role.trim();
+  final hasSelectedRole = _tenantMembershipRoleOptions.any(
+    (option) => option.value == selectedRole,
+  );
+  if (selectedRole.isEmpty || hasSelectedRole) {
+    return _tenantMembershipRoleOptions;
+  }
+
+  return <_TenantMembershipRoleOption>[
+    ..._tenantMembershipRoleOptions,
+    _TenantMembershipRoleOption(value: selectedRole, label: selectedRole),
+  ];
 }
 
 Future<void> _runInvitationAction(

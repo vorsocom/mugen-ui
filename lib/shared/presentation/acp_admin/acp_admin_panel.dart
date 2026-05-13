@@ -15,9 +15,6 @@ import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const double _acpAdminTableMinWidth = 1120;
-const double _acpAdminColumnUnitWidth = 72;
-const double _acpAdminColumnMinWidth = 72;
-const double _acpAdminColumnMaxWidth = 180;
 const double _acpAdminActionColumnWidth = 128;
 const double _acpAdminColumnSpacing = 20;
 const double _acpAdminTableHorizontalMargin = 16;
@@ -420,27 +417,18 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
                 columns: [
                   if (descriptor.actionsColumnLeading)
                     const DataColumn(
-                      label: SizedBox(
-                        width: _acpAdminActionColumnWidth,
-                        child: Text('Actions'),
-                      ),
+                      columnWidth: FixedColumnWidth(_acpAdminActionColumnWidth),
+                      label: _TableHeaderText('Actions'),
                     ),
                   for (final column in descriptor.columns)
                     DataColumn(
-                      label: SizedBox(
-                        width: _columnWidthFor(column),
-                        child: Text(
-                          column.label,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                      columnWidth: _columnWidthFor(column),
+                      label: _TableHeaderText(column.label),
                     ),
                   if (!descriptor.actionsColumnLeading)
                     const DataColumn(
-                      label: SizedBox(
-                        width: _acpAdminActionColumnWidth,
-                        child: Text('Actions'),
-                      ),
+                      columnWidth: FixedColumnWidth(_acpAdminActionColumnWidth),
+                      label: _TableHeaderText('Actions'),
                     ),
                 ],
                 rows: resourceState.rows
@@ -461,7 +449,6 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
                           for (final column in descriptor.columns)
                             DataCell(
                               _TableCellText(
-                                width: _columnWidthFor(column),
                                 value: _formatCellValue(row[column.key]),
                               ),
                             ),
@@ -502,29 +489,35 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
   }
 }
 
-double _columnWidthFor(AcpColumnDescriptor column) {
-  final scaledWidth = column.flex * _acpAdminColumnUnitWidth;
-  return scaledWidth.clamp(_acpAdminColumnMinWidth, _acpAdminColumnMaxWidth);
+TableColumnWidth _columnWidthFor(AcpColumnDescriptor column) {
+  return FlexColumnWidth(math.max(column.flex.toDouble(), 1));
+}
+
+class _TableHeaderText extends StatelessWidget {
+  const _TableHeaderText(this.value);
+
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(child: Text(value, overflow: TextOverflow.ellipsis));
+  }
 }
 
 class _TableCellText extends StatelessWidget {
-  const _TableCellText({required this.value, required this.width});
+  const _TableCellText({required this.value});
 
   final String value;
-  final double width;
 
   @override
   Widget build(BuildContext context) {
     final trimmed = value.trim();
-    final display = trimmed.length <= 72
-        ? trimmed
-        : '${trimmed.substring(0, 69)}...';
 
     return Tooltip(
       message: trimmed,
       child: SizedBox(
-        width: width,
-        child: Text(display, overflow: TextOverflow.ellipsis, maxLines: 2),
+        width: double.infinity,
+        child: Text(trimmed, overflow: TextOverflow.ellipsis, maxLines: 2),
       ),
     );
   }

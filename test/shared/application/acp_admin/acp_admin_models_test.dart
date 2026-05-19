@@ -17,6 +17,7 @@ void main() {
       obscureText: true,
       initialValue: 'seed',
       options: <String>['local', 'managed'],
+      readOnly: true,
       reference: AcpFieldReferenceDescriptor(
         entitySet: 'MessagingClientProfiles',
         scopeMode: AcpScopeMode.optional,
@@ -79,6 +80,7 @@ void main() {
     expect(field.obscureText, isTrue);
     expect(field.initialValue, 'seed');
     expect(field.options, <String>['local', 'managed']);
+    expect(field.readOnly, isTrue);
     expect(field.reference?.entitySet, 'MessagingClientProfiles');
     expect(field.reference?.scopeMode, AcpScopeMode.optional);
     expect(field.reference?.title, 'Messaging Client Profiles');

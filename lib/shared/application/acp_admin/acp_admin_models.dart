@@ -22,6 +22,7 @@ class AcpFieldDescriptor {
     this.initialValue,
     this.options = const <String>[],
     this.reference,
+    this.readOnly = false,
   });
 
   final String key;
@@ -36,6 +37,7 @@ class AcpFieldDescriptor {
   final Object? initialValue;
   final List<String> options;
   final AcpFieldReferenceDescriptor? reference;
+  final bool readOnly;
 }
 
 class AcpFieldReferenceDescriptor {

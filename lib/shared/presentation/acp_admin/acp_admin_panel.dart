@@ -2264,11 +2264,13 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         child: CheckboxListTile(
           contentPadding: EdgeInsets.zero,
           value: _boolValues[field.key] ?? false,
-          onChanged: (value) {
-            setState(() {
-              _boolValues[field.key] = value ?? false;
-            });
-          },
+          onChanged: field.readOnly
+              ? null
+              : (value) {
+                  setState(() {
+                    _boolValues[field.key] = value ?? false;
+                  });
+                },
           controlAffinity: ListTileControlAffinity.leading,
           title: appFieldLabelWithHelp(
             labelText: field.label,
@@ -2335,9 +2337,11 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
               ),
             )
             .toList(growable: false),
-        onChanged: (value) {
-          controller.text = value ?? '';
-        },
+        onChanged: field.readOnly
+            ? null
+            : (value) {
+                controller.text = value ?? '';
+              },
         validator: (value) => _validateField(field, value ?? ''),
       );
     }
@@ -2348,6 +2352,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       key: Key('acp-dynamic-field-${field.key}'),
       controller: controller,
       obscureText: field.obscureText,
+      readOnly: field.readOnly,
       minLines: isMultiline ? (field.minLines ?? 3) : 1,
       maxLines: isMultiline ? (field.maxLines ?? 5) : 1,
       decoration: appFormInputDecoration(
@@ -2452,6 +2457,9 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
 
     final payload = <String, dynamic>{};
     for (final field in widget.fields) {
+      if (field.readOnly) {
+        continue;
+      }
       if (field.kind == AcpFieldKind.boolean) {
         payload[field.key] = _boolValues[field.key] ?? false;
         continue;

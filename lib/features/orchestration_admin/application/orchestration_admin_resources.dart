@@ -25,6 +25,8 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     ],
     updateFields: <AcpFieldDescriptor>[
       _clientProfileId(),
+      _text('ChannelKey', 'Channel Key', readOnly: true),
+      _text('ProfileKey', 'Profile Key', readOnly: true),
       _text('DisplayName', 'Display Name'),
       _text('ServiceRouteDefaultKey', 'Service Route Default Key'),
       _text('RouteDefaultKey', 'Route Default Key'),
@@ -518,12 +520,14 @@ AcpFieldDescriptor _text(
   String label, {
   bool required = false,
   Object? initialValue,
+  bool readOnly = false,
 }) {
   return AcpFieldDescriptor(
     key: key,
     label: label,
     required: required,
     initialValue: initialValue,
+    readOnly: readOnly,
   );
 }
 

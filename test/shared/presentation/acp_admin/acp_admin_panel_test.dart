@@ -312,6 +312,63 @@ void main() {
     expect(repository.updateTenantId, 'tenant-1');
   });
 
+  testWidgets(
+    'read-only update fields display values without submitting them',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+
+      final repository = _TenantRowAcpAdminRepository();
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: const <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'tenant-resource',
+            title: 'Tenant Resource',
+            entitySet: 'TenantResources',
+            scopeMode: AcpScopeMode.optional,
+            columns: <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Name', label: 'Name'),
+            ],
+            updateFields: <AcpFieldDescriptor>[
+              AcpFieldDescriptor(
+                key: 'IdentityKey',
+                label: 'Identity Key',
+                readOnly: true,
+              ),
+              AcpFieldDescriptor(key: 'Name', label: 'Name'),
+            ],
+            allowUpdate: true,
+          ),
+        ],
+      );
+
+      await tester.tap(find.byTooltip('Edit row'));
+      await tester.pumpAndSettle();
+
+      final identityField = tester.widget<EditableText>(
+        find.descendant(
+          of: find.byKey(const Key('acp-dynamic-field-IdentityKey')),
+          matching: find.byType(EditableText),
+        ),
+      );
+      expect(identityField.readOnly, isTrue);
+      expect(identityField.controller.text, 'locked-key');
+
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Name')),
+        'Updated row',
+      );
+      await tester.tap(_dialogButton(FilledButton, 'Save'));
+      await tester.pumpAndSettle();
+
+      expect(repository.updateValues, <String, dynamic>{'Name': 'Updated row'});
+    },
+  );
+
   testWidgets('JSON validation blocks invalid payload submission', (
     WidgetTester tester,
   ) async {
@@ -478,6 +535,7 @@ AcpResourceDescriptor _jsonResourceDescriptor() {
 
 class _TenantRowAcpAdminRepository extends FakeAcpAdminRepository {
   String? updateTenantId;
+  Map<String, dynamic>? updateValues;
 
   @override
   Future<Result<AcpRowPage>> listRows({
@@ -494,6 +552,7 @@ class _TenantRowAcpAdminRepository extends FakeAcpAdminRepository {
             'Id': 'tenant-row-1',
             'TenantId': 'tenant-1',
             'RowVersion': 1,
+            'IdentityKey': 'locked-key',
             'Name': 'Tenant scoped row',
           },
         ],
@@ -513,6 +572,7 @@ class _TenantRowAcpAdminRepository extends FakeAcpAdminRepository {
     int? rowVersion,
   }) async {
     updateTenantId = tenantId;
+    updateValues = Map<String, dynamic>.from(values);
     return updateResult;
   }
 }

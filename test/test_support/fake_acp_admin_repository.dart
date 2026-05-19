@@ -31,6 +31,7 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
     <String, Object?>{'action': 'ok'},
   );
 
+  final List<Map<String, dynamic>> createPayloads = <Map<String, dynamic>>[];
   int collectionActionCalls = 0;
 
   @override
@@ -73,6 +74,7 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
     required Map<String, dynamic> values,
     String? tenantId,
   }) async {
+    createPayloads.add(Map<String, dynamic>.from(values));
     return createResult;
   }
 

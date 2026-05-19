@@ -229,8 +229,8 @@ void main() {
       var secretValueField = tester.widget<TextFormField>(
         find.byKey(const Key('acp-dynamic-field-SecretValue')),
       );
-      var attributesField = tester.widget<TextFormField>(
-        find.byKey(const Key('acp-dynamic-field-Attributes')),
+      var attributesField = tester.widget<TextField>(
+        _jsonEditorTextField('Attributes'),
       );
 
       expect(purposeField.controller!.text, isEmpty);
@@ -258,8 +258,8 @@ void main() {
       secretValueField = tester.widget<TextFormField>(
         find.byKey(const Key('acp-dynamic-field-SecretValue')),
       );
-      attributesField = tester.widget<TextFormField>(
-        find.byKey(const Key('acp-dynamic-field-Attributes')),
+      attributesField = tester.widget<TextField>(
+        _jsonEditorTextField('Attributes'),
       );
 
       expect(purposeField.controller!.text, 'signing');
@@ -339,6 +339,13 @@ void main() {
     expect(result.isFailure, isTrue);
     expect(authController.refreshCount, 1);
   });
+}
+
+Finder _jsonEditorTextField(String fieldKey) {
+  return find.descendant(
+    of: find.byKey(Key('acp-json-editor-text-$fieldKey')),
+    matching: find.byType(TextField),
+  );
 }
 
 Future<void> _pumpRuntimeControlPanel(

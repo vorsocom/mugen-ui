@@ -11,6 +11,7 @@ import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart'
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_json_codec.dart';
+import 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -1404,15 +1405,27 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     }
 
     final controller = _textControllers[field.key]!;
-    final isJson = field.kind == AcpFieldKind.json;
-    final isMultiline = field.kind == AcpFieldKind.multiline || isJson;
+    if (field.kind == AcpFieldKind.json) {
+      return AcpJsonEditorField(
+        key: Key('acp-dynamic-field-${field.key}'),
+        controller: controller,
+        editorKey: Key('acp-json-editor-text-${field.key}'),
+        hintText: field.hintText,
+        labelText: field.label,
+        maxLines: field.maxLines ?? 10,
+        minLines: field.minLines ?? 6,
+        validator: (value) => _validateField(field, value ?? ''),
+      );
+    }
+
+    final isMultiline = field.kind == AcpFieldKind.multiline;
 
     return TextFormField(
       key: Key('acp-dynamic-field-${field.key}'),
       controller: controller,
       obscureText: field.obscureText,
-      minLines: isMultiline ? (field.minLines ?? (isJson ? 6 : 3)) : 1,
-      maxLines: isMultiline ? (field.maxLines ?? (isJson ? 10 : 5)) : 1,
+      minLines: isMultiline ? (field.minLines ?? 3) : 1,
+      maxLines: isMultiline ? (field.maxLines ?? 5) : 1,
       decoration: appFormInputDecoration(
         labelText: field.label,
         hintText: field.hintText,

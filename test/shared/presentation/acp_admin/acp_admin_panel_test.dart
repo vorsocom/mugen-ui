@@ -46,9 +46,142 @@ void main() {
     );
     expect(tester.getSize(dialogPanel).height, lessThan(360));
   });
+
+  testWidgets(
+    'JSON fields render the ACP JSON editor fallback in widget tests',
+    (WidgetTester tester) async {
+      await _pumpPanel(
+        tester,
+        descriptors: <AcpResourceDescriptor>[_jsonResourceDescriptor()],
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('acp-dynamic-field-Attributes')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('acp-json-editor-text-Attributes')),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Undo JSON edit'), findsOneWidget);
+      expect(find.byTooltip('Redo JSON edit'), findsOneWidget);
+      expect(find.byTooltip('Format JSON'), findsOneWidget);
+      expect(find.byTooltip('Compact JSON'), findsOneWidget);
+    },
+  );
+
+  testWidgets('JSON validation blocks invalid payload submission', (
+    WidgetTester tester,
+  ) async {
+    final repository = await _pumpPanel(
+      tester,
+      descriptors: <AcpResourceDescriptor>[_jsonResourceDescriptor()],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(_jsonTextField(), '{');
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Enter valid JSON.'), findsOneWidget);
+    expect(repository.createPayloads, isEmpty);
+  });
+
+  testWidgets('JSON fields submit decoded payload values', (
+    WidgetTester tester,
+  ) async {
+    final repository = await _pumpPanel(
+      tester,
+      descriptors: <AcpResourceDescriptor>[_jsonResourceDescriptor()],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(_jsonTextField(), '{"enabled":true}');
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+
+    expect(repository.createPayloads, hasLength(1));
+    expect(repository.createPayloads.single['Attributes'], <String, Object?>{
+      'enabled': true,
+    });
+  });
+
+  testWidgets('JSON toolbar formats and compacts editor text', (
+    WidgetTester tester,
+  ) async {
+    await _pumpPanel(
+      tester,
+      descriptors: <AcpResourceDescriptor>[_jsonResourceDescriptor()],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(_jsonTextField(), '{"b":2,"a":[1]}');
+    await tester.tap(find.byTooltip('Format JSON'));
+    await tester.pumpAndSettle();
+
+    var textField = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const Key('acp-json-editor-text-Attributes')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(textField.controller!.text, contains('\n  "b": 2,'));
+    expect(textField.controller!.text, contains('\n  "a": ['));
+
+    await tester.tap(find.byTooltip('Compact JSON'));
+    await tester.pumpAndSettle();
+
+    textField = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const Key('acp-json-editor-text-Attributes')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(textField.controller!.text, '{"b":2,"a":[1]}');
+  });
 }
 
-Future<void> _pumpPanel(
+Finder _dialogButton(Type buttonType, String label) {
+  return find.descendant(
+    of: find.byType(Dialog),
+    matching: find.widgetWithText(buttonType, label),
+  );
+}
+
+Finder _jsonTextField() {
+  return find.descendant(
+    of: find.byKey(const Key('acp-json-editor-text-Attributes')),
+    matching: find.byType(TextField),
+  );
+}
+
+AcpResourceDescriptor _jsonResourceDescriptor() {
+  return const AcpResourceDescriptor(
+    key: 'json-resource',
+    title: 'JSON Resource',
+    entitySet: 'JsonResources',
+    scopeMode: AcpScopeMode.none,
+    columns: <AcpColumnDescriptor>[
+      AcpColumnDescriptor(key: 'Name', label: 'Name'),
+    ],
+    createFields: <AcpFieldDescriptor>[
+      AcpFieldDescriptor(
+        key: 'Attributes',
+        label: 'Attributes',
+        kind: AcpFieldKind.json,
+      ),
+    ],
+    allowCreate: true,
+  );
+}
+
+Future<FakeAcpAdminRepository> _pumpPanel(
   WidgetTester tester, {
   required List<AcpResourceDescriptor> descriptors,
 }) async {
@@ -74,4 +207,5 @@ Future<void> _pumpPanel(
     ),
   );
   await tester.pumpAndSettle();
+  return repository;
 }

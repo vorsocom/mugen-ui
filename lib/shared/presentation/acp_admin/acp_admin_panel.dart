@@ -1574,6 +1574,7 @@ Future<void> _showRowDetailDialog(
           constraints: const BoxConstraints(maxWidth: 760, maxHeight: 760),
           child: AppFormPanel(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
@@ -1608,7 +1609,8 @@ Future<void> _showRowDetailDialog(
                   ],
                 ),
                 const SizedBox(height: 12),
-                Expanded(
+                Flexible(
+                  fit: FlexFit.loose,
                   child: SingleChildScrollView(
                     child: SelectableText(AcpJsonCodec.prettyPrint(row)),
                   ),

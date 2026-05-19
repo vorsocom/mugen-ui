@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed row detail dialogs so short object views shrink to their content while preserving the existing maximum height.
 - Fixed Channel Profile update forms so the channel and profile keys remain visible as read-only identity context.
 - Fixed update dialogs so selected reference fields display resolved profile names alongside their IDs.
 - Fixed ACP edit and row action dialogs and mutations so existing objects use the row's tenant context instead of the current screen scope when those differ.

@@ -618,6 +618,7 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
               descriptor: descriptor,
               action: action.action,
               initialValues: action.initialValues,
+              scopeRow: row,
             ),
           ),
         if (descriptor.allowUpdate && rowId != null)
@@ -683,6 +684,7 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
                       descriptor: descriptor,
                       action: action.action,
                       initialValues: action.initialValues,
+                      scopeRow: row,
                     );
                     return;
                   }
@@ -832,6 +834,10 @@ Future<void> _showCreateDialog<T extends AcpAdminController>({
   final payload = await _showDynamicFormDialog(
     context: context,
     title: 'Create ${descriptor.title}',
+    contextLabel: _dialogScopeLabel(
+      descriptor: descriptor,
+      state: ref.read(controllerProvider),
+    ),
     submitLabel: 'Create',
     fields: descriptor.createFields,
   );
@@ -866,6 +872,11 @@ Future<void> _showUpdateDialog<T extends AcpAdminController>({
   final payload = await _showDynamicFormDialog(
     context: context,
     title: 'Update ${descriptor.title}',
+    contextLabel: _dialogScopeLabel(
+      descriptor: descriptor,
+      state: ref.read(controllerProvider),
+      row: row,
+    ),
     submitLabel: 'Save',
     fields: descriptor.updateFields,
     initialValues: row,
@@ -874,9 +885,19 @@ Future<void> _showUpdateDialog<T extends AcpAdminController>({
     return;
   }
 
+  final useTenantIdOverride = _usesRowTenantScope(
+    descriptor: descriptor,
+    row: row,
+  );
   final result = await ref
       .read(controllerProvider.notifier)
-      .updateRow(rowId: rowId, values: payload, rowVersion: row.rowVersion);
+      .updateRow(
+        rowId: rowId,
+        values: payload,
+        tenantIdOverride: row.tenantId,
+        useTenantIdOverride: useTenantIdOverride,
+        rowVersion: row.rowVersion,
+      );
   if (!context.mounted) {
     return;
   }
@@ -911,9 +932,18 @@ Future<void> _deleteRow<T extends AcpAdminController>({
     return;
   }
 
+  final useTenantIdOverride = _usesRowTenantScope(
+    descriptor: descriptor,
+    row: row,
+  );
   final result = await ref
       .read(controllerProvider.notifier)
-      .deleteRow(rowId: rowId, rowVersion: row.rowVersion);
+      .deleteRow(
+        rowId: rowId,
+        tenantIdOverride: row.tenantId,
+        useTenantIdOverride: useTenantIdOverride,
+        rowVersion: row.rowVersion,
+      );
   if (!context.mounted) {
     return;
   }
@@ -948,9 +978,18 @@ Future<void> _restoreRow<T extends AcpAdminController>({
     return;
   }
 
+  final useTenantIdOverride = _usesRowTenantScope(
+    descriptor: descriptor,
+    row: row,
+  );
   final result = await ref
       .read(controllerProvider.notifier)
-      .restoreRow(rowId: rowId, rowVersion: row.rowVersion);
+      .restoreRow(
+        rowId: rowId,
+        tenantIdOverride: row.tenantId,
+        useTenantIdOverride: useTenantIdOverride,
+        rowVersion: row.rowVersion,
+      );
   if (!context.mounted) {
     return;
   }
@@ -969,12 +1008,18 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
   required AcpResourceDescriptor descriptor,
   required AcpActionDescriptor action,
   Map<String, dynamic> initialValues = const <String, dynamic>{},
+  AcpRow? scopeRow,
 }) async {
   Map<String, dynamic>? payload = const <String, dynamic>{};
   if (action.fields.isNotEmpty) {
     payload = await _showDynamicFormDialog(
       context: context,
       title: action.label,
+      contextLabel: _dialogScopeLabel(
+        descriptor: descriptor,
+        state: ref.read(controllerProvider),
+        row: scopeRow,
+      ),
       submitLabel: action.label,
       fields: action.fields,
       initialValues: initialValues,
@@ -1012,9 +1057,18 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
     }
   }
 
+  final useTenantIdOverride = _usesRowTenantScope(
+    descriptor: descriptor,
+    row: scopeRow,
+  );
   final result = await ref
       .read(controllerProvider.notifier)
-      .runCollectionAction(action: action, values: payload);
+      .runCollectionAction(
+        action: action,
+        values: payload,
+        tenantIdOverride: scopeRow?.tenantId,
+        useTenantIdOverride: useTenantIdOverride,
+      );
   if (!context.mounted) {
     return;
   }
@@ -1060,6 +1114,11 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
     payload = await _showDynamicFormDialog(
       context: context,
       title: action.label,
+      contextLabel: _dialogScopeLabel(
+        descriptor: descriptor,
+        state: ref.read(controllerProvider),
+        row: row,
+      ),
       submitLabel: action.label,
       fields: action.fields,
       initialValues: row,
@@ -1103,6 +1162,11 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
         action: action,
         rowId: rowId,
         values: payload,
+        tenantIdOverride: row.tenantId,
+        useTenantIdOverride: _usesRowTenantScope(
+          descriptor: descriptor,
+          row: row,
+        ),
         rowVersion: action.includeRowVersion ? row.rowVersion : null,
       );
   if (!context.mounted) {
@@ -1122,6 +1186,7 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
   required String title,
   required String submitLabel,
   required List<AcpFieldDescriptor> fields,
+  String? contextLabel,
   Map<String, dynamic> initialValues = const <String, dynamic>{},
 }) {
   return showDialog<Map<String, dynamic>>(
@@ -1139,6 +1204,7 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
           constraints: const BoxConstraints(maxWidth: 720, maxHeight: 760),
           child: _AcpDynamicFormDialog(
             title: title,
+            contextLabel: contextLabel,
             submitLabel: submitLabel,
             fields: fields,
             initialValues: initialValues,
@@ -1147,6 +1213,89 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
       );
     },
   );
+}
+
+String? _dialogScopeLabel({
+  required AcpResourceDescriptor descriptor,
+  required AcpAdminState state,
+  AcpRow? row,
+}) {
+  final rowScopeLabel = _rowScopeLabel(
+    descriptor: descriptor,
+    state: state,
+    row: row,
+  );
+  if (rowScopeLabel != null) {
+    return rowScopeLabel;
+  }
+
+  switch (descriptor.scopeMode) {
+    case AcpScopeMode.none:
+      return null;
+    case AcpScopeMode.required:
+      return _tenantScopeLabel(state);
+    case AcpScopeMode.optional:
+      final resourceState = state.resourceStates[descriptor.key];
+      if (resourceState?.optionalScopeSelection !=
+          AcpOptionalScopeSelection.tenant) {
+        return 'Scope: Global';
+      }
+      return _tenantScopeLabel(state);
+  }
+}
+
+String? _rowScopeLabel({
+  required AcpResourceDescriptor descriptor,
+  required AcpAdminState state,
+  required AcpRow? row,
+}) {
+  if (!_usesRowTenantScope(descriptor: descriptor, row: row)) {
+    return null;
+  }
+
+  final tenantId = row!.tenantId;
+  if (tenantId == null) {
+    return 'Scope: Global';
+  }
+
+  return 'Tenant: ${_tenantLabelForId(state, tenantId)}';
+}
+
+bool _usesRowTenantScope({
+  required AcpResourceDescriptor descriptor,
+  required AcpRow? row,
+}) {
+  if (descriptor.scopeMode == AcpScopeMode.none ||
+      row == null ||
+      !row.containsKey('TenantId')) {
+    return false;
+  }
+
+  return descriptor.scopeMode == AcpScopeMode.optional || row.tenantId != null;
+}
+
+String _tenantScopeLabel(AcpAdminState state) {
+  final tenant = state.selectedTenant;
+  if (tenant != null) {
+    return 'Tenant: ${tenant.label}';
+  }
+
+  final tenantId = state.selectedTenantId?.trim();
+  if (tenantId != null && tenantId.isNotEmpty) {
+    return 'Tenant: $tenantId';
+  }
+
+  return 'Tenant: Not selected';
+}
+
+String _tenantLabelForId(AcpAdminState state, String tenantId) {
+  for (final tenant in state.tenants) {
+    if (tenant.id == tenantId) {
+      return tenant.label;
+    }
+  }
+
+  return tenantId;
 }
 
 Future<void> _showRowDetailDialog(
@@ -1309,12 +1458,14 @@ Future<void> _handleVoidMutationResult({
 class _AcpDynamicFormDialog extends StatefulWidget {
   const _AcpDynamicFormDialog({
     required this.title,
+    required this.contextLabel,
     required this.submitLabel,
     required this.fields,
     required this.initialValues,
   });
 
   final String title;
+  final String? contextLabel;
   final String submitLabel;
   final List<AcpFieldDescriptor> fields;
   final Map<String, dynamic> initialValues;
@@ -1375,6 +1526,39 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
+          if (widget.contextLabel != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              decoration: BoxDecoration(
+                color: AppUiPalette.success.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppUiPalette.success.withValues(alpha: 0.38),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.apartment_outlined,
+                    size: 20,
+                    color: AppUiPalette.success,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      widget.contextLabel!,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: AppUiPalette.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           Flexible(
             fit: FlexFit.loose,

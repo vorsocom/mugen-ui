@@ -15,6 +15,63 @@ import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const double _formDialogPanelWidth = 520;
 
+class _RbacTabChip extends StatelessWidget {
+  const _RbacTabChip({
+    required this.chipKey,
+    required this.label,
+    required this.tooltip,
+    required this.tooltipKey,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final Key chipKey;
+  final String label;
+  final String tooltip;
+  final Key tooltipKey;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.centerRight,
+      children: [
+        ChoiceChip(
+          key: chipKey,
+          label: Padding(
+            padding: const EdgeInsets.only(right: 24),
+            child: Text(label),
+          ),
+          selected: selected,
+          onSelected: onSelected,
+        ),
+        Positioned(
+          right: 6,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: Tooltip(
+              key: tooltipKey,
+              message: tooltip,
+              child: const SizedBox.square(
+                dimension: 18,
+                child: Center(
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppUiPalette.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class RbacManagementPanel extends ConsumerStatefulWidget {
   const RbacManagementPanel({super.key}); // coverage:ignore-line
 
@@ -104,44 +161,65 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
         Wrap(
           spacing: 8,
           children: [
-            ChoiceChip(
-              key: const Key('rbac-management-tab-global-roles'),
-              label: const Text('Global Roles'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-global-roles'),
+              label: 'Global Roles',
+              tooltip:
+                  'Platform-wide roles that can be granted outside a tenant.',
+              tooltipKey: const Key('rbac-management-tab-global-roles-info'),
               selected: state.activeTab == RbacAdminTab.globalRoles,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.globalRoles),
             ),
-            ChoiceChip(
-              key: const Key('rbac-management-tab-permission-objects'),
-              label: const Text('Permission Objects'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-permission-objects'),
+              label: 'Permission Objects',
+              tooltip:
+                  'Protected object types that permissions can be granted on.',
+              tooltipKey: const Key(
+                'rbac-management-tab-permission-objects-info',
+              ),
               selected: state.activeTab == RbacAdminTab.permissionObjects,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.permissionObjects),
             ),
-            ChoiceChip(
-              key: const Key('rbac-management-tab-permission-types'),
-              label: const Text('Permission Types'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-permission-types'),
+              label: 'Permission Types',
+              tooltip:
+                  'Actions that can be allowed or denied for permission objects.',
+              tooltipKey: const Key(
+                'rbac-management-tab-permission-types-info',
+              ),
               selected: state.activeTab == RbacAdminTab.permissionTypes,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.permissionTypes),
             ),
-            ChoiceChip(
-              key: const Key('rbac-management-tab-global-grants'),
-              label: const Text('Global Grants'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-global-grants'),
+              label: 'Global Grants',
+              tooltip:
+                  'Global role permissions that apply without tenant scope.',
+              tooltipKey: const Key('rbac-management-tab-global-grants-info'),
               selected: state.activeTab == RbacAdminTab.globalGrants,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.globalGrants),
             ),
-            ChoiceChip(
-              key: const Key('rbac-management-tab-tenant-roles'),
-              label: const Text('Tenant Roles'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-tenant-roles'),
+              label: 'Tenant Roles',
+              tooltip: 'Roles available only within the selected tenant.',
+              tooltipKey: const Key('rbac-management-tab-tenant-roles-info'),
               selected: state.activeTab == RbacAdminTab.tenantRoles,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.tenantRoles),
             ),
-            ChoiceChip(
-              key: const Key('rbac-management-tab-tenant-grants'),
-              label: const Text('Tenant Grants'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-tenant-grants'),
+              label: 'Tenant Grants',
+              tooltip:
+                  'Permissions assigned to tenant roles in the selected tenant.',
+              tooltipKey: const Key('rbac-management-tab-tenant-grants-info'),
               selected: state.activeTab == RbacAdminTab.tenantGrants,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.tenantGrants),

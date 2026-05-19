@@ -228,25 +228,44 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                       Wrap(
                         spacing: 8,
                         children: [
-                          ChoiceChip(
-                            key: const Key('tenant-management-tab-domains'),
-                            label: const Text('Domains'),
+                          _TenantTabChip(
+                            chipKey: const Key('tenant-management-tab-domains'),
+                            label: 'Domains',
+                            tooltip:
+                                'Verified tenant domains used to identify tenant-owned traffic.',
+                            tooltipKey: const Key(
+                              'tenant-management-tab-domains-info',
+                            ),
                             selected: state.activeTab == TenantAdminTab.domains,
                             onSelected: (_) =>
                                 controller.setActiveTab(TenantAdminTab.domains),
                           ),
-                          ChoiceChip(
-                            key: const Key('tenant-management-tab-invitations'),
-                            label: const Text('Invitations'),
+                          _TenantTabChip(
+                            chipKey: const Key(
+                              'tenant-management-tab-invitations',
+                            ),
+                            label: 'Invitations',
+                            tooltip:
+                                'Pending invitations for adding users to this tenant.',
+                            tooltipKey: const Key(
+                              'tenant-management-tab-invitations-info',
+                            ),
                             selected:
                                 state.activeTab == TenantAdminTab.invitations,
                             onSelected: (_) => controller.setActiveTab(
                               TenantAdminTab.invitations,
                             ),
                           ),
-                          ChoiceChip(
-                            key: const Key('tenant-management-tab-memberships'),
-                            label: const Text('Memberships'),
+                          _TenantTabChip(
+                            chipKey: const Key(
+                              'tenant-management-tab-memberships',
+                            ),
+                            label: 'Memberships',
+                            tooltip:
+                                'Users assigned to this tenant and their tenant roles.',
+                            tooltipKey: const Key(
+                              'tenant-management-tab-memberships-info',
+                            ),
                             selected:
                                 state.activeTab == TenantAdminTab.memberships,
                             onSelected: (_) => controller.setActiveTab(
@@ -389,6 +408,63 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TenantTabChip extends StatelessWidget {
+  const _TenantTabChip({
+    required this.chipKey,
+    required this.label,
+    required this.tooltip,
+    required this.tooltipKey,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final Key chipKey;
+  final String label;
+  final String tooltip;
+  final Key tooltipKey;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.centerRight,
+      children: [
+        ChoiceChip(
+          key: chipKey,
+          label: Padding(
+            padding: const EdgeInsets.only(right: 24),
+            child: Text(label),
+          ),
+          selected: selected,
+          onSelected: onSelected,
+        ),
+        Positioned(
+          right: 6,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: Tooltip(
+              key: tooltipKey,
+              message: tooltip,
+              child: const SizedBox.square(
+                dimension: 18,
+                child: Center(
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppUiPalette.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

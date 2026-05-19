@@ -55,6 +55,27 @@ void main() {
       expect(selectedTenantTile.selectedTileColor, AppUiPalette.accentSoft);
       final selectedTenantTitle = tester.widget<Text>(find.text('Tenant 1'));
       expect(selectedTenantTitle.style?.fontWeight, FontWeight.w700);
+      expect(
+        _tabTooltipMessage(
+          tester,
+          const Key('tenant-management-tab-domains-info'),
+        ),
+        'Verified tenant domains used to identify tenant-owned traffic.',
+      );
+      expect(
+        _tabTooltipMessage(
+          tester,
+          const Key('tenant-management-tab-invitations-info'),
+        ),
+        'Pending invitations for adding users to this tenant.',
+      );
+      expect(
+        _tabTooltipMessage(
+          tester,
+          const Key('tenant-management-tab-memberships-info'),
+        ),
+        'Users assigned to this tenant and their tenant roles.',
+      );
 
       await tester.tap(find.byTooltip('Next page'));
       await tester.pumpAndSettle();
@@ -413,6 +434,11 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+}
+
+String? _tabTooltipMessage(WidgetTester tester, Key tabKey) {
+  final tooltip = tester.widget<Tooltip>(find.byKey(tabKey));
+  return tooltip.message;
 }
 
 Future<void> _pumpPanel(

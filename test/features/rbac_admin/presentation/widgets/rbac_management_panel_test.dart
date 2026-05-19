@@ -26,6 +26,48 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('New Global Role'), findsOneWidget);
+    expect(
+      _tabTooltipMessage(
+        tester,
+        const Key('rbac-management-tab-global-roles-info'),
+      ),
+      'Platform-wide roles that can be granted outside a tenant.',
+    );
+    expect(
+      _tabTooltipMessage(
+        tester,
+        const Key('rbac-management-tab-permission-objects-info'),
+      ),
+      'Protected object types that permissions can be granted on.',
+    );
+    expect(
+      _tabTooltipMessage(
+        tester,
+        const Key('rbac-management-tab-permission-types-info'),
+      ),
+      'Actions that can be allowed or denied for permission objects.',
+    );
+    expect(
+      _tabTooltipMessage(
+        tester,
+        const Key('rbac-management-tab-global-grants-info'),
+      ),
+      'Global role permissions that apply without tenant scope.',
+    );
+    expect(
+      _tabTooltipMessage(
+        tester,
+        const Key('rbac-management-tab-tenant-roles-info'),
+      ),
+      'Roles available only within the selected tenant.',
+    );
+    expect(
+      _tabTooltipMessage(
+        tester,
+        const Key('rbac-management-tab-tenant-grants-info'),
+      ),
+      'Permissions assigned to tenant roles in the selected tenant.',
+    );
 
     await tester.tap(
       find.byKey(const Key('rbac-management-tab-permission-objects')),
@@ -252,6 +294,11 @@ void main() {
       findsOneWidget,
     );
   });
+}
+
+String? _tabTooltipMessage(WidgetTester tester, Key tabKey) {
+  final tooltip = tester.widget<Tooltip>(find.byKey(tabKey));
+  return tooltip.message;
 }
 
 Future<void> _pumpPanel(

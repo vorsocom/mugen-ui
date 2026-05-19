@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added information-icon tooltips to Platform Configuration tab labels and moved page-level descriptions into muted notice boxes.
 - Added tenant-aware searchable reference selectors for Channel Profile `ClientProfileId` and Ingress Binding `ChannelProfileId` fields.
 - Added a row-detail dialog action to copy the ACP object ID to the clipboard.
 - Added prominent active scope context to ACP form dialogs so tenant or global operations are visible while editing.

@@ -9,6 +9,7 @@ import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_json_codec.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_bridge_stub.dart'
     if (dart.library.html) 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_bridge_web.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_command_controller.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 class AcpJsonEditorField extends StatefulWidget {
@@ -17,6 +18,8 @@ class AcpJsonEditorField extends StatefulWidget {
     required this.labelText,
     super.key,
     this.editorKey,
+    this.helpKey,
+    this.helpText,
     this.hintText,
     this.maxLines = 10,
     this.minLines = 6,
@@ -25,6 +28,8 @@ class AcpJsonEditorField extends StatefulWidget {
 
   final TextEditingController controller;
   final Key? editorKey;
+  final Key? helpKey;
+  final String? helpText;
   final String? hintText;
   final String labelText;
   final int maxLines;
@@ -96,9 +101,10 @@ class _AcpJsonEditorFieldState extends State<AcpJsonEditorField> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            widget.labelText,
-                            overflow: TextOverflow.ellipsis,
+                          child: appFieldLabelWithHelp(
+                            labelText: widget.labelText,
+                            helpText: widget.helpText,
+                            helpKey: widget.helpKey,
                             style: Theme.of(context).textTheme.labelMedium
                                 ?.copyWith(color: AppUiPalette.textSecondary),
                           ),

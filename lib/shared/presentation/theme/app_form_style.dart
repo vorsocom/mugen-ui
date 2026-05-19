@@ -121,11 +121,19 @@ InputDecoration appFormInputDecoration({
   required String labelText,
   Widget? suffixIcon,
   String? hintText,
+  String? helpText,
+  Key? helpKey,
   int? errorMaxLines,
 }) {
   final baseBorder = OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),
     borderSide: const BorderSide(color: AppUiPalette.border),
+  );
+
+  final resolvedSuffixIcon = _fieldSuffixIcon(
+    suffixIcon: suffixIcon,
+    helpText: helpText,
+    helpKey: helpKey,
   );
 
   return InputDecoration(
@@ -145,6 +153,86 @@ InputDecoration appFormInputDecoration({
     focusedErrorBorder: baseBorder.copyWith(
       borderSide: BorderSide(color: Colors.red.shade500),
     ),
-    suffixIcon: suffixIcon,
+    suffixIcon: resolvedSuffixIcon,
+    suffixIconConstraints: resolvedSuffixIcon == null
+        ? null
+        : const BoxConstraints(minHeight: 48, minWidth: 48),
   );
+}
+
+Widget appFieldLabelWithHelp({
+  required String labelText,
+  required String? helpText,
+  Key? helpKey,
+  TextStyle? style,
+}) {
+  final message = helpText?.trim();
+  if (message == null || message.isEmpty) {
+    return Text(labelText, style: style);
+  }
+
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Flexible(
+        child: Text(labelText, overflow: TextOverflow.ellipsis, style: style),
+      ),
+      const SizedBox(width: 6),
+      AppFieldHelpIcon(message: message, helpKey: helpKey),
+    ],
+  );
+}
+
+class AppFieldHelpIcon extends StatelessWidget {
+  const AppFieldHelpIcon({required this.message, super.key, this.helpKey});
+
+  final String message;
+  final Key? helpKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      key: helpKey,
+      message: message,
+      waitDuration: const Duration(milliseconds: 350),
+      showDuration: const Duration(seconds: 12),
+      constraints: const BoxConstraints(maxWidth: 360),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      textStyle: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(color: Colors.white, height: 1.3),
+      child: const SizedBox.square(
+        dimension: 22,
+        child: Center(
+          child: Icon(
+            Icons.info_outline,
+            size: 16,
+            color: AppUiPalette.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Widget? _fieldSuffixIcon({
+  required Widget? suffixIcon,
+  required String? helpText,
+  required Key? helpKey,
+}) {
+  final message = helpText?.trim();
+  if (message == null || message.isEmpty) {
+    return suffixIcon;
+  }
+
+  final helpIcon = Padding(
+    padding: EdgeInsets.only(right: suffixIcon == null ? 6 : 2),
+    child: AppFieldHelpIcon(message: message, helpKey: helpKey),
+  );
+
+  if (suffixIcon == null) {
+    return helpIcon;
+  }
+
+  return Row(mainAxisSize: MainAxisSize.min, children: [suffixIcon, helpIcon]);
 }

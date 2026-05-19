@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -927,6 +928,8 @@ Future<void> _showCreateDialog<T extends AcpAdminController>({
     ),
     submitLabel: 'Create',
     fields: descriptor.createFields,
+    resourceKey: descriptor.key,
+    entitySet: descriptor.entitySet,
   );
   if (payload == null) {
     return;
@@ -975,6 +978,8 @@ Future<void> _showUpdateDialog<T extends AcpAdminController>({
     ),
     submitLabel: 'Save',
     fields: descriptor.updateFields,
+    resourceKey: descriptor.key,
+    entitySet: descriptor.entitySet,
     initialValues: row,
   );
   if (payload == null) {
@@ -1127,6 +1132,9 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
       ),
       submitLabel: action.label,
       fields: action.fields,
+      resourceKey: descriptor.key,
+      entitySet: descriptor.entitySet,
+      actionName: action.name,
       initialValues: initialValues,
     );
   } else if (action.confirmMessage != null) {
@@ -1235,6 +1243,9 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
       ),
       submitLabel: action.label,
       fields: action.fields,
+      resourceKey: descriptor.key,
+      entitySet: descriptor.entitySet,
+      actionName: action.name,
       initialValues: row,
     );
   } else if (action.confirmMessage != null) {
@@ -1300,6 +1311,9 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
   required String title,
   required String submitLabel,
   required List<AcpFieldDescriptor> fields,
+  String? resourceKey,
+  String? entitySet,
+  String? actionName,
   String? contextLabel,
   _AcpReferenceSearch? referenceSearch,
   Map<String, dynamic> initialValues = const <String, dynamic>{},
@@ -1323,6 +1337,9 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
             referenceSearch: referenceSearch,
             submitLabel: submitLabel,
             fields: fields,
+            resourceKey: resourceKey,
+            entitySet: entitySet,
+            actionName: actionName,
             initialValues: initialValues,
           ),
         ),
@@ -1629,6 +1646,8 @@ class _AcpReferenceField extends StatefulWidget {
     required this.field,
     required this.controller,
     required this.search,
+    required this.helpText,
+    required this.helpKey,
     required this.validator,
     super.key,
   });
@@ -1636,6 +1655,8 @@ class _AcpReferenceField extends StatefulWidget {
   final AcpFieldDescriptor field;
   final TextEditingController controller;
   final _AcpReferenceSearch search;
+  final String helpText;
+  final Key helpKey;
   final FormFieldValidator<String> validator;
 
   @override
@@ -1683,6 +1704,8 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
                 labelText: widget.field.label,
                 hintText: widget.field.hintText ?? 'Search existing records',
                 suffixIcon: const Icon(Icons.manage_search_outlined),
+                helpText: widget.helpText,
+                helpKey: widget.helpKey,
                 errorMaxLines: 4,
               ),
               onChanged: _queueSearch,
@@ -1939,6 +1962,9 @@ class _AcpDynamicFormDialog extends StatefulWidget {
     required this.referenceSearch,
     required this.submitLabel,
     required this.fields,
+    required this.resourceKey,
+    required this.entitySet,
+    required this.actionName,
     required this.initialValues,
   });
 
@@ -1947,6 +1973,9 @@ class _AcpDynamicFormDialog extends StatefulWidget {
   final _AcpReferenceSearch? referenceSearch;
   final String submitLabel;
   final List<AcpFieldDescriptor> fields;
+  final String? resourceKey;
+  final String? entitySet;
+  final String? actionName;
   final Map<String, dynamic> initialValues;
 
   @override
@@ -2073,6 +2102,15 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
   }
 
   Widget _buildField(BuildContext context, AcpFieldDescriptor field) {
+    final helpText = acpFieldHelpText(
+      key: field.key,
+      label: field.label,
+      kind: field.kind,
+      resourceKey: widget.resourceKey,
+      entitySet: widget.entitySet,
+      actionName: widget.actionName,
+    );
+    final helpKey = Key('acp-dynamic-field-help-${field.key}');
     if (field.kind == AcpFieldKind.boolean) {
       return Container(
         decoration: BoxDecoration(
@@ -2090,7 +2128,11 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
             });
           },
           controlAffinity: ListTileControlAffinity.leading,
-          title: Text(field.label),
+          title: appFieldLabelWithHelp(
+            labelText: field.label,
+            helpText: helpText,
+            helpKey: helpKey,
+          ),
           subtitle: field.hintText == null ? null : Text(field.hintText!),
         ),
       );
@@ -2103,6 +2145,8 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         field: field,
         controller: controller,
         search: widget.referenceSearch!,
+        helpText: helpText,
+        helpKey: helpKey,
         validator: (value) => _validateField(field, value ?? ''),
       );
     }
@@ -2113,6 +2157,8 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         controller: controller,
         editorKey: Key('acp-json-editor-text-${field.key}'),
         hintText: field.hintText,
+        helpKey: helpKey,
+        helpText: helpText,
         labelText: field.label,
         maxLines: field.maxLines ?? 10,
         minLines: field.minLines ?? 6,
@@ -2131,6 +2177,8 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         decoration: appFormInputDecoration(
           labelText: field.label,
           hintText: field.hintText,
+          helpText: helpText,
+          helpKey: helpKey,
           errorMaxLines: 4,
         ),
         items: options
@@ -2160,6 +2208,8 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       decoration: appFormInputDecoration(
         labelText: field.label,
         hintText: field.hintText,
+        helpText: helpText,
+        helpKey: helpKey,
         errorMaxLines: 4,
       ),
       validator: (value) => _validateField(field, value ?? ''),

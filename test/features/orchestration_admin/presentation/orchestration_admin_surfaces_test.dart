@@ -80,6 +80,13 @@ void main() {
         (resource) => resource.entitySet == 'ChannelProfiles',
       );
 
+      expect(descriptor.createFields.map((field) => field.key), <String>[
+        'ClientProfileId',
+        'ChannelKey',
+        'ProfileKey',
+        'ServiceRouteDefaultKey',
+      ]);
+      expect(descriptor.updateFields.first.key, 'ClientProfileId');
       expect(_requiredFieldKeys(descriptor.createFields), <String>[
         'ChannelKey',
         'ProfileKey',

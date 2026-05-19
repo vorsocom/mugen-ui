@@ -18,9 +18,9 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _column('IsActive', 'Active'),
     ],
     createFields: <AcpFieldDescriptor>[
+      _clientProfileId(),
       _text('ChannelKey', 'Channel Key', required: true),
       _text('ProfileKey', 'Profile Key', required: true),
-      _clientProfileId(),
       _text('ServiceRouteDefaultKey', 'Service Route Default Key'),
     ],
     updateFields: <AcpFieldDescriptor>[

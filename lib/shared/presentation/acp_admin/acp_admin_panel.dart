@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_json_codec.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_field.dart';
@@ -23,6 +24,12 @@ const double _acpAdminActionCellPaddingAllowance = 32;
 const double _acpAdminColumnSpacing = 20;
 const double _acpAdminTableHorizontalMargin = 16;
 const Duration _acpAdminSearchDebounce = Duration(milliseconds: 300);
+
+typedef _AcpReferenceSearch =
+    Future<Result<AcpRowPage>> Function(
+      AcpFieldReferenceDescriptor reference,
+      String searchTerm,
+    );
 
 class AcpAdminPanel<T extends AcpAdminController>
     extends ConsumerStatefulWidget {
@@ -838,6 +845,10 @@ Future<void> _showCreateDialog<T extends AcpAdminController>({
       descriptor: descriptor,
       state: ref.read(controllerProvider),
     ),
+    referenceSearch: _referenceSearchFor(
+      ref: ref,
+      controllerProvider: controllerProvider,
+    ),
     submitLabel: 'Create',
     fields: descriptor.createFields,
   );
@@ -876,6 +887,15 @@ Future<void> _showUpdateDialog<T extends AcpAdminController>({
       descriptor: descriptor,
       state: ref.read(controllerProvider),
       row: row,
+    ),
+    referenceSearch: _referenceSearchFor(
+      ref: ref,
+      controllerProvider: controllerProvider,
+      tenantIdOverride: row.tenantId,
+      useTenantIdOverride: _usesRowTenantScope(
+        descriptor: descriptor,
+        row: row,
+      ),
     ),
     submitLabel: 'Save',
     fields: descriptor.updateFields,
@@ -1020,6 +1040,15 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
         state: ref.read(controllerProvider),
         row: scopeRow,
       ),
+      referenceSearch: _referenceSearchFor(
+        ref: ref,
+        controllerProvider: controllerProvider,
+        tenantIdOverride: scopeRow?.tenantId,
+        useTenantIdOverride: _usesRowTenantScope(
+          descriptor: descriptor,
+          row: scopeRow,
+        ),
+      ),
       submitLabel: action.label,
       fields: action.fields,
       initialValues: initialValues,
@@ -1119,6 +1148,15 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
         state: ref.read(controllerProvider),
         row: row,
       ),
+      referenceSearch: _referenceSearchFor(
+        ref: ref,
+        controllerProvider: controllerProvider,
+        tenantIdOverride: row.tenantId,
+        useTenantIdOverride: _usesRowTenantScope(
+          descriptor: descriptor,
+          row: row,
+        ),
+      ),
       submitLabel: action.label,
       fields: action.fields,
       initialValues: row,
@@ -1187,6 +1225,7 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
   required String submitLabel,
   required List<AcpFieldDescriptor> fields,
   String? contextLabel,
+  _AcpReferenceSearch? referenceSearch,
   Map<String, dynamic> initialValues = const <String, dynamic>{},
 }) {
   return showDialog<Map<String, dynamic>>(
@@ -1205,6 +1244,7 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
           child: _AcpDynamicFormDialog(
             title: title,
             contextLabel: contextLabel,
+            referenceSearch: referenceSearch,
             submitLabel: submitLabel,
             fields: fields,
             initialValues: initialValues,
@@ -1213,6 +1253,59 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
       );
     },
   );
+}
+
+_AcpReferenceSearch _referenceSearchFor<T extends AcpAdminController>({
+  required WidgetRef ref,
+  required StateNotifierProvider<T, AcpAdminState> controllerProvider,
+  String? tenantIdOverride,
+  bool useTenantIdOverride = false,
+}) {
+  return (reference, searchTerm) {
+    final state = ref.read(controllerProvider);
+    final controller = ref.read(controllerProvider.notifier);
+    final tenantId = _referenceTenantIdFor(
+      reference: reference,
+      state: state,
+      tenantIdOverride: tenantIdOverride,
+      useTenantIdOverride: useTenantIdOverride,
+    );
+
+    return controller.repository.listRows(
+      descriptor: AcpResourceDescriptor(
+        key: 'reference-${reference.entitySet}',
+        title: reference.title,
+        entitySet: reference.entitySet,
+        scopeMode: reference.scopeMode,
+        columns: const <AcpColumnDescriptor>[],
+        searchFields: reference.searchFields,
+        defaultOrderBy: reference.defaultOrderBy,
+        pageSize: reference.pageSize,
+      ),
+      pageRequest: PageRequest(page: 1, pageSize: reference.pageSize),
+      tenantId: tenantId,
+      searchTerm: searchTerm,
+    );
+  };
+}
+
+String? _referenceTenantIdFor({
+  required AcpFieldReferenceDescriptor reference,
+  required AcpAdminState state,
+  required String? tenantIdOverride,
+  required bool useTenantIdOverride,
+}) {
+  if (reference.scopeMode == AcpScopeMode.none) {
+    return null;
+  }
+
+  final tenantId = useTenantIdOverride
+      ? tenantIdOverride
+      : state.selectedTenantId;
+  final trimmedTenantId = tenantId?.trim();
+  return trimmedTenantId == null || trimmedTenantId.isEmpty
+      ? null
+      : trimmedTenantId;
 }
 
 String? _dialogScopeLabel({
@@ -1455,10 +1548,319 @@ Future<void> _handleVoidMutationResult({
       .show(ref.read(appNavigatorProvider), successMessage);
 }
 
+class _AcpReferenceField extends StatefulWidget {
+  const _AcpReferenceField({
+    required this.field,
+    required this.controller,
+    required this.search,
+    required this.validator,
+    super.key,
+  });
+
+  final AcpFieldDescriptor field;
+  final TextEditingController controller;
+  final _AcpReferenceSearch search;
+  final FormFieldValidator<String> validator;
+
+  @override
+  State<_AcpReferenceField> createState() => _AcpReferenceFieldState();
+}
+
+class _AcpReferenceFieldState extends State<_AcpReferenceField> {
+  late final TextEditingController _searchController;
+  Timer? _searchDebounce;
+  int _searchGeneration = 0;
+  bool _isSearching = false;
+  bool _hasSearched = false;
+  String? _searchError;
+  AcpRow? _selectedRow;
+  List<AcpRow> _results = const <AcpRow>[];
+
+  AcpFieldReferenceDescriptor get _reference => widget.field.reference!;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FormField<String>(
+      initialValue: widget.controller.text,
+      validator: widget.validator,
+      builder: (fieldState) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              key: Key('acp-reference-search-${widget.field.key}'),
+              controller: _searchController,
+              decoration: appFormInputDecoration(
+                labelText: widget.field.label,
+                hintText: widget.field.hintText ?? 'Search existing records',
+                suffixIcon: const Icon(Icons.manage_search_outlined),
+                errorMaxLines: 4,
+              ),
+              onChanged: _queueSearch,
+            ),
+            if (fieldState.errorText != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                fieldState.errorText!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
+              ),
+            ],
+            if (widget.controller.text.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _SelectedReferenceTile(
+                fieldKey: widget.field.key,
+                label: _selectedLabel,
+                onClear: () => _clearSelection(fieldState),
+              ),
+            ],
+            if (_isSearching) ...[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(),
+            ],
+            if (_searchError != null && _searchError!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                _searchError!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
+              ),
+            ],
+            if (_hasSearched && !_isSearching && _searchError == null) ...[
+              const SizedBox(height: 8),
+              _buildResults(fieldState),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  String get _selectedLabel {
+    final selectedRow = _selectedRow;
+    final selectedValue = widget.controller.text.trim();
+    if (selectedRow == null) {
+      return selectedValue;
+    }
+
+    final title = _referenceTitle(selectedRow);
+    if (title == selectedValue) {
+      return selectedValue;
+    }
+
+    return '$title  |  $selectedValue';
+  }
+
+  Widget _buildResults(FormFieldState<String> fieldState) {
+    if (_results.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppUiPalette.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Text('No matching records found.'),
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 220),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppUiPalette.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: _results.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final row = _results[index];
+            final value = _referenceValue(row);
+            final isSelected = widget.controller.text.trim() == value;
+            return ListTile(
+              key: Key('acp-reference-option-${widget.field.key}-$value'),
+              enabled: value.isNotEmpty,
+              selected: isSelected,
+              leading: Icon(
+                isSelected ? Icons.check_circle_outline : Icons.link_outlined,
+              ),
+              title: Text(_referenceTitle(row)),
+              subtitle: Text(_referenceSubtitle(row)),
+              onTap: value.isEmpty ? null : () => _selectRow(row, fieldState),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  void _queueSearch(String value) {
+    _searchDebounce?.cancel();
+    final term = value.trim();
+    if (term.isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _hasSearched = false;
+        _searchError = null;
+        _results = const <AcpRow>[];
+      });
+      return;
+    }
+
+    if (term.length < 2) {
+      setState(() {
+        _isSearching = false;
+        _hasSearched = true;
+        _searchError = null;
+        _results = const <AcpRow>[];
+      });
+      return;
+    }
+
+    _searchDebounce = Timer(
+      _acpAdminSearchDebounce,
+      () => _searchReferences(term),
+    );
+  }
+
+  Future<void> _searchReferences(String term) async {
+    final generation = ++_searchGeneration;
+    setState(() {
+      _isSearching = true;
+      _hasSearched = true;
+      _searchError = null;
+    });
+
+    final response = await widget.search(_reference, term);
+    if (!mounted || generation != _searchGeneration) {
+      return;
+    }
+
+    if (response.isFailure) {
+      setState(() {
+        _isSearching = false;
+        _results = const <AcpRow>[];
+        _searchError =
+            response.failure?.message ?? 'Could not search references.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = false;
+      _results = response.data?.items ?? const <AcpRow>[];
+      _searchError = null;
+    });
+  }
+
+  void _selectRow(AcpRow row, FormFieldState<String> fieldState) {
+    final value = _referenceValue(row);
+    setState(() {
+      _selectedRow = row;
+      widget.controller.text = value;
+    });
+    fieldState.didChange(value);
+    fieldState.validate();
+  }
+
+  void _clearSelection(FormFieldState<String> fieldState) {
+    setState(() {
+      _selectedRow = null;
+      widget.controller.clear();
+    });
+    fieldState.didChange('');
+    fieldState.validate();
+  }
+
+  String _referenceValue(AcpRow row) {
+    return row[_reference.idField]?.toString().trim() ?? '';
+  }
+
+  String _referenceTitle(AcpRow row) {
+    for (final field in _reference.titleFields) {
+      final value = row[field]?.toString().trim();
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+
+    final value = _referenceValue(row);
+    return value.isEmpty ? 'Untitled reference' : value;
+  }
+
+  String _referenceSubtitle(AcpRow row) {
+    final values = <String>[];
+    for (final field in _reference.subtitleFields) {
+      final value = row[field]?.toString().trim();
+      if (value != null && value.isNotEmpty && !values.contains(value)) {
+        values.add(value);
+      }
+    }
+
+    return values.isEmpty ? _referenceValue(row) : values.join('  |  ');
+  }
+}
+
+class _SelectedReferenceTile extends StatelessWidget {
+  const _SelectedReferenceTile({
+    required this.fieldKey,
+    required this.label,
+    required this.onClear,
+  });
+
+  final String fieldKey;
+  final String label;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: Key('acp-reference-selected-$fieldKey'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppUiPalette.surfaceStrong,
+        border: Border.all(color: AppUiPalette.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, overflow: TextOverflow.ellipsis)),
+          IconButton(
+            tooltip: 'Clear selection',
+            onPressed: onClear,
+            icon: const Icon(Icons.close, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AcpDynamicFormDialog extends StatefulWidget {
   const _AcpDynamicFormDialog({
     required this.title,
     required this.contextLabel,
+    required this.referenceSearch,
     required this.submitLabel,
     required this.fields,
     required this.initialValues,
@@ -1466,6 +1868,7 @@ class _AcpDynamicFormDialog extends StatefulWidget {
 
   final String title;
   final String? contextLabel;
+  final _AcpReferenceSearch? referenceSearch;
   final String submitLabel;
   final List<AcpFieldDescriptor> fields;
   final Map<String, dynamic> initialValues;
@@ -1618,6 +2021,16 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     }
 
     final controller = _textControllers[field.key]!;
+    if (field.reference != null && widget.referenceSearch != null) {
+      return _AcpReferenceField(
+        key: Key('acp-dynamic-field-${field.key}'),
+        field: field,
+        controller: controller,
+        search: widget.referenceSearch!,
+        validator: (value) => _validateField(field, value ?? ''),
+      );
+    }
+
     if (field.kind == AcpFieldKind.json) {
       return AcpJsonEditorField(
         key: Key('acp-dynamic-field-${field.key}'),

@@ -20,11 +20,11 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     createFields: <AcpFieldDescriptor>[
       _text('ChannelKey', 'Channel Key', required: true),
       _text('ProfileKey', 'Profile Key', required: true),
-      _text('ClientProfileId', 'Client Profile ID'),
+      _clientProfileId(),
       _text('ServiceRouteDefaultKey', 'Service Route Default Key'),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('ClientProfileId', 'Client Profile ID'),
+      _clientProfileId(),
       _text('DisplayName', 'Display Name'),
       _text('ServiceRouteDefaultKey', 'Service Route Default Key'),
       _text('RouteDefaultKey', 'Route Default Key'),
@@ -57,14 +57,14 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _column('IsActive', 'Active'),
     ],
     createFields: <AcpFieldDescriptor>[
-      _text('ChannelProfileId', 'Channel Profile ID'),
+      _channelProfileId(),
       _text('ChannelKey', 'Channel Key', required: true),
       _text('IdentifierType', 'Identifier Type', required: true),
       _text('IdentifierValue', 'Identifier Value', required: true),
       _text('ServiceRouteKey', 'Service Route Key'),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('ChannelProfileId', 'Channel Profile ID'),
+      _channelProfileId(),
       _text('ChannelKey', 'Channel Key'),
       _text('IdentifierType', 'Identifier Type'),
       _text('IdentifierValue', 'Identifier Value'),
@@ -524,6 +524,62 @@ AcpFieldDescriptor _text(
     label: label,
     required: required,
     initialValue: initialValue,
+  );
+}
+
+AcpFieldDescriptor _clientProfileId() {
+  return const AcpFieldDescriptor(
+    key: 'ClientProfileId',
+    label: 'Client Profile ID',
+    hintText: 'Search messaging client profiles in this tenant',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'MessagingClientProfiles',
+      scopeMode: AcpScopeMode.optional,
+      title: 'Messaging Client Profiles',
+      searchFields: <String>[
+        'PlatformKey',
+        'ProfileKey',
+        'DisplayName',
+        'Provider',
+        'PathToken',
+      ],
+      titleFields: <String>['DisplayName', 'ProfileKey', 'PathToken', 'Id'],
+      subtitleFields: <String>[
+        'PlatformKey',
+        'ProfileKey',
+        'Provider',
+        'PathToken',
+        'Id',
+      ],
+      defaultOrderBy: 'PlatformKey asc, ProfileKey asc',
+    ),
+  );
+}
+
+AcpFieldDescriptor _channelProfileId() {
+  return const AcpFieldDescriptor(
+    key: 'ChannelProfileId',
+    label: 'Channel Profile ID',
+    hintText: 'Search channel profiles in this tenant',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'ChannelProfiles',
+      scopeMode: AcpScopeMode.required,
+      title: 'Channel Profiles',
+      searchFields: <String>[
+        'ChannelKey',
+        'ProfileKey',
+        'DisplayName',
+        'ServiceRouteDefaultKey',
+      ],
+      titleFields: <String>['DisplayName', 'ProfileKey', 'ChannelKey', 'Id'],
+      subtitleFields: <String>[
+        'ChannelKey',
+        'ProfileKey',
+        'ServiceRouteDefaultKey',
+        'Id',
+      ],
+      defaultOrderBy: 'IsActive desc, ChannelKey asc, ProfileKey asc',
+    ),
   );
 }
 

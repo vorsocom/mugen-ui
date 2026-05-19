@@ -21,6 +21,7 @@ class AcpFieldDescriptor {
     this.obscureText = false,
     this.initialValue,
     this.options = const <String>[],
+    this.reference,
   });
 
   final String key;
@@ -34,6 +35,31 @@ class AcpFieldDescriptor {
   final bool obscureText;
   final Object? initialValue;
   final List<String> options;
+  final AcpFieldReferenceDescriptor? reference;
+}
+
+class AcpFieldReferenceDescriptor {
+  const AcpFieldReferenceDescriptor({
+    required this.entitySet,
+    required this.scopeMode,
+    required this.title,
+    this.idField = 'Id',
+    this.searchFields = const <String>[],
+    this.titleFields = const <String>[],
+    this.subtitleFields = const <String>[],
+    this.defaultOrderBy,
+    this.pageSize = 20,
+  });
+
+  final String entitySet;
+  final AcpScopeMode scopeMode;
+  final String title;
+  final String idField;
+  final List<String> searchFields;
+  final List<String> titleFields;
+  final List<String> subtitleFields;
+  final String? defaultOrderBy;
+  final int pageSize;
 }
 
 class AcpColumnDescriptor {

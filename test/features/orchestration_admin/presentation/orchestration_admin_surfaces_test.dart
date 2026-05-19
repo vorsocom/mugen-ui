@@ -172,7 +172,7 @@ void main() {
 
     expect(repository.clientProfileTenantId, 'tenant-1');
     expect(repository.clientProfileSearchTerm, 'default');
-    expect(find.text('WhatsApp Default'), findsOneWidget);
+    expect(find.text('WhatsApp Default (whatsapp / default)'), findsOneWidget);
 
     await tester.tap(
       find.byKey(
@@ -220,7 +220,7 @@ void main() {
 
     expect(repository.channelProfileTenantId, 'tenant-1');
     expect(repository.channelProfileSearchTerm, 'whatsapp');
-    expect(find.text('WhatsApp Channel'), findsOneWidget);
+    expect(find.text('WhatsApp Channel (whatsapp / default)'), findsOneWidget);
 
     await tester.tap(
       find.byKey(
@@ -241,6 +241,60 @@ void main() {
     expect(
       repository.createPayloads.last['ChannelProfileId'],
       'channel-profile-1',
+    );
+  });
+
+  testWidgets('orchestration update forms display selected reference names', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1800, 1200));
+    addTearDown(() async {
+      await tester.binding.setSurfaceSize(null);
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          orchestrationAdminRepositoryProvider.overrideWithValue(
+            _ReferenceLabelRepository(),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: ChannelOrchestrationPanel()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Edit row'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('acp-reference-selected-ClientProfileId')),
+        matching: find.text(
+          'WhatsApp Default (whatsapp / default)  |  client-profile-1',
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(_dialogButton(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('acp-admin-tab-ingress-bindings')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Edit row'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('acp-reference-selected-ChannelProfileId')),
+        matching: find.text(
+          'WhatsApp Channel (whatsapp / default)  |  channel-profile-1',
+        ),
+      ),
+      findsOneWidget,
     );
   });
 
@@ -353,6 +407,138 @@ class _ClientProfileReferenceRepository extends FakeAcpAdminRepository {
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
       ),
+    );
+  }
+}
+
+class _ReferenceLabelRepository extends FakeAcpAdminRepository {
+  @override
+  Future<Result<AcpRow>> fetchRow({
+    required AcpResourceDescriptor descriptor,
+    required String rowId,
+    String? tenantId,
+  }) async {
+    if (descriptor.entitySet == 'MessagingClientProfiles' &&
+        rowId == 'client-profile-1') {
+      return const Result<AcpRow>.success(<String, Object?>{
+        'Id': 'client-profile-1',
+        'TenantId': 'tenant-1',
+        'PlatformKey': 'whatsapp',
+        'ProfileKey': 'default',
+        'DisplayName': 'WhatsApp Default',
+        'Provider': 'meta',
+      });
+    }
+
+    if (descriptor.entitySet == 'ChannelProfiles' &&
+        rowId == 'channel-profile-1') {
+      return const Result<AcpRow>.success(<String, Object?>{
+        'Id': 'channel-profile-1',
+        'TenantId': 'tenant-1',
+        'RowVersion': 1,
+        'ChannelKey': 'whatsapp',
+        'ProfileKey': 'default',
+        'DisplayName': 'WhatsApp Channel',
+        'ClientProfileId': 'client-profile-1',
+        'ServiceRouteDefaultKey': 'support',
+        'IsActive': true,
+      });
+    }
+
+    return super.fetchRow(
+      descriptor: descriptor,
+      rowId: rowId,
+      tenantId: tenantId,
+    );
+  }
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+  }) async {
+    final trimmedSearch = searchTerm?.trim() ?? '';
+    if (descriptor.entitySet == 'MessagingClientProfiles') {
+      return Result<AcpRowPage>.success(
+        AcpRowPage(
+          items: trimmedSearch == 'client-profile-1'
+              ? const <AcpRow>[
+                  <String, Object?>{
+                    'Id': 'client-profile-1',
+                    'TenantId': 'tenant-1',
+                    'PlatformKey': 'whatsapp',
+                    'ProfileKey': 'default',
+                    'DisplayName': 'WhatsApp Default',
+                    'Provider': 'meta',
+                  },
+                ]
+              : const <AcpRow>[],
+          total: trimmedSearch == 'client-profile-1' ? 1 : 0,
+          page: pageRequest.page,
+          pageSize: pageRequest.pageSize,
+        ),
+      );
+    }
+
+    if (descriptor.entitySet == 'ChannelProfiles') {
+      return Result<AcpRowPage>.success(
+        AcpRowPage(
+          items: trimmedSearch.isEmpty || trimmedSearch == 'channel-profile-1'
+              ? const <AcpRow>[
+                  <String, Object?>{
+                    'Id': 'channel-profile-1',
+                    'TenantId': 'tenant-1',
+                    'RowVersion': 1,
+                    'ChannelKey': 'whatsapp',
+                    'ProfileKey': 'default',
+                    'DisplayName': 'WhatsApp Channel',
+                    'ClientProfileId': 'client-profile-1',
+                    'ServiceRouteDefaultKey': 'support',
+                    'IsActive': true,
+                  },
+                ]
+              : const <AcpRow>[],
+          total: trimmedSearch.isEmpty || trimmedSearch == 'channel-profile-1'
+              ? 1
+              : 0,
+          page: pageRequest.page,
+          pageSize: pageRequest.pageSize,
+        ),
+      );
+    }
+
+    if (descriptor.entitySet == 'IngressBindings') {
+      return Result<AcpRowPage>.success(
+        AcpRowPage(
+          items: const <AcpRow>[
+            <String, Object?>{
+              'Id': 'ingress-binding-1',
+              'TenantId': 'tenant-1',
+              'RowVersion': 1,
+              'ChannelProfileId': 'channel-profile-1',
+              'ChannelKey': 'whatsapp',
+              'IdentifierType': 'phone_number_id',
+              'IdentifierValue': '1234567890',
+              'ServiceRouteKey': 'support',
+              'IsActive': true,
+            },
+          ],
+          total: 1,
+          page: pageRequest.page,
+          pageSize: pageRequest.pageSize,
+        ),
+      );
+    }
+
+    return super.listRows(
+      descriptor: descriptor,
+      pageRequest: pageRequest,
+      tenantId: tenantId,
+      searchTerm: searchTerm,
+      extraFilters: extraFilters,
     );
   }
 }

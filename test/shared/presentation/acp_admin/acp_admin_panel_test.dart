@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/pagination.dart';
+import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_admin_panel.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
@@ -73,6 +75,119 @@ void main() {
       expect(find.byTooltip('Compact JSON'), findsOneWidget);
     },
   );
+
+  testWidgets('form dialogs display the active ACP scope context', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() async {
+      await tester.binding.setSurfaceSize(null);
+    });
+
+    await _pumpPanel(
+      tester,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'tenant-resource',
+          title: 'Tenant Resource',
+          entitySet: 'TenantResources',
+          scopeMode: AcpScopeMode.optional,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'Name', label: 'Name'),
+          ],
+          createFields: <AcpFieldDescriptor>[
+            AcpFieldDescriptor(key: 'Name', label: 'Name'),
+          ],
+          allowCreate: true,
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.text('Scope: Global'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(_dialogButton(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('acp-admin-scope-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tenant').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('acp-admin-tenant-selector')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tenant One (tenant-one)').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.text('Tenant: Tenant One (tenant-one)'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('update dialog displays the row tenant context', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() async {
+      await tester.binding.setSurfaceSize(null);
+    });
+
+    final repository = _TenantRowAcpAdminRepository();
+    await _pumpPanel(
+      tester,
+      repository: repository,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'tenant-resource',
+          title: 'Tenant Resource',
+          entitySet: 'TenantResources',
+          scopeMode: AcpScopeMode.optional,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'Name', label: 'Name'),
+          ],
+          updateFields: <AcpFieldDescriptor>[
+            AcpFieldDescriptor(key: 'Name', label: 'Name'),
+          ],
+          allowUpdate: true,
+        ),
+      ],
+    );
+
+    await tester.tap(find.byTooltip('Edit row'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.text('Tenant: Tenant One (tenant-one)'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(Dialog),
+        matching: find.text('Scope: Global'),
+      ),
+      findsNothing,
+    );
+
+    await tester.tap(_dialogButton(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(repository.updateTenantId, 'tenant-1');
+  });
 
   testWidgets('JSON validation blocks invalid payload submission', (
     WidgetTester tester,
@@ -238,15 +353,57 @@ AcpResourceDescriptor _jsonResourceDescriptor() {
   );
 }
 
+class _TenantRowAcpAdminRepository extends FakeAcpAdminRepository {
+  String? updateTenantId;
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+  }) async {
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: <AcpRow>[
+          <String, Object?>{
+            'Id': 'tenant-row-1',
+            'TenantId': 'tenant-1',
+            'RowVersion': 1,
+            'Name': 'Tenant scoped row',
+          },
+        ],
+        total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<Object?>> updateRow({
+    required AcpResourceDescriptor descriptor,
+    required String rowId,
+    required Map<String, dynamic> values,
+    String? tenantId,
+    int? rowVersion,
+  }) async {
+    updateTenantId = tenantId;
+    return updateResult;
+  }
+}
+
 Future<FakeAcpAdminRepository> _pumpPanel(
   WidgetTester tester, {
   required List<AcpResourceDescriptor> descriptors,
+  FakeAcpAdminRepository? repository,
 }) async {
-  final repository = FakeAcpAdminRepository();
+  final fakeRepository = repository ?? FakeAcpAdminRepository();
   final controllerProvider =
       StateNotifierProvider<AcpAdminController, AcpAdminState>((ref) {
         return AcpAdminController(
-          repository: repository,
+          repository: fakeRepository,
           descriptors: descriptors,
           onSessionExpired: () {},
         );
@@ -264,5 +421,5 @@ Future<FakeAcpAdminRepository> _pumpPanel(
     ),
   );
   await tester.pumpAndSettle();
-  return repository;
+  return fakeRepository;
 }

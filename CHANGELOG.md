@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added a row-detail dialog action to copy the ACP object ID to the clipboard.
+- Added prominent active scope context to ACP form dialogs so tenant or global operations are visible while editing.
 - Added a self-hosted CodeMirror JSON editor for ACP admin form fields that edit JSON values.
 
 ### Changed
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed ACP edit and row action dialogs and mutations so existing objects use the row's tenant context instead of the current screen scope when those differ.
 - Fixed ACP `New Row` dialogs so short Platform Configuration forms shrink to their content while preserving the existing maximum height for longer forms.
 - Fixed RBAC global and tenant grant dialog dropdown sizing so long permission keys truncate within the field instead of overflowing the trailing menu affordance.
 - Fixed Runtime Control key-reference row actions so the three-dot menu remains visible and clickable in the table.

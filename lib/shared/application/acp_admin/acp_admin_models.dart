@@ -20,6 +20,7 @@ class AcpFieldDescriptor {
     this.maxLines,
     this.obscureText = false,
     this.initialValue,
+    this.options = const <String>[],
   });
 
   final String key;
@@ -32,6 +33,7 @@ class AcpFieldDescriptor {
   final int? maxLines;
   final bool obscureText;
   final Object? initialValue;
+  final List<String> options;
 }
 
 class AcpColumnDescriptor {

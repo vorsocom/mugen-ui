@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed Runtime Control Key References provider inputs and table labels to use `Key Provider`, with dropdown choices for supported key providers.
+
 ### Deprecated
 
 ### Removed

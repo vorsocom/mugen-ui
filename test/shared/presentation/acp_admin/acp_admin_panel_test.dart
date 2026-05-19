@@ -486,6 +486,11 @@ void main() {
     await tester.tap(find.byTooltip('View row'));
     await tester.pumpAndSettle();
 
+    final dialogPanel = find.descendant(
+      of: find.byType(Dialog),
+      matching: find.byType(AppFormPanel),
+    );
+    expect(tester.getSize(dialogPanel).height, lessThan(520));
     expect(
       find.descendant(of: find.byType(Dialog), matching: find.text('Copy ID')),
       findsOneWidget,

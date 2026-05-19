@@ -86,7 +86,22 @@ void main() {
         'ProfileKey',
         'ServiceRouteDefaultKey',
       ]);
-      expect(descriptor.updateFields.first.key, 'ClientProfileId');
+      expect(
+        descriptor.updateFields.take(3).map((field) => field.key),
+        <String>['ClientProfileId', 'ChannelKey', 'ProfileKey'],
+      );
+      expect(
+        descriptor.updateFields
+            .firstWhere((field) => field.key == 'ChannelKey')
+            .readOnly,
+        isTrue,
+      );
+      expect(
+        descriptor.updateFields
+            .firstWhere((field) => field.key == 'ProfileKey')
+            .readOnly,
+        isTrue,
+      );
       expect(_requiredFieldKeys(descriptor.createFields), <String>[
         'ChannelKey',
         'ProfileKey',
@@ -278,6 +293,22 @@ void main() {
       ),
       findsOneWidget,
     );
+    final channelKeyField = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('acp-dynamic-field-ChannelKey')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    final profileKeyField = tester.widget<EditableText>(
+      find.descendant(
+        of: find.byKey(const Key('acp-dynamic-field-ProfileKey')),
+        matching: find.byType(EditableText),
+      ),
+    );
+    expect(channelKeyField.readOnly, isTrue);
+    expect(channelKeyField.controller.text, 'whatsapp');
+    expect(profileKeyField.readOnly, isTrue);
+    expect(profileKeyField.controller.text, 'default');
 
     await tester.tap(_dialogButton(TextButton, 'Cancel'));
     await tester.pumpAndSettle();

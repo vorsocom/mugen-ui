@@ -1336,6 +1336,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
   Widget build(BuildContext context) {
     return AppFormPanel(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
@@ -1345,7 +1346,8 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 12),
-          Expanded(
+          Flexible(
+            fit: FlexFit.loose,
             child: Form(
               key: _formKey,
               child: SingleChildScrollView(

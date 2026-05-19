@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a documented identifier-type dropdown to Ingress Binding create and update forms.
 - Added backend-oriented field help tooltips to Platform Configuration CRUD dialogs.
 - Added information-icon tooltips to Platform Configuration tab labels and moved page-level descriptions into muted notice boxes.
 - Added tenant-aware searchable reference selectors for Channel Profile `ClientProfileId` and Ingress Binding `ChannelProfileId` fields.

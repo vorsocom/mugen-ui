@@ -59,14 +59,14 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     createFields: <AcpFieldDescriptor>[
       _channelProfileId(),
       _text('ChannelKey', 'Channel Key', required: true),
-      _text('IdentifierType', 'Identifier Type', required: true),
+      _identifierType(required: true),
       _text('IdentifierValue', 'Identifier Value', required: true),
       _text('ServiceRouteKey', 'Service Route Key'),
     ],
     updateFields: <AcpFieldDescriptor>[
       _channelProfileId(),
       _text('ChannelKey', 'Channel Key'),
-      _text('IdentifierType', 'Identifier Type'),
+      _identifierType(),
       _text('IdentifierValue', 'Identifier Value'),
       _text('ServiceRouteKey', 'Service Route Key'),
       _bool('IsActive', 'Is Active'),
@@ -580,6 +580,22 @@ AcpFieldDescriptor _channelProfileId() {
       ],
       defaultOrderBy: 'IsActive desc, ChannelKey asc, ProfileKey asc',
     ),
+  );
+}
+
+AcpFieldDescriptor _identifierType({bool required = false}) {
+  return AcpFieldDescriptor(
+    key: 'IdentifierType',
+    label: 'Identifier Type',
+    required: required,
+    hintText: 'Select the adapter identifier used for ingress routing',
+    options: const <String>[
+      'path_token',
+      'phone_number_id',
+      'recipient_user_id',
+      'account_number',
+      'tenant_slug',
+    ],
   );
 }
 

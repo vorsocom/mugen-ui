@@ -102,6 +102,23 @@ void main() {
       final ingressDescriptor = orchestrationAdminResources.firstWhere(
         (resource) => resource.entitySet == 'IngressBindings',
       );
+      final identifierTypeField = ingressDescriptor.createFields.firstWhere(
+        (field) => field.key == 'IdentifierType',
+      );
+      expect(identifierTypeField.options, <String>[
+        'path_token',
+        'phone_number_id',
+        'recipient_user_id',
+        'account_number',
+        'tenant_slug',
+      ]);
+      expect(identifierTypeField.required, isTrue);
+      expect(
+        ingressDescriptor.updateFields
+            .firstWhere((field) => field.key == 'IdentifierType')
+            .options,
+        identifierTypeField.options,
+      );
       final channelProfileField = ingressDescriptor.createFields.firstWhere(
         (field) => field.key == 'ChannelProfileId',
       );
@@ -186,10 +203,10 @@ void main() {
       find.byKey(const Key('acp-dynamic-field-ChannelKey')),
       'whatsapp',
     );
-    await tester.enterText(
-      find.byKey(const Key('acp-dynamic-field-IdentifierType')),
-      'phone_number_id',
-    );
+    await tester.tap(find.byKey(const Key('acp-dynamic-field-IdentifierType')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('phone_number_id').last);
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('acp-dynamic-field-IdentifierValue')),
       '1234567890',

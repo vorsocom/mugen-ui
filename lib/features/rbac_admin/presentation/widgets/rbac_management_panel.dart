@@ -10,6 +10,8 @@ import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_obj
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/providers/rbac_admin_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -478,13 +480,22 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: namespaceController,
-                    decoration: appFormInputDecoration(labelText: 'Namespace'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Namespace',
+                      helpText: acpFieldHelpText(
+                        key: 'Namespace',
+                        label: 'Namespace',
+                      ),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: nameController,
-                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Name',
+                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 8),
@@ -492,6 +503,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     controller: displayNameController,
                     decoration: appFormInputDecoration(
                       labelText: 'Display Name',
+                      helpText: acpFieldHelpText(
+                        key: 'DisplayName',
+                        label: 'Display Name',
+                      ),
                     ),
                     validator: _requiredValidator,
                   ),
@@ -554,6 +569,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     controller: displayNameController,
                     decoration: appFormInputDecoration(
                       labelText: 'Display Name',
+                      helpText: acpFieldHelpText(
+                        key: 'DisplayName',
+                        label: 'Display Name',
+                      ),
                     ),
                     validator: _requiredValidator,
                   ),
@@ -616,13 +635,22 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: namespaceController,
-                    decoration: appFormInputDecoration(labelText: 'Namespace'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Namespace',
+                      helpText: acpFieldHelpText(
+                        key: 'Namespace',
+                        label: 'Namespace',
+                      ),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: nameController,
-                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Name',
+                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 8),
@@ -630,6 +658,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     controller: displayNameController,
                     decoration: appFormInputDecoration(
                       labelText: 'Display Name',
+                      helpText: acpFieldHelpText(
+                        key: 'DisplayName',
+                        label: 'Display Name',
+                      ),
                     ),
                     validator: _requiredValidator,
                   ),
@@ -696,6 +728,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     controller: displayNameController,
                     decoration: appFormInputDecoration(
                       labelText: 'Display Name',
+                      helpText: acpFieldHelpText(
+                        key: 'DisplayName',
+                        label: 'Display Name',
+                      ),
                     ),
                     validator: _requiredValidator,
                   ),
@@ -775,13 +811,22 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: namespaceController,
-                    decoration: appFormInputDecoration(labelText: 'Namespace'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Namespace',
+                      helpText: acpFieldHelpText(
+                        key: 'Namespace',
+                        label: 'Namespace',
+                      ),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: nameController,
-                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Name',
+                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 14),
@@ -872,7 +917,13 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       DropdownButtonFormField<String>(
                         isExpanded: true,
                         initialValue: selectedRoleId,
-                        decoration: appFormInputDecoration(labelText: 'Role'),
+                        decoration: appFormInputDecoration(
+                          labelText: 'Role',
+                          helpText: acpFieldHelpText(
+                            key: 'Role',
+                            label: 'Role',
+                          ),
+                        ),
                         items: state.globalRoles
                             .map(
                               (role) => DropdownMenuItem<String>(
@@ -895,6 +946,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                         initialValue: selectedPermissionObjectId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Object',
+                          helpText: acpFieldHelpText(
+                            key: 'PermissionObject',
+                            label: 'Permission Object',
+                          ),
                         ),
                         items: state.permissionObjects
                             .map(
@@ -920,6 +975,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                         initialValue: selectedPermissionTypeId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Type',
+                          helpText: acpFieldHelpText(
+                            key: 'PermissionType',
+                            label: 'Permission Type',
+                          ),
                         ),
                         items: state.permissionTypes
                             .map(
@@ -939,7 +998,14 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       SwitchListTile(
                         value: permitted,
-                        title: const Text('Permitted'),
+                        title: appFieldLabelWithHelp(
+                          labelText: 'Permitted',
+                          helpText: acpFieldHelpText(
+                            key: 'Permitted',
+                            label: 'Permitted',
+                            kind: AcpFieldKind.boolean,
+                          ),
+                        ),
                         contentPadding: EdgeInsets.zero,
                         onChanged: (value) {
                           setDialogState(() {
@@ -1030,7 +1096,13 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       DropdownButtonFormField<String>(
                         isExpanded: true,
                         initialValue: selectedRoleId,
-                        decoration: appFormInputDecoration(labelText: 'Role'),
+                        decoration: appFormInputDecoration(
+                          labelText: 'Role',
+                          helpText: acpFieldHelpText(
+                            key: 'Role',
+                            label: 'Role',
+                          ),
+                        ),
                         items: state.tenantRoles
                             .map(
                               (role) => DropdownMenuItem<String>(
@@ -1053,6 +1125,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                         initialValue: selectedPermissionObjectId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Object',
+                          helpText: acpFieldHelpText(
+                            key: 'PermissionObject',
+                            label: 'Permission Object',
+                          ),
                         ),
                         items: state.permissionObjects
                             .map(
@@ -1078,6 +1154,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                         initialValue: selectedPermissionTypeId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Type',
+                          helpText: acpFieldHelpText(
+                            key: 'PermissionType',
+                            label: 'Permission Type',
+                          ),
                         ),
                         items: state.permissionTypes
                             .map(
@@ -1097,7 +1177,14 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       SwitchListTile(
                         value: permitted,
-                        title: const Text('Permitted'),
+                        title: appFieldLabelWithHelp(
+                          labelText: 'Permitted',
+                          helpText: acpFieldHelpText(
+                            key: 'Permitted',
+                            label: 'Permitted',
+                            kind: AcpFieldKind.boolean,
+                          ),
+                        ),
                         contentPadding: EdgeInsets.zero,
                         onChanged: (value) {
                           setDialogState(() {

@@ -88,6 +88,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Create Short Resource'), findsOneWidget);
+    final fieldHelp = tester.widget<Tooltip>(
+      find.byKey(const Key('acp-dynamic-field-help-Name')),
+    );
+    expect(fieldHelp.message, contains('Stable human-readable identifier'));
     final dialogPanel = find.descendant(
       of: find.byType(Dialog),
       matching: find.byType(AppFormPanel),
@@ -152,12 +156,48 @@ void main() {
         find.byKey(const Key('acp-json-editor-text-Attributes')),
         findsOneWidget,
       );
+      final fieldHelp = tester.widget<Tooltip>(
+        find.byKey(const Key('acp-dynamic-field-help-Attributes')),
+      );
+      expect(fieldHelp.message, contains('JSON extension metadata'));
       expect(find.byTooltip('Undo JSON edit'), findsOneWidget);
       expect(find.byTooltip('Redo JSON edit'), findsOneWidget);
       expect(find.byTooltip('Format JSON'), findsOneWidget);
       expect(find.byTooltip('Compact JSON'), findsOneWidget);
     },
   );
+
+  testWidgets('form field help uses ACP resource context', (
+    WidgetTester tester,
+  ) async {
+    await _pumpPanel(
+      tester,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'messaging-client-profiles',
+          title: 'Messaging Client Profiles',
+          entitySet: 'MessagingClientProfiles',
+          scopeMode: AcpScopeMode.none,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'Provider', label: 'Provider'),
+          ],
+          createFields: <AcpFieldDescriptor>[
+            AcpFieldDescriptor(key: 'Provider', label: 'Provider'),
+          ],
+          allowCreate: true,
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+
+    final fieldHelp = tester.widget<Tooltip>(
+      find.byKey(const Key('acp-dynamic-field-help-Provider')),
+    );
+    expect(fieldHelp.message, contains('transport-specific metadata'));
+    expect(fieldHelp.message, isNot(contains('Key provider used')));
+  });
 
   testWidgets('form dialogs display the active ACP scope context', (
     WidgetTester tester,

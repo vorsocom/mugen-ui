@@ -12,6 +12,8 @@ import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_membership
 import 'package:mugen_ui/features/tenant_admin/presentation/providers/tenant_admin_providers.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
@@ -333,7 +335,10 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: nameController,
-                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Name',
+                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Field cannot be empty.';
@@ -345,7 +350,10 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: slugController,
-                    decoration: appFormInputDecoration(labelText: 'Slug'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Slug',
+                      helpText: acpFieldHelpText(key: 'Slug', label: 'Slug'),
+                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Field cannot be empty.';
@@ -926,7 +934,13 @@ Future<void> _showDomainDialog(
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: domainController,
-                    decoration: appFormInputDecoration(labelText: 'Domain'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Domain',
+                      helpText: acpFieldHelpText(
+                        key: 'Domain',
+                        label: 'Domain',
+                      ),
+                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Field cannot be empty.';
@@ -937,7 +951,14 @@ Future<void> _showDomainDialog(
                   ),
                   CheckboxListTile(
                     value: isPrimary,
-                    title: const Text('Primary domain'),
+                    title: appFieldLabelWithHelp(
+                      labelText: 'Primary domain',
+                      helpText: acpFieldHelpText(
+                        key: 'IsPrimary',
+                        label: 'Primary Domain',
+                        kind: AcpFieldKind.boolean,
+                      ),
+                    ),
                     contentPadding: EdgeInsets.zero,
                     onChanged: (value) {
                       setState(() {
@@ -1034,7 +1055,10 @@ Future<void> _showInvitationDialog(
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: emailController,
-                  decoration: appFormInputDecoration(labelText: 'Email'),
+                  decoration: appFormInputDecoration(
+                    labelText: 'Email',
+                    helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
+                  ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Field cannot be empty.';
@@ -1052,6 +1076,10 @@ Future<void> _showInvitationDialog(
                   controller: roleController,
                   decoration: appFormInputDecoration(
                     labelText: 'Role In Tenant',
+                    helpText: acpFieldHelpText(
+                      key: 'RoleInTenant',
+                      label: 'Role In Tenant',
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -1221,7 +1249,10 @@ class _TenantMembershipDialogState
       key: const Key('tenant-membership-user-readonly-field'),
       initialValue: _tenantMembershipUserContext(membership),
       enabled: false,
-      decoration: appFormInputDecoration(labelText: 'User'),
+      decoration: appFormInputDecoration(
+        labelText: 'User',
+        helpText: acpFieldHelpText(key: 'User', label: 'User'),
+      ),
     );
   }
 
@@ -1240,6 +1271,7 @@ class _TenantMembershipDialogState
                 labelText: 'User',
                 hintText: 'Username, name, or email',
                 suffixIcon: const Icon(Icons.person_search_outlined),
+                helpText: acpFieldHelpText(key: 'User', label: 'User'),
               ),
               onChanged: _queueUserSearch,
             ),
@@ -1337,7 +1369,13 @@ class _TenantMembershipDialogState
       key: const Key('tenant-membership-role-dropdown'),
       initialValue: _selectedRole,
       isExpanded: true,
-      decoration: appFormInputDecoration(labelText: 'Role In Tenant'),
+      decoration: appFormInputDecoration(
+        labelText: 'Role In Tenant',
+        helpText: acpFieldHelpText(
+          key: 'RoleInTenant',
+          label: 'Role In Tenant',
+        ),
+      ),
       items: options
           .map(
             (option) => DropdownMenuItem<String>(

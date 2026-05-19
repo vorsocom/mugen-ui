@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed update dialogs so selected reference fields display resolved profile names alongside their IDs.
 - Fixed ACP edit and row action dialogs and mutations so existing objects use the row's tenant context instead of the current screen scope when those differ.
 - Fixed ACP `New Row` dialogs so short Platform Configuration forms shrink to their content while preserving the existing maximum height for longer forms.
 - Fixed RBAC global and tenant grant dialog dropdown sizing so long permission keys truncate within the field instead of overflowing the trailing menu affordance.

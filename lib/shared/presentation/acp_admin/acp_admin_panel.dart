@@ -31,6 +31,11 @@ typedef _AcpReferenceSearch =
       AcpFieldReferenceDescriptor reference,
       String searchTerm,
     );
+typedef _AcpReferenceLookup =
+    Future<Result<AcpRow>> Function(
+      AcpFieldReferenceDescriptor reference,
+      String rowId,
+    );
 
 class AcpAdminPanel<T extends AcpAdminController>
     extends ConsumerStatefulWidget {
@@ -926,6 +931,10 @@ Future<void> _showCreateDialog<T extends AcpAdminController>({
       ref: ref,
       controllerProvider: controllerProvider,
     ),
+    referenceLookup: _referenceLookupFor(
+      ref: ref,
+      controllerProvider: controllerProvider,
+    ),
     submitLabel: 'Create',
     fields: descriptor.createFields,
     resourceKey: descriptor.key,
@@ -968,6 +977,15 @@ Future<void> _showUpdateDialog<T extends AcpAdminController>({
       row: row,
     ),
     referenceSearch: _referenceSearchFor(
+      ref: ref,
+      controllerProvider: controllerProvider,
+      tenantIdOverride: row.tenantId,
+      useTenantIdOverride: _usesRowTenantScope(
+        descriptor: descriptor,
+        row: row,
+      ),
+    ),
+    referenceLookup: _referenceLookupFor(
       ref: ref,
       controllerProvider: controllerProvider,
       tenantIdOverride: row.tenantId,
@@ -1130,6 +1148,15 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
           row: scopeRow,
         ),
       ),
+      referenceLookup: _referenceLookupFor(
+        ref: ref,
+        controllerProvider: controllerProvider,
+        tenantIdOverride: scopeRow?.tenantId,
+        useTenantIdOverride: _usesRowTenantScope(
+          descriptor: descriptor,
+          row: scopeRow,
+        ),
+      ),
       submitLabel: action.label,
       fields: action.fields,
       resourceKey: descriptor.key,
@@ -1241,6 +1268,15 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
           row: row,
         ),
       ),
+      referenceLookup: _referenceLookupFor(
+        ref: ref,
+        controllerProvider: controllerProvider,
+        tenantIdOverride: row.tenantId,
+        useTenantIdOverride: _usesRowTenantScope(
+          descriptor: descriptor,
+          row: row,
+        ),
+      ),
       submitLabel: action.label,
       fields: action.fields,
       resourceKey: descriptor.key,
@@ -1316,6 +1352,7 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
   String? actionName,
   String? contextLabel,
   _AcpReferenceSearch? referenceSearch,
+  _AcpReferenceLookup? referenceLookup,
   Map<String, dynamic> initialValues = const <String, dynamic>{},
 }) {
   return showDialog<Map<String, dynamic>>(
@@ -1335,6 +1372,7 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
             title: title,
             contextLabel: contextLabel,
             referenceSearch: referenceSearch,
+            referenceLookup: referenceLookup,
             submitLabel: submitLabel,
             fields: fields,
             resourceKey: resourceKey,
@@ -1378,6 +1416,36 @@ _AcpReferenceSearch _referenceSearchFor<T extends AcpAdminController>({
       pageRequest: PageRequest(page: 1, pageSize: reference.pageSize),
       tenantId: tenantId,
       searchTerm: searchTerm,
+    );
+  };
+}
+
+_AcpReferenceLookup _referenceLookupFor<T extends AcpAdminController>({
+  required WidgetRef ref,
+  required StateNotifierProvider<T, AcpAdminState> controllerProvider,
+  String? tenantIdOverride,
+  bool useTenantIdOverride = false,
+}) {
+  return (reference, rowId) {
+    final state = ref.read(controllerProvider);
+    final controller = ref.read(controllerProvider.notifier);
+    final tenantId = _referenceTenantIdFor(
+      reference: reference,
+      state: state,
+      tenantIdOverride: tenantIdOverride,
+      useTenantIdOverride: useTenantIdOverride,
+    );
+
+    return controller.repository.fetchRow(
+      descriptor: AcpResourceDescriptor(
+        key: 'reference-${reference.entitySet}',
+        title: reference.title,
+        entitySet: reference.entitySet,
+        scopeMode: reference.scopeMode,
+        columns: const <AcpColumnDescriptor>[],
+      ),
+      rowId: rowId,
+      tenantId: tenantId,
     );
   };
 }
@@ -1646,6 +1714,7 @@ class _AcpReferenceField extends StatefulWidget {
     required this.field,
     required this.controller,
     required this.search,
+    required this.lookup,
     required this.helpText,
     required this.helpKey,
     required this.validator,
@@ -1655,6 +1724,7 @@ class _AcpReferenceField extends StatefulWidget {
   final AcpFieldDescriptor field;
   final TextEditingController controller;
   final _AcpReferenceSearch search;
+  final _AcpReferenceLookup lookup;
   final String helpText;
   final Key helpKey;
   final FormFieldValidator<String> validator;
@@ -1679,6 +1749,9 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
   void initState() {
     super.initState();
     _searchController = TextEditingController();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hydrateSelectedReference();
+    });
   }
 
   @override
@@ -1870,6 +1943,30 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
     });
   }
 
+  Future<void> _hydrateSelectedReference() async {
+    final selectedValue = widget.controller.text.trim();
+    if (selectedValue.isEmpty || _selectedRow != null) {
+      return;
+    }
+
+    final response = await widget.lookup(_reference, selectedValue);
+    if (!mounted ||
+        _selectedRow != null ||
+        widget.controller.text.trim() != selectedValue ||
+        response.isFailure) {
+      return;
+    }
+
+    final selectedRow = response.data;
+    if (selectedRow == null || _referenceValue(selectedRow) != selectedValue) {
+      return;
+    }
+
+    setState(() {
+      _selectedRow = selectedRow;
+    });
+  }
+
   void _selectRow(AcpRow row, FormFieldState<String> fieldState) {
     final value = _referenceValue(row);
     setState(() {
@@ -1894,6 +1991,11 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
   }
 
   String _referenceTitle(AcpRow row) {
+    final composedTitle = _composedReferenceTitle(row);
+    if (composedTitle != null) {
+      return composedTitle;
+    }
+
     for (final field in _reference.titleFields) {
       final value = row[field]?.toString().trim();
       if (value != null && value.isNotEmpty) {
@@ -1903,6 +2005,44 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
 
     final value = _referenceValue(row);
     return value.isEmpty ? 'Untitled reference' : value;
+  }
+
+  String? _composedReferenceTitle(AcpRow row) {
+    return switch (_reference.entitySet) {
+      'MessagingClientProfiles' => _profileReferenceTitle(
+        row,
+        identifierFields: const <String>['PlatformKey', 'ProfileKey'],
+      ),
+      'ChannelProfiles' => _profileReferenceTitle(
+        row,
+        identifierFields: const <String>['ChannelKey', 'ProfileKey'],
+      ),
+      _ => null,
+    };
+  }
+
+  String? _profileReferenceTitle(
+    AcpRow row, {
+    required List<String> identifierFields,
+  }) {
+    final identifierParts = <String>[];
+    for (final field in identifierFields) {
+      final value = row[field]?.toString().trim();
+      if (value != null && value.isNotEmpty) {
+        identifierParts.add(value);
+      }
+    }
+
+    final identifier = identifierParts.join(' / ');
+    final displayName = row['DisplayName']?.toString().trim() ?? '';
+    if (identifier.isEmpty) {
+      return displayName.isEmpty ? null : displayName;
+    }
+    if (displayName.isEmpty || displayName == identifier) {
+      return identifier;
+    }
+
+    return '$displayName ($identifier)';
   }
 
   String _referenceSubtitle(AcpRow row) {
@@ -1960,6 +2100,7 @@ class _AcpDynamicFormDialog extends StatefulWidget {
     required this.title,
     required this.contextLabel,
     required this.referenceSearch,
+    required this.referenceLookup,
     required this.submitLabel,
     required this.fields,
     required this.resourceKey,
@@ -1971,6 +2112,7 @@ class _AcpDynamicFormDialog extends StatefulWidget {
   final String title;
   final String? contextLabel;
   final _AcpReferenceSearch? referenceSearch;
+  final _AcpReferenceLookup? referenceLookup;
   final String submitLabel;
   final List<AcpFieldDescriptor> fields;
   final String? resourceKey;
@@ -2139,12 +2281,15 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     }
 
     final controller = _textControllers[field.key]!;
-    if (field.reference != null && widget.referenceSearch != null) {
+    if (field.reference != null &&
+        widget.referenceSearch != null &&
+        widget.referenceLookup != null) {
       return _AcpReferenceField(
         key: Key('acp-dynamic-field-${field.key}'),
         field: field,
         controller: controller,
         search: widget.referenceSearch!,
+        lookup: widget.referenceLookup!,
         helpText: helpText,
         helpKey: helpKey,
         validator: (value) => _validateField(field, value ?? ''),

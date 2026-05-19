@@ -177,6 +177,71 @@ void main() {
     },
   );
 
+  test('fetchRow builds entity path and maps row payload', () async {
+    final fixture = _RepositoryFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'Id': 'row-1',
+            'RowVersion': '7',
+            'Name': 'Profile A',
+          }),
+        ),
+      ],
+    );
+
+    final result = await fixture.repository.fetchRow(
+      descriptor: requiredDescriptor,
+      rowId: 'row-1',
+      tenantId: 'tenant-1',
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.data?['Name'], 'Profile A');
+    expect(result.data?.rowVersion, 7);
+
+    final request = fixture.client.requests.single;
+    expect(request.method, HttpMethod.get);
+    expect(request.path, 'core/acp/v1/tenants/tenant-1/ContextProfiles/row-1');
+    expect(request.queryParameters, isEmpty);
+  });
+
+  test(
+    'fetchRow handles required-tenant validation and unexpected bodies',
+    () async {
+      final validationFixture = _RepositoryFixture();
+      final unexpectedFixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[(_) => _response(statusCode: 200, body: '[]')],
+      );
+      final apiFixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(statusCode: 500, body: 'lookup failed'),
+        ],
+      );
+
+      final validationResult = await validationFixture.repository.fetchRow(
+        descriptor: requiredDescriptor,
+        rowId: 'row-1',
+      );
+      final unexpectedResult = await unexpectedFixture.repository.fetchRow(
+        descriptor: optionalDescriptor,
+        rowId: 'row-1',
+      );
+      final apiResult = await apiFixture.repository.fetchRow(
+        descriptor: optionalDescriptor,
+        rowId: 'row-1',
+      );
+
+      expect(validationResult.isFailure, isTrue);
+      expect(validationResult.failure?.message, 'A tenant must be selected.');
+      expect(unexpectedResult.isFailure, isTrue);
+      expect(unexpectedResult.failure, isA<UnexpectedFailure>());
+      expect(apiResult.isFailure, isTrue);
+      expect(apiResult.failure, isA<ApiFailure>());
+    },
+  );
+
   test(
     'create, update, delete, and restore build expected paths and bodies',
     () async {

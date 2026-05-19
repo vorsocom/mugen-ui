@@ -120,6 +120,40 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
   }
 
   @override
+  Future<Result<AcpRow>> fetchRow({
+    required AcpResourceDescriptor descriptor,
+    required String rowId,
+    String? tenantId,
+  }) async {
+    final path = AcpPathBuilder.entityPath(
+      endpoints: appConfig.api.endpoints,
+      entitySet: descriptor.entitySet,
+      entityId: rowId,
+      scopeMode: descriptor.scopeMode,
+      tenantId: tenantId,
+    );
+    if (path.isFailure) {
+      return Result<AcpRow>.failure(path.failure!);
+    }
+
+    final response = await _send(
+      AcpRequest(method: HttpMethod.get, path: path.data!),
+    );
+    if (response.isFailure) {
+      return Result<AcpRow>.failure(response.failure!);
+    }
+
+    final body = _decodeMap(response.data!.response.body);
+    if (body == null) {
+      return const Result<AcpRow>.failure(
+        UnexpectedFailure('Unexpected row response.'),
+      );
+    }
+
+    return Result<AcpRow>.success(body);
+  }
+
+  @override
   Future<Result<Object?>> createRow({
     required AcpResourceDescriptor descriptor,
     required Map<String, dynamic> values,

@@ -542,6 +542,19 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
   }
 
   @override
+  Future<Result<AcpRow>> fetchRow({
+    required AcpResourceDescriptor descriptor,
+    required String rowId,
+    String? tenantId,
+  }) async {
+    return Result<AcpRow>.success(<String, Object?>{
+      'Id': rowId,
+      'TenantId': tenantId,
+      'RowVersion': 1,
+    });
+  }
+
+  @override
   Future<Result<Object?>> createRow({
     required AcpResourceDescriptor descriptor,
     required Map<String, dynamic> values,

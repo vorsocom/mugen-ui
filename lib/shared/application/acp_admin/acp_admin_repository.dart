@@ -13,6 +13,12 @@ abstract class AcpAdminRepository {
     List<String> extraFilters,
   });
 
+  Future<Result<AcpRow>> fetchRow({
+    required AcpResourceDescriptor descriptor,
+    required String rowId,
+    String? tenantId,
+  });
+
   Future<Result<Object?>> createRow({
     required AcpResourceDescriptor descriptor,
     required Map<String, dynamic> values,

@@ -67,6 +67,9 @@ class _AcpAdminPanelState<T extends AcpAdminController>
     final controller = ref.read(widget.controllerProvider.notifier);
     final descriptor = controller.activeDescriptor;
     final resourceState = state.activeResourceState;
+    final pageDescription = widget.description?.trim();
+    final hasPageDescription =
+        pageDescription != null && pageDescription.isNotEmpty;
     final showTenantSelector =
         descriptor.scopeMode == AcpScopeMode.required ||
         (descriptor.scopeMode == AcpScopeMode.optional &&
@@ -87,28 +90,12 @@ class _AcpAdminPanelState<T extends AcpAdminController>
             onSelect: controller.selectResource,
           ),
         ),
-        if (widget.description != null && widget.description!.trim().isNotEmpty)
+        if (hasPageDescription)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              widget.description!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppUiPalette.textSecondary,
-              ),
-            ),
+            child: _PageDescriptionNotice(description: pageDescription),
           ),
-        if (descriptor.description != null &&
-            descriptor.description!.trim().isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              descriptor.description!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppUiPalette.textSecondary,
-              ),
-            ),
-          ),
-        const SizedBox(height: 8),
+        SizedBox(height: hasPageDescription ? 16 : 8),
         _ToolbarRow<T>(
           controllerProvider: widget.controllerProvider,
           descriptor: descriptor,
@@ -159,6 +146,31 @@ class _AcpAdminPanelState<T extends AcpAdminController>
   }
 }
 
+class _PageDescriptionNotice extends StatelessWidget {
+  const _PageDescriptionNotice({required this.description});
+
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const Key('acp-admin-page-description'),
+      decoration: BoxDecoration(
+        color: AppUiPalette.surfaceMuted,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppUiPalette.border),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Text(
+        description,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: AppUiPalette.textPrimary),
+      ),
+    );
+  }
+}
+
 class _ResourceSelector extends StatelessWidget {
   const _ResourceSelector({
     required this.descriptors,
@@ -176,21 +188,85 @@ class _ResourceSelector extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: descriptors
-            .map(
-              (descriptor) => Padding(
+            .map((descriptor) {
+              final description = descriptor.description?.trim();
+              return Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  key: Key('acp-admin-tab-${descriptor.key}'),
-                  label: Text(descriptor.title),
+                child: _ResourceTabChip(
+                  chipKey: Key('acp-admin-tab-${descriptor.key}'),
+                  title: descriptor.title,
+                  tooltip: description,
+                  tooltipKey: Key('acp-admin-tab-info-${descriptor.key}'),
                   selected: descriptor.key == activeResourceKey,
                   onSelected: descriptor.key == activeResourceKey
                       ? null
                       : (_) => onSelect(descriptor.key),
                 ),
-              ),
-            )
+              );
+            })
             .toList(growable: false),
       ),
+    );
+  }
+}
+
+class _ResourceTabChip extends StatelessWidget {
+  const _ResourceTabChip({
+    required this.chipKey,
+    required this.title,
+    required this.tooltip,
+    required this.tooltipKey,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final Key chipKey;
+  final String title;
+  final String? tooltip;
+  final Key tooltipKey;
+  final bool selected;
+  final ValueChanged<bool>? onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final message = tooltip?.trim();
+    final hasTooltip = message != null && message.isNotEmpty;
+
+    return Stack(
+      alignment: Alignment.centerRight,
+      children: [
+        ChoiceChip(
+          key: chipKey,
+          label: Padding(
+            padding: EdgeInsets.only(right: hasTooltip ? 24 : 0),
+            child: Text(title),
+          ),
+          selected: selected,
+          onSelected: onSelected,
+        ),
+        if (hasTooltip)
+          Positioned(
+            right: 6,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: Tooltip(
+                key: tooltipKey,
+                message: message,
+                child: const SizedBox.square(
+                  dimension: 18,
+                  child: Center(
+                    child: Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: AppUiPalette.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

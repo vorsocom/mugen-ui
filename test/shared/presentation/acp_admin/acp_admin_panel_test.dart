@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
@@ -144,6 +145,62 @@ void main() {
       ),
     );
     expect(textField.controller!.text, '{"b":2,"a":[1]}');
+  });
+
+  testWidgets('row detail dialog copies object ID to the clipboard', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 900));
+    addTearDown(() async {
+      await tester.binding.setSurfaceSize(null);
+    });
+
+    String? copiedText;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (
+      MethodCall call,
+    ) async {
+      if (call.method == 'Clipboard.setData') {
+        final arguments = Map<String, dynamic>.from(
+          call.arguments as Map<dynamic, dynamic>,
+        );
+        copiedText = arguments['text'] as String?;
+      }
+      return null;
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    await _pumpPanel(
+      tester,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'copy-resource',
+          title: 'Copy Resource',
+          entitySet: 'CopyResources',
+          scopeMode: AcpScopeMode.none,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'Name', label: 'Name'),
+          ],
+        ),
+      ],
+    );
+
+    await tester.tap(find.byTooltip('View row'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(of: find.byType(Dialog), matching: find.text('Copy ID')),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('acp-row-copy-object-id-button')));
+    await tester.pumpAndSettle();
+
+    expect(copiedText, 'CopyResources-1');
+    expect(find.text('Object ID copied.'), findsOneWidget);
   });
 }
 

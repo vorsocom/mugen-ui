@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mugen_ui/app/providers.dart';
@@ -1153,6 +1154,8 @@ Future<void> _showRowDetailDialog(
   required AcpResourceDescriptor descriptor,
   required AcpRow row,
 }) {
+  final objectId = row.id;
+
   return showDialog<void>(
     context: context,
     builder: (dialogContext) {
@@ -1170,10 +1173,36 @@ Future<void> _showRowDetailDialog(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  descriptor.title,
-                  style: Theme.of(dialogContext).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        descriptor.title,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(dialogContext).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    if (objectId != null) ...[
+                      const SizedBox(width: 12),
+                      TextButton.icon(
+                        key: const Key('acp-row-copy-object-id-button'),
+                        onPressed: () async {
+                          await Clipboard.setData(
+                            ClipboardData(text: objectId),
+                          );
+                          if (!dialogContext.mounted) {
+                            return;
+                          }
+                          ScaffoldMessenger.of(dialogContext).showSnackBar(
+                            const SnackBar(content: Text('Object ID copied.')),
+                          );
+                        },
+                        icon: const Icon(Icons.content_copy, size: 18),
+                        label: const Text('Copy ID'),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 12),
                 Expanded(

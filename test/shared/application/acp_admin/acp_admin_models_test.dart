@@ -16,6 +16,7 @@ void main() {
       maxLines: 5,
       obscureText: true,
       initialValue: 'seed',
+      options: <String>['local', 'managed'],
     );
     const column = AcpColumnDescriptor(
       key: 'DisplayName',
@@ -68,6 +69,7 @@ void main() {
     expect(field.maxLines, 5);
     expect(field.obscureText, isTrue);
     expect(field.initialValue, 'seed');
+    expect(field.options, <String>['local', 'managed']);
 
     expect(column.flex, 2);
     expect(action.target, AcpActionTarget.collection);

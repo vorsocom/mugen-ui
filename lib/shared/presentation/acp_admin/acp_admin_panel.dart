@@ -1418,6 +1418,35 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       );
     }
 
+    if (field.options.isNotEmpty) {
+      final options = _dropdownOptionsFor(field, controller.text);
+      return DropdownButtonFormField<String>(
+        key: Key('acp-dynamic-field-${field.key}'),
+        initialValue: controller.text.trim().isEmpty
+            ? null
+            : controller.text.trim(),
+        isExpanded: true,
+        decoration: appFormInputDecoration(
+          labelText: field.label,
+          hintText: field.hintText,
+          errorMaxLines: 4,
+        ),
+        items: options
+            .map(
+              (option) => DropdownMenuItem<String>(
+                key: Key('acp-dynamic-field-${field.key}-option-$option'),
+                value: option,
+                child: Text(option, overflow: TextOverflow.ellipsis),
+              ),
+            )
+            .toList(growable: false),
+        onChanged: (value) {
+          controller.text = value ?? '';
+        },
+        validator: (value) => _validateField(field, value ?? ''),
+      );
+    }
+
     final isMultiline = field.kind == AcpFieldKind.multiline;
 
     return TextFormField(
@@ -1503,6 +1532,19 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
 
     final initialValue = widget.initialValues[key];
     return initialValue?.toString();
+  }
+
+  List<String> _dropdownOptionsFor(AcpFieldDescriptor field, String value) {
+    final options = <String>[
+      for (final option in field.options)
+        if (option.trim().isNotEmpty) option.trim(),
+    ];
+    final currentValue = value.trim();
+    if (currentValue.isNotEmpty && !options.contains(currentValue)) {
+      options.insert(0, currentValue);
+    }
+
+    return options.toSet().toList(growable: false);
   }
 
   void _submit() {

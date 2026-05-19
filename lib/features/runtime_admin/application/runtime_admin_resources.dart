@@ -129,7 +129,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
     columns: <AcpColumnDescriptor>[
       _column('Purpose', 'Purpose', flex: 2),
       _column('KeyId', 'Key ID', flex: 2),
-      _column('Provider', 'Provider'),
+      _column('Provider', 'Key Provider'),
       _column('Status', 'Status'),
       _column('HasMaterial', 'Has Material'),
       _column('ActivatedAt', 'Activated', flex: 2),
@@ -146,7 +146,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
         fields: <AcpFieldDescriptor>[
           _text('Purpose', 'Purpose', required: true),
           _text('KeyId', 'Key ID', required: true),
-          _text('Provider', 'Provider', initialValue: 'local'),
+          _keyProvider(),
           _text('SecretValue', 'Secret Value', obscureText: true),
           _json('Attributes', 'Attributes'),
         ],
@@ -218,6 +218,7 @@ AcpFieldDescriptor _text(
   String? hintText,
   bool obscureText = false,
   Object? initialValue,
+  List<String> options = const <String>[],
 }) {
   return AcpFieldDescriptor(
     key: key,
@@ -227,6 +228,16 @@ AcpFieldDescriptor _text(
     hintText: hintText,
     obscureText: obscureText,
     initialValue: initialValue,
+    options: options,
+  );
+}
+
+AcpFieldDescriptor _keyProvider() {
+  return _text(
+    'Provider',
+    'Key Provider',
+    initialValue: 'local',
+    options: const <String>['local', 'managed'],
   );
 }
 

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a row-detail dialog action to copy the ACP object ID to the clipboard.
 - Added a self-hosted CodeMirror JSON editor for ACP admin form fields that edit JSON values.
 
 ### Changed

@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed ACP `New Row` dialogs so short Platform Configuration forms shrink to their content while preserving the existing maximum height for longer forms.
 - Fixed RBAC global and tenant grant dialog dropdown sizing so long permission keys truncate within the field instead of overflowing the trailing menu affordance.
 - Fixed Runtime Control key-reference row actions so the three-dot menu remains visible and clickable in the table.
 

@@ -15,7 +15,9 @@ import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const double _acpAdminTableMinWidth = 1120;
-const double _acpAdminActionColumnWidth = 128;
+const double _acpAdminActionColumnMinWidth = 192;
+const double _acpAdminActionButtonWidth = 48;
+const double _acpAdminActionCellPaddingAllowance = 32;
 const double _acpAdminColumnSpacing = 20;
 const double _acpAdminTableHorizontalMargin = 16;
 const Duration _acpAdminSearchDebounce = Duration(milliseconds: 300);
@@ -402,6 +404,7 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
             ? constraints.maxWidth
             : _acpAdminTableMinWidth;
         final tableWidth = math.max(availableWidth, _acpAdminTableMinWidth);
+        final actionColumnWidth = _actionColumnWidthFor(descriptor);
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -416,9 +419,9 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
                 ),
                 columns: [
                   if (descriptor.actionsColumnLeading)
-                    const DataColumn(
-                      columnWidth: FixedColumnWidth(_acpAdminActionColumnWidth),
-                      label: _TableHeaderText('Actions'),
+                    DataColumn(
+                      columnWidth: FixedColumnWidth(actionColumnWidth),
+                      label: const _TableHeaderText('Actions'),
                     ),
                   for (final column in descriptor.columns)
                     DataColumn(
@@ -426,9 +429,9 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
                       label: _TableHeaderText(column.label),
                     ),
                   if (!descriptor.actionsColumnLeading)
-                    const DataColumn(
-                      columnWidth: FixedColumnWidth(_acpAdminActionColumnWidth),
-                      label: _TableHeaderText('Actions'),
+                    DataColumn(
+                      columnWidth: FixedColumnWidth(actionColumnWidth),
+                      label: const _TableHeaderText('Actions'),
                     ),
                 ],
                 rows: resourceState.rows
@@ -438,7 +441,7 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
                           if (descriptor.actionsColumnLeading)
                             DataCell(
                               SizedBox(
-                                width: _acpAdminActionColumnWidth,
+                                width: actionColumnWidth,
                                 child: _RowActions<T>(
                                   controllerProvider: controllerProvider,
                                   descriptor: descriptor,
@@ -455,7 +458,7 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
                           if (!descriptor.actionsColumnLeading)
                             DataCell(
                               SizedBox(
-                                width: _acpAdminActionColumnWidth,
+                                width: actionColumnWidth,
                                 child: _RowActions<T>(
                                   controllerProvider: controllerProvider,
                                   descriptor: descriptor,
@@ -491,6 +494,36 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
 
 TableColumnWidth _columnWidthFor(AcpColumnDescriptor column) {
   return FlexColumnWidth(math.max(column.flex.toDouble(), 1));
+}
+
+double _actionColumnWidthFor(AcpResourceDescriptor descriptor) {
+  var actionCount = 1;
+  actionCount += descriptor.collectionActions
+      .where((action) => action.showInRowMenu && action.showAsRowButton)
+      .length;
+  if (descriptor.allowUpdate) {
+    actionCount++;
+  }
+  if (descriptor.allowDelete) {
+    actionCount++;
+  }
+  if (descriptor.allowRestore) {
+    actionCount++;
+  }
+  final hasMenuActions =
+      descriptor.collectionActions.any(
+        (action) => action.showInRowMenu && !action.showAsRowButton,
+      ) ||
+      descriptor.entityActions.isNotEmpty;
+  if (hasMenuActions) {
+    actionCount++;
+  }
+
+  return math.max(
+    _acpAdminActionColumnMinWidth,
+    actionCount * _acpAdminActionButtonWidth +
+        _acpAdminActionCellPaddingAllowance,
+  );
 }
 
 class _TableHeaderText extends StatelessWidget {
@@ -563,9 +596,8 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
           _RowMenuAction.entity(action: action),
     ];
 
-    return Wrap(
-      spacing: 4,
-      runSpacing: 4,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
           tooltip: 'View row',
@@ -623,47 +655,83 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
             ),
           ),
         if (rowMenuActions.isNotEmpty)
-          PopupMenuButton<String>(
-            tooltip: 'More actions',
-            icon: const Icon(Icons.more_horiz),
-            onSelected: (actionName) {
-              final action = rowMenuActions.firstWhere(
-                (candidate) => candidate.action.name == actionName,
+          Builder(
+            builder: (buttonContext) {
+              return IconButton(
+                key: const Key('acp-admin-row-more-actions'),
+                tooltip: 'More actions',
+                icon: const Icon(Icons.more_horiz),
+                onPressed: () async {
+                  final selectedActionName = await _showRowActionsMenu(
+                    context: buttonContext,
+                    actions: rowMenuActions,
+                  );
+                  if (selectedActionName == null || !buttonContext.mounted) {
+                    return;
+                  }
+
+                  final action = rowMenuActions.firstWhere(
+                    (candidate) => candidate.action.name == selectedActionName,
+                  );
+                  if (action.isCollectionAction) {
+                    await _runCollectionAction(
+                      context: buttonContext,
+                      ref: ref,
+                      controllerProvider: controllerProvider,
+                      descriptor: descriptor,
+                      action: action.action,
+                      initialValues: action.initialValues,
+                    );
+                    return;
+                  }
+                  await _runEntityAction(
+                    context: buttonContext,
+                    ref: ref,
+                    controllerProvider: controllerProvider,
+                    descriptor: descriptor,
+                    action: action.action,
+                    row: row,
+                  );
+                },
               );
-              if (action.isCollectionAction) {
-                _runCollectionAction(
-                  context: context,
-                  ref: ref,
-                  controllerProvider: controllerProvider,
-                  descriptor: descriptor,
-                  action: action.action,
-                  initialValues: action.initialValues,
-                );
-                return;
-              }
-              _runEntityAction(
-                context: context,
-                ref: ref,
-                controllerProvider: controllerProvider,
-                descriptor: descriptor,
-                action: action.action,
-                row: row,
-              );
-            },
-            itemBuilder: (context) {
-              return rowMenuActions
-                  .map(
-                    (action) => PopupMenuItem<String>(
-                      value: action.action.name,
-                      child: Text(action.action.label),
-                    ),
-                  )
-                  .toList(growable: false);
             },
           ),
       ],
     );
   }
+}
+
+Future<String?> _showRowActionsMenu({
+  required BuildContext context,
+  required List<_RowMenuAction> actions,
+}) {
+  final buttonBox = context.findRenderObject() as RenderBox?;
+  final overlayBox =
+      Overlay.of(context).context.findRenderObject() as RenderBox?;
+  if (buttonBox == null || overlayBox == null) {
+    return Future<String?>.value();
+  }
+
+  final buttonRect = Rect.fromPoints(
+    buttonBox.localToGlobal(Offset.zero, ancestor: overlayBox),
+    buttonBox.localToGlobal(
+      buttonBox.size.bottomRight(Offset.zero),
+      ancestor: overlayBox,
+    ),
+  );
+
+  return showMenu<String>(
+    context: context,
+    position: RelativeRect.fromRect(buttonRect, Offset.zero & overlayBox.size),
+    items: actions
+        .map(
+          (action) => PopupMenuItem<String>(
+            value: action.action.name,
+            child: Text(action.action.label),
+          ),
+        )
+        .toList(growable: false),
+  );
 }
 
 Map<String, dynamic> _collectionActionInitialValues({

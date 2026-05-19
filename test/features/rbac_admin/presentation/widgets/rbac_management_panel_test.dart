@@ -187,6 +187,48 @@ void main() {
     expect(repository.deleteTenantPermissionEntryInputs, hasLength(1));
   });
 
+  testWidgets('RbacManagementPanel keeps long grant labels within dialogs', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeRbacAdminRepository()
+      ..replacePermissionCatalogForTest(
+        permissionObject: RbacPermissionObjectEntity(
+          id: 'po-long',
+          namespace: 'com.vorsocomputing.mugen.acp',
+          name: 'dedup_record',
+          status: 'active',
+          rowVersion: 1,
+          dateCreated: DateTime.utc(2024, 1, 1),
+          dateLastModified: DateTime.utc(2024, 1, 1),
+          deleted: false,
+          seedData: false,
+        ),
+        permissionType: RbacPermissionTypeEntity(
+          id: 'pt-long',
+          namespace: 'com.vorsocomputing.mugen.acp',
+          name: 'create',
+          status: 'active',
+          rowVersion: 1,
+          dateCreated: DateTime.utc(2024, 1, 1),
+          dateLastModified: DateTime.utc(2024, 1, 1),
+          deleted: false,
+          seedData: false,
+        ),
+      );
+    await _pumpPanel(tester, repository, surfaceSize: const Size(640, 640));
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-global-grants')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('rbac-global-grant-create-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Dialog), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('RbacManagementPanel enforces tenant-required tabs', (
     WidgetTester tester,
   ) async {
@@ -214,9 +256,10 @@ void main() {
 
 Future<void> _pumpPanel(
   WidgetTester tester,
-  _FakeRbacAdminRepository repository,
-) async {
-  await tester.binding.setSurfaceSize(const Size(1800, 1300));
+  _FakeRbacAdminRepository repository, {
+  Size surfaceSize = const Size(1800, 1300),
+}) async {
+  await tester.binding.setSurfaceSize(surfaceSize);
   addTearDown(() async {
     await tester.binding.setSurfaceSize(null);
   });
@@ -403,6 +446,18 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
 
   bool returnNoTenants = false;
   bool mutationShouldSucceed = true;
+
+  void replacePermissionCatalogForTest({
+    required RbacPermissionObjectEntity permissionObject,
+    required RbacPermissionTypeEntity permissionType,
+  }) {
+    _permissionObjects
+      ..clear()
+      ..add(permissionObject);
+    _permissionTypes
+      ..clear()
+      ..add(permissionType);
+  }
 
   final List<RbacCreateGlobalRoleInput> createGlobalRoleInputs =
       <RbacCreateGlobalRoleInput>[];

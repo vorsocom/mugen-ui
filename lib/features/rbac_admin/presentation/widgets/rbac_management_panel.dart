@@ -792,13 +792,14 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       _buildDialogTitle('Create Global Grant'),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedRoleId,
                         decoration: appFormInputDecoration(labelText: 'Role'),
                         items: state.globalRoles
                             .map(
                               (role) => DropdownMenuItem<String>(
                                 value: role.id,
-                                child: Text(role.displayName),
+                                child: _buildDropdownLabel(role.displayName),
                               ),
                             )
                             .toList(growable: false),
@@ -812,6 +813,7 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedPermissionObjectId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Object',
@@ -820,7 +822,9 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                             .map(
                               (permissionObject) => DropdownMenuItem<String>(
                                 value: permissionObject.id,
-                                child: Text(permissionObject.key),
+                                child: _buildDropdownLabel(
+                                  permissionObject.key,
+                                ),
                               ),
                             )
                             .toList(growable: false),
@@ -834,6 +838,7 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedPermissionTypeId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Type',
@@ -842,7 +847,7 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                             .map(
                               (permissionType) => DropdownMenuItem<String>(
                                 value: permissionType.id,
-                                child: Text(permissionType.key),
+                                child: _buildDropdownLabel(permissionType.key),
                               ),
                             )
                             .toList(growable: false),
@@ -945,13 +950,14 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       _buildDialogTitle('Create Tenant Grant'),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedRoleId,
                         decoration: appFormInputDecoration(labelText: 'Role'),
                         items: state.tenantRoles
                             .map(
                               (role) => DropdownMenuItem<String>(
                                 value: role.id,
-                                child: Text(role.displayName),
+                                child: _buildDropdownLabel(role.displayName),
                               ),
                             )
                             .toList(growable: false),
@@ -965,6 +971,7 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedPermissionObjectId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Object',
@@ -973,7 +980,9 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                             .map(
                               (permissionObject) => DropdownMenuItem<String>(
                                 value: permissionObject.id,
-                                child: Text(permissionObject.key),
+                                child: _buildDropdownLabel(
+                                  permissionObject.key,
+                                ),
                               ),
                             )
                             .toList(growable: false),
@@ -987,6 +996,7 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedPermissionTypeId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Type',
@@ -995,7 +1005,7 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                             .map(
                               (permissionType) => DropdownMenuItem<String>(
                                 value: permissionType.id,
-                                child: Text(permissionType.key),
+                                child: _buildDropdownLabel(permissionType.key),
                               ),
                             )
                             .toList(growable: false),
@@ -1315,6 +1325,13 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
       style: Theme.of(
         context,
       ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+    );
+  }
+
+  Widget _buildDropdownLabel(String label) {
+    return Tooltip(
+      message: label,
+      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 

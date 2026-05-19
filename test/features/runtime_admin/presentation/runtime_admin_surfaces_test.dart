@@ -298,6 +298,22 @@ void main() {
     },
   );
 
+  testWidgets('key references expose clickable row menu actions', (
+    WidgetTester tester,
+  ) async {
+    final repository = _KeyRefRecordingAcpAdminRepository();
+    await _pumpRuntimeControlPanel(tester, repository);
+
+    await tester.tap(find.byKey(const Key('acp-admin-tab-key-refs')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('acp-admin-row-more-actions')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Retire'), findsOneWidget);
+    expect(find.text('Destroy'), findsOneWidget);
+  });
+
   test('runtime admin refreshes auth on session expiry', () async {
     final repository = FakeAcpAdminRepository()
       ..collectionActionResult = const Result<Object?>.failure(
@@ -389,6 +405,7 @@ class _KeyRefRecordingAcpAdminRepository extends FakeAcpAdminRepository {
       AcpRowPage(
         items: <AcpRow>[
           <String, Object?>{
+            'Id': 'key-ref-1',
             'TenantId': 'global-id',
             'RowVersion': 2,
             'Purpose': 'signing',

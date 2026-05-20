@@ -68,8 +68,6 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
   Widget build(BuildContext context) {
     final state = ref.watch(tenantAdminControllerProvider);
     final controller = ref.read(tenantAdminControllerProvider.notifier);
-    final navigator = ref.read(appNavigatorProvider);
-    final snackBar = ref.read(snackBarDispatcherProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -122,94 +120,19 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
             ),
           ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 240,
-          child: AppFormPanel(
-            margin: EdgeInsets.zero,
-            child: state.tenants.isEmpty
-                ? const Center(child: Text('No tenants found.'))
-                : ListView.separated(
-                    itemCount: state.tenants.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final tenant = state.tenants[index];
-                      final isSelected = tenant.id == state.selectedTenantId;
-                      final isActive = _isActiveStatus(tenant.status);
-                      return ListTile(
-                        selected: isSelected,
-                        selectedTileColor: AppUiPalette.accentSoft,
-                        title: Text(
-                          tenant.name,
-                          style: TextStyle(
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w400,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${tenant.slug}  |  ${tenant.status}',
-                          style: TextStyle(
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                          ),
-                        ),
-                        onTap: () => controller.selectTenant(tenant.id),
-                        trailing: Wrap(
-                          spacing: 4,
-                          children: [
-                            _ActionIcon(
-                              icon: Icons.edit_outlined,
-                              tooltip: 'Edit tenant',
-                              onPressed: () =>
-                                  _showTenantDialog(existingTenant: tenant),
-                            ),
-                            _ActionIcon(
-                              icon: isActive
-                                  ? Icons.pause_circle_outline
-                                  : Icons.play_circle_outline,
-                              tooltip: isActive
-                                  ? 'Deactivate tenant'
-                                  : 'Reactivate tenant',
-                              onPressed: () async {
-                                final confirmed = await showAppConfirmationDialog(
-                                  context: context,
-                                  title: 'Confirmation Required',
-                                  message: isActive
-                                      ? 'Deactivating this tenant stops tenant access until reactivated.'
-                                      : 'Reactivating this tenant restores tenant access.',
-                                  confirmLabel: 'Continue',
-                                );
-                                if (confirmed != true) {
-                                  return;
-                                }
-
-                                final success = isActive
-                                    ? await controller.deactivateTenant(
-                                        TenantLifecycleInput(
-                                          tenantId: tenant.id,
-                                          rowVersion: tenant.rowVersion,
-                                        ),
-                                      )
-                                    : await controller.reactivateTenant(
-                                        TenantLifecycleInput(
-                                          tenantId: tenant.id,
-                                          rowVersion: tenant.rowVersion,
-                                        ),
-                                      );
-                                snackBar.show(
-                                  navigator,
-                                  success
-                                      ? 'Tenant update completed.'
-                                      : 'Tenant update failed.',
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+        AppFormPanel(
+          margin: EdgeInsets.zero,
+          child: _TenantSelector(
+            tenants: state.tenants,
+            selectedTenant: state.selectedTenant,
+            selectedTenantId: state.selectedTenantId,
+            onSelected: controller.selectTenant,
+            onEdit: state.selectedTenant == null
+                ? null
+                : () => _showTenantDialog(existingTenant: state.selectedTenant),
+            onLifecycleAction: state.selectedTenant == null
+                ? null
+                : () => _runTenantLifecycle(state.selectedTenant!),
           ),
         ),
         const SizedBox(height: 8),
@@ -303,6 +226,46 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _runTenantLifecycle(TenantEntity tenant) async {
+    final isActive = _isActiveStatus(tenant.status);
+    final confirmed = await showAppConfirmationDialog(
+      context: context,
+      title: 'Confirmation Required',
+      message: isActive
+          ? 'Deactivating this tenant stops tenant access until reactivated.'
+          : 'Reactivating this tenant restores tenant access.',
+      confirmLabel: 'Continue',
+    );
+    if (confirmed != true) {
+      return;
+    }
+
+    final controller = ref.read(tenantAdminControllerProvider.notifier);
+    final success = isActive
+        ? await controller.deactivateTenant(
+            TenantLifecycleInput(
+              tenantId: tenant.id,
+              rowVersion: tenant.rowVersion,
+            ),
+          )
+        : await controller.reactivateTenant(
+            TenantLifecycleInput(
+              tenantId: tenant.id,
+              rowVersion: tenant.rowVersion,
+            ),
+          );
+    if (!mounted) {
+      return;
+    }
+
+    final snackBar = ref.read(snackBarDispatcherProvider);
+    final navigator = ref.read(appNavigatorProvider);
+    snackBar.show(
+      navigator,
+      success ? 'Tenant update completed.' : 'Tenant update failed.',
     );
   }
 
@@ -416,6 +379,98 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TenantSelector extends StatelessWidget {
+  const _TenantSelector({
+    required this.tenants,
+    required this.selectedTenant,
+    required this.selectedTenantId,
+    required this.onSelected,
+    required this.onEdit,
+    required this.onLifecycleAction,
+  });
+
+  final List<TenantEntity> tenants;
+  final TenantEntity? selectedTenant;
+  final String? selectedTenantId;
+  final Future<void> Function(String tenantId) onSelected;
+  final VoidCallback? onEdit;
+  final VoidCallback? onLifecycleAction;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tenants.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text('No tenants found.'),
+      );
+    }
+
+    final selected = selectedTenant;
+    final lifecycleIsActive =
+        selected != null && _isActiveStatus(selected.status);
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 420,
+          child: DropdownButtonFormField<String>(
+            key: const Key('tenant-management-tenant-selector'),
+            initialValue: selectedTenantId,
+            isExpanded: true,
+            decoration: appFormInputDecoration(labelText: 'Tenant'),
+            items: tenants
+                .map(
+                  (tenant) => DropdownMenuItem<String>(
+                    value: tenant.id,
+                    child: Text(_tenantSelectorLabel(tenant)),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
+              unawaited(onSelected(value));
+            },
+          ),
+        ),
+        if (selected != null)
+          Container(
+            key: const Key('tenant-management-selected-tenant-actions'),
+            decoration: BoxDecoration(
+              color: AppUiPalette.surfaceMuted,
+              border: Border.all(color: AppUiPalette.border),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ActionIcon(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit tenant',
+                  onPressed: onEdit,
+                ),
+                _ActionIcon(
+                  icon: lifecycleIsActive
+                      ? Icons.pause_circle_outline
+                      : Icons.play_circle_outline,
+                  tooltip: lifecycleIsActive
+                      ? 'Deactivate tenant'
+                      : 'Reactivate tenant',
+                  onPressed: onLifecycleAction,
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -868,6 +923,10 @@ bool _isActiveStatus(String status) {
   return normalized == 'active' ||
       normalized == 'enabled' ||
       normalized == 'reactivated';
+}
+
+String _tenantSelectorLabel(TenantEntity tenant) {
+  return '${tenant.name} (${tenant.slug}) - ${tenant.status}';
 }
 
 String _tenantMembershipUserTitle(TenantMembershipEntity membership) {

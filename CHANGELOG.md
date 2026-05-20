@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed Platform Configuration tenant management to use a dropdown tenant selector while keeping selected-tenant edit and lifecycle actions available.
 - Moved the Channel Profile `ClientProfileId` field to the top of create and update forms.
 - Changed Runtime Control Key References provider inputs and table labels to use `Key Provider`, with dropdown choices for supported key providers.
 

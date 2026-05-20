@@ -51,7 +51,16 @@ void main() {
     expect(controller.descriptors[2].actionsColumnLeading, isFalse);
     expect(controller.descriptors[2].columns[0].flex, 2);
     expect(controller.descriptors[2].columns[1].flex, 2);
+    expect(controller.descriptors[2].columns[2].label, 'Key Provider');
     expect(controller.descriptors[2].columns[5].flex, 2);
+    expect(
+      controller.descriptors[2].collectionActions.single.fields[2].label,
+      'Key Provider',
+    );
+    expect(
+      controller.descriptors[2].collectionActions.single.fields[2].options,
+      <String>['local', 'managed'],
+    );
   });
 
   testWidgets('RuntimeControlPanel renders description and resource tabs', (
@@ -223,19 +232,26 @@ void main() {
       var keyIdField = tester.widget<TextFormField>(
         find.byKey(const Key('acp-dynamic-field-KeyId')),
       );
-      var providerField = tester.widget<TextFormField>(
+      var providerField = tester.widget<DropdownButtonFormField<String>>(
         find.byKey(const Key('acp-dynamic-field-Provider')),
       );
       var secretValueField = tester.widget<TextFormField>(
         find.byKey(const Key('acp-dynamic-field-SecretValue')),
       );
-      var attributesField = tester.widget<TextFormField>(
-        find.byKey(const Key('acp-dynamic-field-Attributes')),
+      var attributesField = tester.widget<TextField>(
+        _jsonEditorTextField('Attributes'),
       );
 
       expect(purposeField.controller!.text, isEmpty);
       expect(keyIdField.controller!.text, isEmpty);
-      expect(providerField.controller!.text, 'local');
+      expect(providerField.initialValue, 'local');
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('acp-dynamic-field-Provider')),
+          matching: find.text('Key Provider'),
+        ),
+        findsOneWidget,
+      );
       expect(secretValueField.controller!.text, isEmpty);
       expect(attributesField.controller!.text, anyOf(isEmpty, '{}'));
 
@@ -252,19 +268,19 @@ void main() {
       keyIdField = tester.widget<TextFormField>(
         find.byKey(const Key('acp-dynamic-field-KeyId')),
       );
-      providerField = tester.widget<TextFormField>(
+      providerField = tester.widget<DropdownButtonFormField<String>>(
         find.byKey(const Key('acp-dynamic-field-Provider')),
       );
       secretValueField = tester.widget<TextFormField>(
         find.byKey(const Key('acp-dynamic-field-SecretValue')),
       );
-      attributesField = tester.widget<TextFormField>(
-        find.byKey(const Key('acp-dynamic-field-Attributes')),
+      attributesField = tester.widget<TextField>(
+        _jsonEditorTextField('Attributes'),
       );
 
       expect(purposeField.controller!.text, 'signing');
       expect(keyIdField.controller!.text, 'app-primary');
-      expect(providerField.controller!.text, 'local');
+      expect(providerField.initialValue, 'local');
       expect(secretValueField.controller!.text, isEmpty);
       expect(
         attributesField.controller!.text,
@@ -275,6 +291,10 @@ void main() {
         find.byKey(const Key('acp-dynamic-field-SecretValue')),
         'next-secret',
       );
+      await tester.tap(find.byKey(const Key('acp-dynamic-field-Provider')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('managed').last);
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Rotate'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Rotate'));
@@ -286,7 +306,7 @@ void main() {
         repository.collectionActionPayloads.single['KeyId'],
         'app-primary',
       );
-      expect(repository.collectionActionPayloads.single['Provider'], 'local');
+      expect(repository.collectionActionPayloads.single['Provider'], 'managed');
       expect(
         repository.collectionActionPayloads.single['SecretValue'],
         'next-secret',
@@ -297,6 +317,22 @@ void main() {
       );
     },
   );
+
+  testWidgets('key references expose clickable row menu actions', (
+    WidgetTester tester,
+  ) async {
+    final repository = _KeyRefRecordingAcpAdminRepository();
+    await _pumpRuntimeControlPanel(tester, repository);
+
+    await tester.tap(find.byKey(const Key('acp-admin-tab-key-refs')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('acp-admin-row-more-actions')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Retire'), findsOneWidget);
+    expect(find.text('Destroy'), findsOneWidget);
+  });
 
   test('runtime admin refreshes auth on session expiry', () async {
     final repository = FakeAcpAdminRepository()
@@ -323,6 +359,13 @@ void main() {
     expect(result.isFailure, isTrue);
     expect(authController.refreshCount, 1);
   });
+}
+
+Finder _jsonEditorTextField(String fieldKey) {
+  return find.descendant(
+    of: find.byKey(Key('acp-json-editor-text-$fieldKey')),
+    matching: find.byType(TextField),
+  );
 }
 
 Future<void> _pumpRuntimeControlPanel(
@@ -389,6 +432,7 @@ class _KeyRefRecordingAcpAdminRepository extends FakeAcpAdminRepository {
       AcpRowPage(
         items: <AcpRow>[
           <String, Object?>{
+            'Id': 'key-ref-1',
             'TenantId': 'global-id',
             'RowVersion': 2,
             'Purpose': 'signing',

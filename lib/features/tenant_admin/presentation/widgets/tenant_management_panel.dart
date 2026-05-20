@@ -12,6 +12,8 @@ import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_membership
 import 'package:mugen_ui/features/tenant_admin/presentation/providers/tenant_admin_providers.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
@@ -66,8 +68,6 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
   Widget build(BuildContext context) {
     final state = ref.watch(tenantAdminControllerProvider);
     final controller = ref.read(tenantAdminControllerProvider.notifier);
-    final navigator = ref.read(appNavigatorProvider);
-    final snackBar = ref.read(snackBarDispatcherProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -120,94 +120,19 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
             ),
           ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 240,
-          child: AppFormPanel(
-            margin: EdgeInsets.zero,
-            child: state.tenants.isEmpty
-                ? const Center(child: Text('No tenants found.'))
-                : ListView.separated(
-                    itemCount: state.tenants.length,
-                    separatorBuilder: (_, _) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final tenant = state.tenants[index];
-                      final isSelected = tenant.id == state.selectedTenantId;
-                      final isActive = _isActiveStatus(tenant.status);
-                      return ListTile(
-                        selected: isSelected,
-                        selectedTileColor: AppUiPalette.accentSoft,
-                        title: Text(
-                          tenant.name,
-                          style: TextStyle(
-                            fontWeight: isSelected
-                                ? FontWeight.w700
-                                : FontWeight.w400,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${tenant.slug}  |  ${tenant.status}',
-                          style: TextStyle(
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                          ),
-                        ),
-                        onTap: () => controller.selectTenant(tenant.id),
-                        trailing: Wrap(
-                          spacing: 4,
-                          children: [
-                            _ActionIcon(
-                              icon: Icons.edit_outlined,
-                              tooltip: 'Edit tenant',
-                              onPressed: () =>
-                                  _showTenantDialog(existingTenant: tenant),
-                            ),
-                            _ActionIcon(
-                              icon: isActive
-                                  ? Icons.pause_circle_outline
-                                  : Icons.play_circle_outline,
-                              tooltip: isActive
-                                  ? 'Deactivate tenant'
-                                  : 'Reactivate tenant',
-                              onPressed: () async {
-                                final confirmed = await showAppConfirmationDialog(
-                                  context: context,
-                                  title: 'Confirmation Required',
-                                  message: isActive
-                                      ? 'Deactivating this tenant stops tenant access until reactivated.'
-                                      : 'Reactivating this tenant restores tenant access.',
-                                  confirmLabel: 'Continue',
-                                );
-                                if (confirmed != true) {
-                                  return;
-                                }
-
-                                final success = isActive
-                                    ? await controller.deactivateTenant(
-                                        TenantLifecycleInput(
-                                          tenantId: tenant.id,
-                                          rowVersion: tenant.rowVersion,
-                                        ),
-                                      )
-                                    : await controller.reactivateTenant(
-                                        TenantLifecycleInput(
-                                          tenantId: tenant.id,
-                                          rowVersion: tenant.rowVersion,
-                                        ),
-                                      );
-                                snackBar.show(
-                                  navigator,
-                                  success
-                                      ? 'Tenant update completed.'
-                                      : 'Tenant update failed.',
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+        AppFormPanel(
+          margin: EdgeInsets.zero,
+          child: _TenantSelector(
+            tenants: state.tenants,
+            selectedTenant: state.selectedTenant,
+            selectedTenantId: state.selectedTenantId,
+            onSelected: controller.selectTenant,
+            onEdit: state.selectedTenant == null
+                ? null
+                : () => _showTenantDialog(existingTenant: state.selectedTenant),
+            onLifecycleAction: state.selectedTenant == null
+                ? null
+                : () => _runTenantLifecycle(state.selectedTenant!),
           ),
         ),
         const SizedBox(height: 8),
@@ -228,25 +153,44 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                       Wrap(
                         spacing: 8,
                         children: [
-                          ChoiceChip(
-                            key: const Key('tenant-management-tab-domains'),
-                            label: const Text('Domains'),
+                          _TenantTabChip(
+                            chipKey: const Key('tenant-management-tab-domains'),
+                            label: 'Domains',
+                            tooltip:
+                                'Verified tenant domains used to identify tenant-owned traffic.',
+                            tooltipKey: const Key(
+                              'tenant-management-tab-domains-info',
+                            ),
                             selected: state.activeTab == TenantAdminTab.domains,
                             onSelected: (_) =>
                                 controller.setActiveTab(TenantAdminTab.domains),
                           ),
-                          ChoiceChip(
-                            key: const Key('tenant-management-tab-invitations'),
-                            label: const Text('Invitations'),
+                          _TenantTabChip(
+                            chipKey: const Key(
+                              'tenant-management-tab-invitations',
+                            ),
+                            label: 'Invitations',
+                            tooltip:
+                                'Pending invitations for adding users to this tenant.',
+                            tooltipKey: const Key(
+                              'tenant-management-tab-invitations-info',
+                            ),
                             selected:
                                 state.activeTab == TenantAdminTab.invitations,
                             onSelected: (_) => controller.setActiveTab(
                               TenantAdminTab.invitations,
                             ),
                           ),
-                          ChoiceChip(
-                            key: const Key('tenant-management-tab-memberships'),
-                            label: const Text('Memberships'),
+                          _TenantTabChip(
+                            chipKey: const Key(
+                              'tenant-management-tab-memberships',
+                            ),
+                            label: 'Memberships',
+                            tooltip:
+                                'Users assigned to this tenant and their tenant roles.',
+                            tooltipKey: const Key(
+                              'tenant-management-tab-memberships-info',
+                            ),
                             selected:
                                 state.activeTab == TenantAdminTab.memberships,
                             onSelected: (_) => controller.setActiveTab(
@@ -285,6 +229,46 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
     );
   }
 
+  Future<void> _runTenantLifecycle(TenantEntity tenant) async {
+    final isActive = _isActiveStatus(tenant.status);
+    final confirmed = await showAppConfirmationDialog(
+      context: context,
+      title: 'Confirmation Required',
+      message: isActive
+          ? 'Deactivating this tenant stops tenant access until reactivated.'
+          : 'Reactivating this tenant restores tenant access.',
+      confirmLabel: 'Continue',
+    );
+    if (confirmed != true) {
+      return;
+    }
+
+    final controller = ref.read(tenantAdminControllerProvider.notifier);
+    final success = isActive
+        ? await controller.deactivateTenant(
+            TenantLifecycleInput(
+              tenantId: tenant.id,
+              rowVersion: tenant.rowVersion,
+            ),
+          )
+        : await controller.reactivateTenant(
+            TenantLifecycleInput(
+              tenantId: tenant.id,
+              rowVersion: tenant.rowVersion,
+            ),
+          );
+    if (!mounted) {
+      return;
+    }
+
+    final snackBar = ref.read(snackBarDispatcherProvider);
+    final navigator = ref.read(appNavigatorProvider);
+    snackBar.show(
+      navigator,
+      success ? 'Tenant update completed.' : 'Tenant update failed.',
+    );
+  }
+
   Future<void> _showTenantDialog({TenantEntity? existingTenant}) async {
     final isEditing = existingTenant != null;
     final nameController = TextEditingController(text: existingTenant?.name);
@@ -314,7 +298,10 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: nameController,
-                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Name',
+                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Field cannot be empty.';
@@ -326,7 +313,10 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: slugController,
-                    decoration: appFormInputDecoration(labelText: 'Slug'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Slug',
+                      helpText: acpFieldHelpText(key: 'Slug', label: 'Slug'),
+                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Field cannot be empty.';
@@ -389,6 +379,155 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TenantSelector extends StatelessWidget {
+  const _TenantSelector({
+    required this.tenants,
+    required this.selectedTenant,
+    required this.selectedTenantId,
+    required this.onSelected,
+    required this.onEdit,
+    required this.onLifecycleAction,
+  });
+
+  final List<TenantEntity> tenants;
+  final TenantEntity? selectedTenant;
+  final String? selectedTenantId;
+  final Future<void> Function(String tenantId) onSelected;
+  final VoidCallback? onEdit;
+  final VoidCallback? onLifecycleAction;
+
+  @override
+  Widget build(BuildContext context) {
+    if (tenants.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text('No tenants found.'),
+      );
+    }
+
+    final selected = selectedTenant;
+    final lifecycleIsActive =
+        selected != null && _isActiveStatus(selected.status);
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 420,
+          child: DropdownButtonFormField<String>(
+            key: const Key('tenant-management-tenant-selector'),
+            initialValue: selectedTenantId,
+            isExpanded: true,
+            decoration: appFormInputDecoration(labelText: 'Tenant'),
+            items: tenants
+                .map(
+                  (tenant) => DropdownMenuItem<String>(
+                    value: tenant.id,
+                    child: Text(_tenantSelectorLabel(tenant)),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
+              unawaited(onSelected(value));
+            },
+          ),
+        ),
+        if (selected != null)
+          Container(
+            key: const Key('tenant-management-selected-tenant-actions'),
+            decoration: BoxDecoration(
+              color: AppUiPalette.surfaceMuted,
+              border: Border.all(color: AppUiPalette.border),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ActionIcon(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit tenant',
+                  onPressed: onEdit,
+                ),
+                _ActionIcon(
+                  icon: lifecycleIsActive
+                      ? Icons.pause_circle_outline
+                      : Icons.play_circle_outline,
+                  tooltip: lifecycleIsActive
+                      ? 'Deactivate tenant'
+                      : 'Reactivate tenant',
+                  onPressed: onLifecycleAction,
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TenantTabChip extends StatelessWidget {
+  const _TenantTabChip({
+    required this.chipKey,
+    required this.label,
+    required this.tooltip,
+    required this.tooltipKey,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final Key chipKey;
+  final String label;
+  final String tooltip;
+  final Key tooltipKey;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.centerRight,
+      children: [
+        ChoiceChip(
+          key: chipKey,
+          label: Padding(
+            padding: const EdgeInsets.only(right: 24),
+            child: Text(label),
+          ),
+          selected: selected,
+          onSelected: onSelected,
+        ),
+        Positioned(
+          right: 6,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: Tooltip(
+              key: tooltipKey,
+              message: tooltip,
+              child: const SizedBox.square(
+                dimension: 18,
+                child: Center(
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppUiPalette.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -786,6 +925,10 @@ bool _isActiveStatus(String status) {
       normalized == 'reactivated';
 }
 
+String _tenantSelectorLabel(TenantEntity tenant) {
+  return '${tenant.name} (${tenant.slug}) - ${tenant.status}';
+}
+
 String _tenantMembershipUserTitle(TenantMembershipEntity membership) {
   final userName = membership.userName?.trim();
   if (userName != null && userName.isNotEmpty) {
@@ -850,7 +993,13 @@ Future<void> _showDomainDialog(
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: domainController,
-                    decoration: appFormInputDecoration(labelText: 'Domain'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Domain',
+                      helpText: acpFieldHelpText(
+                        key: 'Domain',
+                        label: 'Domain',
+                      ),
+                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Field cannot be empty.';
@@ -861,7 +1010,14 @@ Future<void> _showDomainDialog(
                   ),
                   CheckboxListTile(
                     value: isPrimary,
-                    title: const Text('Primary domain'),
+                    title: appFieldLabelWithHelp(
+                      labelText: 'Primary domain',
+                      helpText: acpFieldHelpText(
+                        key: 'IsPrimary',
+                        label: 'Primary Domain',
+                        kind: AcpFieldKind.boolean,
+                      ),
+                    ),
                     contentPadding: EdgeInsets.zero,
                     onChanged: (value) {
                       setState(() {
@@ -958,7 +1114,10 @@ Future<void> _showInvitationDialog(
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: emailController,
-                  decoration: appFormInputDecoration(labelText: 'Email'),
+                  decoration: appFormInputDecoration(
+                    labelText: 'Email',
+                    helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
+                  ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Field cannot be empty.';
@@ -976,6 +1135,10 @@ Future<void> _showInvitationDialog(
                   controller: roleController,
                   decoration: appFormInputDecoration(
                     labelText: 'Role In Tenant',
+                    helpText: acpFieldHelpText(
+                      key: 'RoleInTenant',
+                      label: 'Role In Tenant',
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -1145,7 +1308,10 @@ class _TenantMembershipDialogState
       key: const Key('tenant-membership-user-readonly-field'),
       initialValue: _tenantMembershipUserContext(membership),
       enabled: false,
-      decoration: appFormInputDecoration(labelText: 'User'),
+      decoration: appFormInputDecoration(
+        labelText: 'User',
+        helpText: acpFieldHelpText(key: 'User', label: 'User'),
+      ),
     );
   }
 
@@ -1164,6 +1330,7 @@ class _TenantMembershipDialogState
                 labelText: 'User',
                 hintText: 'Username, name, or email',
                 suffixIcon: const Icon(Icons.person_search_outlined),
+                helpText: acpFieldHelpText(key: 'User', label: 'User'),
               ),
               onChanged: _queueUserSearch,
             ),
@@ -1261,7 +1428,13 @@ class _TenantMembershipDialogState
       key: const Key('tenant-membership-role-dropdown'),
       initialValue: _selectedRole,
       isExpanded: true,
-      decoration: appFormInputDecoration(labelText: 'Role In Tenant'),
+      decoration: appFormInputDecoration(
+        labelText: 'Role In Tenant',
+        helpText: acpFieldHelpText(
+          key: 'RoleInTenant',
+          label: 'Role In Tenant',
+        ),
+      ),
       items: options
           .map(
             (option) => DropdownMenuItem<String>(

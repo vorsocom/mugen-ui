@@ -12,6 +12,7 @@ import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password
 import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -1003,25 +1004,46 @@ class _RegisterUserFormState extends ConsumerState<_RegisterUserForm> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _firstNameController,
-                decoration: appFormInputDecoration(labelText: 'First Name'),
+                decoration: appFormInputDecoration(
+                  labelText: 'First Name',
+                  helpText: acpFieldHelpText(
+                    key: 'FirstName',
+                    label: 'First Name',
+                  ),
+                ),
                 validator: _required,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _lastNameController,
-                decoration: appFormInputDecoration(labelText: 'Last Name'),
+                decoration: appFormInputDecoration(
+                  labelText: 'Last Name',
+                  helpText: acpFieldHelpText(
+                    key: 'LastName',
+                    label: 'Last Name',
+                  ),
+                ),
                 validator: _required,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _userNameController,
-                decoration: appFormInputDecoration(labelText: 'Username'),
+                decoration: appFormInputDecoration(
+                  labelText: 'Username',
+                  helpText: acpFieldHelpText(
+                    key: 'Username',
+                    label: 'Username',
+                  ),
+                ),
                 validator: _required,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _emailController,
-                decoration: appFormInputDecoration(labelText: 'Email'),
+                decoration: appFormInputDecoration(
+                  labelText: 'Email',
+                  helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Field cannot be empty.';
@@ -1039,7 +1061,13 @@ class _RegisterUserFormState extends ConsumerState<_RegisterUserForm> {
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
-                decoration: appFormInputDecoration(labelText: 'Password'),
+                decoration: appFormInputDecoration(
+                  labelText: 'Password',
+                  helpText: acpFieldHelpText(
+                    key: 'Password',
+                    label: 'Password',
+                  ),
+                ),
                 validator: _required,
               ),
               const SizedBox(height: 16),
@@ -1181,19 +1209,34 @@ class _EditUserFormState extends ConsumerState<_EditUserForm> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _firstNameController,
-                decoration: appFormInputDecoration(labelText: 'First name'),
+                decoration: appFormInputDecoration(
+                  labelText: 'First name',
+                  helpText: acpFieldHelpText(
+                    key: 'FirstName',
+                    label: 'First Name',
+                  ),
+                ),
                 validator: _required,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _lastNameController,
-                decoration: appFormInputDecoration(labelText: 'Last name'),
+                decoration: appFormInputDecoration(
+                  labelText: 'Last name',
+                  helpText: acpFieldHelpText(
+                    key: 'LastName',
+                    label: 'Last Name',
+                  ),
+                ),
                 validator: _required,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _emailController,
-                decoration: appFormInputDecoration(labelText: 'Email'),
+                decoration: appFormInputDecoration(
+                  labelText: 'Email',
+                  helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
+                ),
                 validator: _required,
               ),
               const SizedBox(height: 16),
@@ -1322,7 +1365,13 @@ class _ResetPasswordAdminFormState
               TextFormField(
                 controller: _newPasswordController,
                 obscureText: true,
-                decoration: appFormInputDecoration(labelText: 'New password'),
+                decoration: appFormInputDecoration(
+                  labelText: 'New password',
+                  helpText: acpFieldHelpText(
+                    key: 'NewPassword',
+                    label: 'New Password',
+                  ),
+                ),
                 validator: _required,
               ),
               const SizedBox(height: 12),
@@ -1331,6 +1380,10 @@ class _ResetPasswordAdminFormState
                 obscureText: true,
                 decoration: appFormInputDecoration(
                   labelText: 'Confirm new password',
+                  helpText: acpFieldHelpText(
+                    key: 'ConfirmNewPassword',
+                    label: 'Confirm New Password',
+                  ),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {

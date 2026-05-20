@@ -16,6 +16,17 @@ void main() {
       maxLines: 5,
       obscureText: true,
       initialValue: 'seed',
+      options: <String>['local', 'managed'],
+      readOnly: true,
+      reference: AcpFieldReferenceDescriptor(
+        entitySet: 'MessagingClientProfiles',
+        scopeMode: AcpScopeMode.optional,
+        title: 'Messaging Client Profiles',
+        searchFields: <String>['ProfileKey'],
+        titleFields: <String>['DisplayName', 'ProfileKey'],
+        subtitleFields: <String>['PlatformKey', 'Id'],
+        defaultOrderBy: 'ProfileKey asc',
+      ),
     );
     const column = AcpColumnDescriptor(
       key: 'DisplayName',
@@ -68,6 +79,17 @@ void main() {
     expect(field.maxLines, 5);
     expect(field.obscureText, isTrue);
     expect(field.initialValue, 'seed');
+    expect(field.options, <String>['local', 'managed']);
+    expect(field.readOnly, isTrue);
+    expect(field.reference?.entitySet, 'MessagingClientProfiles');
+    expect(field.reference?.scopeMode, AcpScopeMode.optional);
+    expect(field.reference?.title, 'Messaging Client Profiles');
+    expect(field.reference?.idField, 'Id');
+    expect(field.reference?.searchFields, <String>['ProfileKey']);
+    expect(field.reference?.titleFields, <String>['DisplayName', 'ProfileKey']);
+    expect(field.reference?.subtitleFields, <String>['PlatformKey', 'Id']);
+    expect(field.reference?.defaultOrderBy, 'ProfileKey asc');
+    expect(field.reference?.pageSize, 20);
 
     expect(column.flex, 2);
     expect(action.target, AcpActionTarget.collection);

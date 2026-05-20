@@ -335,10 +335,16 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
   Future<Result<Object?>> updateRow({
     required String rowId,
     required Map<String, dynamic> values,
+    String? tenantIdOverride,
+    bool useTenantIdOverride = false,
     int? rowVersion,
   }) async {
     final descriptor = activeDescriptor;
-    final tenantId = _tenantIdFor(descriptor);
+    final tenantId = _tenantIdFor(
+      descriptor,
+      tenantIdOverride: tenantIdOverride,
+      useTenantIdOverride: useTenantIdOverride,
+    );
     state = state.copyWith(isMutating: true, clearError: true);
     final result = await repository.updateRow(
       descriptor: descriptor,
@@ -358,10 +364,16 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
 
   Future<Result<void>> deleteRow({
     required String rowId,
+    String? tenantIdOverride,
+    bool useTenantIdOverride = false,
     int? rowVersion,
   }) async {
     final descriptor = activeDescriptor;
-    final tenantId = _tenantIdFor(descriptor);
+    final tenantId = _tenantIdFor(
+      descriptor,
+      tenantIdOverride: tenantIdOverride,
+      useTenantIdOverride: useTenantIdOverride,
+    );
     state = state.copyWith(isMutating: true, clearError: true);
     final result = await repository.deleteRow(
       descriptor: descriptor,
@@ -380,10 +392,16 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
 
   Future<Result<void>> restoreRow({
     required String rowId,
+    String? tenantIdOverride,
+    bool useTenantIdOverride = false,
     int? rowVersion,
   }) async {
     final descriptor = activeDescriptor;
-    final tenantId = _tenantIdFor(descriptor);
+    final tenantId = _tenantIdFor(
+      descriptor,
+      tenantIdOverride: tenantIdOverride,
+      useTenantIdOverride: useTenantIdOverride,
+    );
     state = state.copyWith(isMutating: true, clearError: true);
     final result = await repository.restoreRow(
       descriptor: descriptor,
@@ -403,9 +421,15 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
   Future<Result<Object?>> runCollectionAction({
     required AcpActionDescriptor action,
     required Map<String, dynamic> values,
+    String? tenantIdOverride,
+    bool useTenantIdOverride = false,
   }) async {
     final descriptor = activeDescriptor;
-    final tenantId = _tenantIdFor(descriptor);
+    final tenantId = _tenantIdFor(
+      descriptor,
+      tenantIdOverride: tenantIdOverride,
+      useTenantIdOverride: useTenantIdOverride,
+    );
     state = state.copyWith(isMutating: true, clearError: true);
     final result = await repository.runCollectionAction(
       descriptor: descriptor,
@@ -427,10 +451,16 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     required AcpActionDescriptor action,
     required String rowId,
     required Map<String, dynamic> values,
+    String? tenantIdOverride,
+    bool useTenantIdOverride = false,
     int? rowVersion,
   }) async {
     final descriptor = activeDescriptor;
-    final tenantId = _tenantIdFor(descriptor);
+    final tenantId = _tenantIdFor(
+      descriptor,
+      tenantIdOverride: tenantIdOverride,
+      useTenantIdOverride: useTenantIdOverride,
+    );
     state = state.copyWith(isMutating: true, clearError: true);
     final result = await repository.runEntityAction(
       descriptor: descriptor,
@@ -586,7 +616,17 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     );
   }
 
-  String? _tenantIdFor(AcpResourceDescriptor descriptor) {
+  String? _tenantIdFor(
+    AcpResourceDescriptor descriptor, {
+    String? tenantIdOverride,
+    bool useTenantIdOverride = false,
+  }) {
+    if (useTenantIdOverride) {
+      return descriptor.scopeMode == AcpScopeMode.none
+          ? null
+          : _normalizedTenantId(tenantIdOverride);
+    }
+
     final resourceState = resourceStateFor(descriptor.key);
     if (!_usesTenantScope(
       descriptor: descriptor,
@@ -595,12 +635,14 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       return null;
     }
 
-    final tenantId = state.selectedTenantId?.trim();
-    if (tenantId == null || tenantId.isEmpty) {
-      return null;
-    }
+    return _normalizedTenantId(state.selectedTenantId);
+  }
 
-    return tenantId;
+  String? _normalizedTenantId(String? tenantId) {
+    final trimmedTenantId = tenantId?.trim();
+    return trimmedTenantId == null || trimmedTenantId.isEmpty
+        ? null
+        : trimmedTenantId;
   }
 
   bool _usesTenantScope({

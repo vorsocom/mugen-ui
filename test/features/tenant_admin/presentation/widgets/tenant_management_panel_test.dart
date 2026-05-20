@@ -32,7 +32,6 @@ import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
-import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 void main() {
   testWidgets(
@@ -42,19 +41,38 @@ void main() {
       await _pumpPanel(tester, repository);
       await tester.pumpAndSettle();
 
-      expect(find.text('Tenant 1'), findsOneWidget);
-      expect(find.byTooltip('Deactivate tenant'), findsWidgets);
-      expect(find.byTooltip('Reactivate tenant'), findsWidgets);
-      final selectedTenantTile = tester.widget<ListTile>(
-        find.ancestor(
-          of: find.text('Tenant 1'),
-          matching: find.byType(ListTile),
-        ),
+      expect(find.text('Tenant 1 (tenant-1) - Active'), findsOneWidget);
+      expect(
+        find.byKey(const Key('tenant-management-tenant-selector')),
+        findsOneWidget,
       );
-      expect(selectedTenantTile.selected, isTrue);
-      expect(selectedTenantTile.selectedTileColor, AppUiPalette.accentSoft);
-      final selectedTenantTitle = tester.widget<Text>(find.text('Tenant 1'));
-      expect(selectedTenantTitle.style?.fontWeight, FontWeight.w700);
+      expect(
+        find.byKey(const Key('tenant-management-selected-tenant-actions')),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Deactivate tenant'), findsOneWidget);
+      expect(find.byTooltip('Reactivate tenant'), findsNothing);
+      expect(
+        _tabTooltipMessage(
+          tester,
+          const Key('tenant-management-tab-domains-info'),
+        ),
+        'Verified tenant domains used to identify tenant-owned traffic.',
+      );
+      expect(
+        _tabTooltipMessage(
+          tester,
+          const Key('tenant-management-tab-invitations-info'),
+        ),
+        'Pending invitations for adding users to this tenant.',
+      );
+      expect(
+        _tabTooltipMessage(
+          tester,
+          const Key('tenant-management-tab-memberships-info'),
+        ),
+        'Users assigned to this tenant and their tenant roles.',
+      );
 
       await tester.tap(find.byTooltip('Next page'));
       await tester.pumpAndSettle();
@@ -69,6 +87,10 @@ void main() {
       await tester.tap(find.text('25').last);
       await tester.pumpAndSettle();
       expect(repository.lastTenantQuery?.pageRequest.pageSize, 25);
+
+      await _selectTenant(tester, 'Tenant 2 (tenant-2) - Inactive');
+      expect(find.byTooltip('Deactivate tenant'), findsNothing);
+      expect(find.byTooltip('Reactivate tenant'), findsOneWidget);
 
       await tester.enterText(
         find.byKey(const Key('tenant-management-search-field')),
@@ -119,7 +141,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.deactivateInputs, hasLength(1));
 
-    await tester.tap(find.byTooltip('Reactivate tenant').first);
+    await _selectTenant(tester, 'Tenant 2 (tenant-2) - Inactive');
+    await tester.tap(find.byTooltip('Reactivate tenant'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
@@ -369,7 +392,11 @@ void main() {
       await tester.pump();
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Tenant 2'));
+      await tester.tap(
+        find.byKey(const Key('tenant-management-tenant-selector')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Tenant 2 (tenant-2) - Inactive').last);
       await tester.pump();
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
       await tester.pumpAndSettle();
@@ -413,6 +440,11 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+}
+
+String? _tabTooltipMessage(WidgetTester tester, Key tabKey) {
+  final tooltip = tester.widget<Tooltip>(find.byKey(tabKey));
+  return tooltip.message;
 }
 
 Future<void> _pumpPanel(
@@ -476,6 +508,13 @@ Future<void> _searchAndSelectMembershipUser(
     find.byKey(const Key('tenant-membership-selected-user')),
     findsOneWidget,
   );
+}
+
+Future<void> _selectTenant(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(const Key('tenant-management-tenant-selector')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _selectMembershipRole(

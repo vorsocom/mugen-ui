@@ -10,10 +10,69 @@ import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_obj
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/providers/rbac_admin_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const double _formDialogPanelWidth = 520;
+
+class _RbacTabChip extends StatelessWidget {
+  const _RbacTabChip({
+    required this.chipKey,
+    required this.label,
+    required this.tooltip,
+    required this.tooltipKey,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final Key chipKey;
+  final String label;
+  final String tooltip;
+  final Key tooltipKey;
+  final bool selected;
+  final ValueChanged<bool> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.centerRight,
+      children: [
+        ChoiceChip(
+          key: chipKey,
+          label: Padding(
+            padding: const EdgeInsets.only(right: 24),
+            child: Text(label),
+          ),
+          selected: selected,
+          onSelected: onSelected,
+        ),
+        Positioned(
+          right: 6,
+          top: 0,
+          bottom: 0,
+          child: Center(
+            child: Tooltip(
+              key: tooltipKey,
+              message: tooltip,
+              child: const SizedBox.square(
+                dimension: 18,
+                child: Center(
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppUiPalette.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class RbacManagementPanel extends ConsumerStatefulWidget {
   const RbacManagementPanel({super.key}); // coverage:ignore-line
@@ -104,44 +163,65 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
         Wrap(
           spacing: 8,
           children: [
-            ChoiceChip(
-              key: const Key('rbac-management-tab-global-roles'),
-              label: const Text('Global Roles'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-global-roles'),
+              label: 'Global Roles',
+              tooltip:
+                  'Platform-wide roles that can be granted outside a tenant.',
+              tooltipKey: const Key('rbac-management-tab-global-roles-info'),
               selected: state.activeTab == RbacAdminTab.globalRoles,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.globalRoles),
             ),
-            ChoiceChip(
-              key: const Key('rbac-management-tab-permission-objects'),
-              label: const Text('Permission Objects'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-permission-objects'),
+              label: 'Permission Objects',
+              tooltip:
+                  'Protected object types that permissions can be granted on.',
+              tooltipKey: const Key(
+                'rbac-management-tab-permission-objects-info',
+              ),
               selected: state.activeTab == RbacAdminTab.permissionObjects,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.permissionObjects),
             ),
-            ChoiceChip(
-              key: const Key('rbac-management-tab-permission-types'),
-              label: const Text('Permission Types'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-permission-types'),
+              label: 'Permission Types',
+              tooltip:
+                  'Actions that can be allowed or denied for permission objects.',
+              tooltipKey: const Key(
+                'rbac-management-tab-permission-types-info',
+              ),
               selected: state.activeTab == RbacAdminTab.permissionTypes,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.permissionTypes),
             ),
-            ChoiceChip(
-              key: const Key('rbac-management-tab-global-grants'),
-              label: const Text('Global Grants'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-global-grants'),
+              label: 'Global Grants',
+              tooltip:
+                  'Global role permissions that apply without tenant scope.',
+              tooltipKey: const Key('rbac-management-tab-global-grants-info'),
               selected: state.activeTab == RbacAdminTab.globalGrants,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.globalGrants),
             ),
-            ChoiceChip(
-              key: const Key('rbac-management-tab-tenant-roles'),
-              label: const Text('Tenant Roles'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-tenant-roles'),
+              label: 'Tenant Roles',
+              tooltip: 'Roles available only within the selected tenant.',
+              tooltipKey: const Key('rbac-management-tab-tenant-roles-info'),
               selected: state.activeTab == RbacAdminTab.tenantRoles,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.tenantRoles),
             ),
-            ChoiceChip(
-              key: const Key('rbac-management-tab-tenant-grants'),
-              label: const Text('Tenant Grants'),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-tenant-grants'),
+              label: 'Tenant Grants',
+              tooltip:
+                  'Permissions assigned to tenant roles in the selected tenant.',
+              tooltipKey: const Key('rbac-management-tab-tenant-grants-info'),
               selected: state.activeTab == RbacAdminTab.tenantGrants,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.tenantGrants),
@@ -400,13 +480,22 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: namespaceController,
-                    decoration: appFormInputDecoration(labelText: 'Namespace'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Namespace',
+                      helpText: acpFieldHelpText(
+                        key: 'Namespace',
+                        label: 'Namespace',
+                      ),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: nameController,
-                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Name',
+                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 8),
@@ -414,6 +503,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     controller: displayNameController,
                     decoration: appFormInputDecoration(
                       labelText: 'Display Name',
+                      helpText: acpFieldHelpText(
+                        key: 'DisplayName',
+                        label: 'Display Name',
+                      ),
                     ),
                     validator: _requiredValidator,
                   ),
@@ -476,6 +569,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     controller: displayNameController,
                     decoration: appFormInputDecoration(
                       labelText: 'Display Name',
+                      helpText: acpFieldHelpText(
+                        key: 'DisplayName',
+                        label: 'Display Name',
+                      ),
                     ),
                     validator: _requiredValidator,
                   ),
@@ -538,13 +635,22 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: namespaceController,
-                    decoration: appFormInputDecoration(labelText: 'Namespace'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Namespace',
+                      helpText: acpFieldHelpText(
+                        key: 'Namespace',
+                        label: 'Namespace',
+                      ),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: nameController,
-                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Name',
+                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 8),
@@ -552,6 +658,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     controller: displayNameController,
                     decoration: appFormInputDecoration(
                       labelText: 'Display Name',
+                      helpText: acpFieldHelpText(
+                        key: 'DisplayName',
+                        label: 'Display Name',
+                      ),
                     ),
                     validator: _requiredValidator,
                   ),
@@ -618,6 +728,10 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     controller: displayNameController,
                     decoration: appFormInputDecoration(
                       labelText: 'Display Name',
+                      helpText: acpFieldHelpText(
+                        key: 'DisplayName',
+                        label: 'Display Name',
+                      ),
                     ),
                     validator: _requiredValidator,
                   ),
@@ -697,13 +811,22 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: namespaceController,
-                    decoration: appFormInputDecoration(labelText: 'Namespace'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Namespace',
+                      helpText: acpFieldHelpText(
+                        key: 'Namespace',
+                        label: 'Namespace',
+                      ),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: nameController,
-                    decoration: appFormInputDecoration(labelText: 'Name'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Name',
+                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                    ),
                     validator: _requiredValidator,
                   ),
                   const SizedBox(height: 14),
@@ -792,13 +915,20 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       _buildDialogTitle('Create Global Grant'),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedRoleId,
-                        decoration: appFormInputDecoration(labelText: 'Role'),
+                        decoration: appFormInputDecoration(
+                          labelText: 'Role',
+                          helpText: acpFieldHelpText(
+                            key: 'Role',
+                            label: 'Role',
+                          ),
+                        ),
                         items: state.globalRoles
                             .map(
                               (role) => DropdownMenuItem<String>(
                                 value: role.id,
-                                child: Text(role.displayName),
+                                child: _buildDropdownLabel(role.displayName),
                               ),
                             )
                             .toList(growable: false),
@@ -812,15 +942,22 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedPermissionObjectId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Object',
+                          helpText: acpFieldHelpText(
+                            key: 'PermissionObject',
+                            label: 'Permission Object',
+                          ),
                         ),
                         items: state.permissionObjects
                             .map(
                               (permissionObject) => DropdownMenuItem<String>(
                                 value: permissionObject.id,
-                                child: Text(permissionObject.key),
+                                child: _buildDropdownLabel(
+                                  permissionObject.key,
+                                ),
                               ),
                             )
                             .toList(growable: false),
@@ -834,15 +971,20 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedPermissionTypeId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Type',
+                          helpText: acpFieldHelpText(
+                            key: 'PermissionType',
+                            label: 'Permission Type',
+                          ),
                         ),
                         items: state.permissionTypes
                             .map(
                               (permissionType) => DropdownMenuItem<String>(
                                 value: permissionType.id,
-                                child: Text(permissionType.key),
+                                child: _buildDropdownLabel(permissionType.key),
                               ),
                             )
                             .toList(growable: false),
@@ -856,7 +998,14 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       SwitchListTile(
                         value: permitted,
-                        title: const Text('Permitted'),
+                        title: appFieldLabelWithHelp(
+                          labelText: 'Permitted',
+                          helpText: acpFieldHelpText(
+                            key: 'Permitted',
+                            label: 'Permitted',
+                            kind: AcpFieldKind.boolean,
+                          ),
+                        ),
                         contentPadding: EdgeInsets.zero,
                         onChanged: (value) {
                           setDialogState(() {
@@ -945,13 +1094,20 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       _buildDialogTitle('Create Tenant Grant'),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedRoleId,
-                        decoration: appFormInputDecoration(labelText: 'Role'),
+                        decoration: appFormInputDecoration(
+                          labelText: 'Role',
+                          helpText: acpFieldHelpText(
+                            key: 'Role',
+                            label: 'Role',
+                          ),
+                        ),
                         items: state.tenantRoles
                             .map(
                               (role) => DropdownMenuItem<String>(
                                 value: role.id,
-                                child: Text(role.displayName),
+                                child: _buildDropdownLabel(role.displayName),
                               ),
                             )
                             .toList(growable: false),
@@ -965,15 +1121,22 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedPermissionObjectId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Object',
+                          helpText: acpFieldHelpText(
+                            key: 'PermissionObject',
+                            label: 'Permission Object',
+                          ),
                         ),
                         items: state.permissionObjects
                             .map(
                               (permissionObject) => DropdownMenuItem<String>(
                                 value: permissionObject.id,
-                                child: Text(permissionObject.key),
+                                child: _buildDropdownLabel(
+                                  permissionObject.key,
+                                ),
                               ),
                             )
                             .toList(growable: false),
@@ -987,15 +1150,20 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<String>(
+                        isExpanded: true,
                         initialValue: selectedPermissionTypeId,
                         decoration: appFormInputDecoration(
                           labelText: 'Permission Type',
+                          helpText: acpFieldHelpText(
+                            key: 'PermissionType',
+                            label: 'Permission Type',
+                          ),
                         ),
                         items: state.permissionTypes
                             .map(
                               (permissionType) => DropdownMenuItem<String>(
                                 value: permissionType.id,
-                                child: Text(permissionType.key),
+                                child: _buildDropdownLabel(permissionType.key),
                               ),
                             )
                             .toList(growable: false),
@@ -1009,7 +1177,14 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       SwitchListTile(
                         value: permitted,
-                        title: const Text('Permitted'),
+                        title: appFieldLabelWithHelp(
+                          labelText: 'Permitted',
+                          helpText: acpFieldHelpText(
+                            key: 'Permitted',
+                            label: 'Permitted',
+                            kind: AcpFieldKind.boolean,
+                          ),
+                        ),
                         contentPadding: EdgeInsets.zero,
                         onChanged: (value) {
                           setDialogState(() {
@@ -1315,6 +1490,13 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
       style: Theme.of(
         context,
       ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+    );
+  }
+
+  Widget _buildDropdownLabel(String label) {
+    return Tooltip(
+      message: label,
+      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 

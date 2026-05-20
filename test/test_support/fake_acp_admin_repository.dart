@@ -31,6 +31,7 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
     <String, Object?>{'action': 'ok'},
   );
 
+  final List<Map<String, dynamic>> createPayloads = <Map<String, dynamic>>[];
   int collectionActionCalls = 0;
 
   @override
@@ -68,11 +69,26 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
   }
 
   @override
+  Future<Result<AcpRow>> fetchRow({
+    required AcpResourceDescriptor descriptor,
+    required String rowId,
+    String? tenantId,
+  }) async {
+    return Result<AcpRow>.success(<String, Object?>{
+      'Id': rowId,
+      'TenantId': tenantId,
+      'RowVersion': 1,
+      'Name': descriptor.title,
+    });
+  }
+
+  @override
   Future<Result<Object?>> createRow({
     required AcpResourceDescriptor descriptor,
     required Map<String, dynamic> values,
     String? tenantId,
   }) async {
+    createPayloads.add(Map<String, dynamic>.from(values));
     return createResult;
   }
 

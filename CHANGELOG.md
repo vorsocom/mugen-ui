@@ -19,6 +19,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.2.0] - 2026-05-20
+
+### Added
+
+- Added a documented identifier-type dropdown to Ingress Binding create and update forms.
+- Added backend-oriented field help tooltips to Platform Configuration CRUD dialogs.
+- Added information-icon tooltips to Platform Configuration tab labels and moved page-level descriptions into muted notice boxes.
+- Added tenant-aware searchable reference selectors for Channel Profile `ClientProfileId` and Ingress Binding `ChannelProfileId` fields.
+- Added a row-detail dialog action to copy the ACP object ID to the clipboard.
+- Added prominent active scope context to ACP form dialogs so tenant or global operations are visible while editing.
+- Added a self-hosted CodeMirror JSON editor for ACP admin form fields that edit JSON values.
+
+### Changed
+
+- Changed Platform Configuration tenant management to use a dropdown tenant selector while keeping selected-tenant edit and lifecycle actions available.
+- Moved the Channel Profile `ClientProfileId` field to the top of create and update forms.
+- Changed Runtime Control Key References provider inputs and table labels to use `Key Provider`, with dropdown choices for supported key providers.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed row detail dialogs so short object views shrink to their content while preserving the existing maximum height.
+- Fixed Channel Profile update forms so the channel and profile keys remain visible as read-only identity context.
+- Fixed update dialogs so selected reference fields display resolved profile names alongside their IDs.
+- Fixed ACP edit and row action dialogs and mutations so existing objects use the row's tenant context instead of the current screen scope when those differ.
+- Fixed ACP `New Row` dialogs so short Platform Configuration forms shrink to their content while preserving the existing maximum height for longer forms.
+- Fixed RBAC global and tenant grant dialog dropdown sizing so long permission keys truncate within the field instead of overflowing the trailing menu affordance.
+- Fixed Runtime Control key-reference row actions so the three-dot menu remains visible and clickable in the table.
+
+### Security
+
 ## [0.1.1] - 2026-05-13
 
 ### Added

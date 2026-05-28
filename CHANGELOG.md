@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed persistent panel and form-dialog errors to render as copyable red alert boxes.
+
 ### Deprecated
 
 ### Removed

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -25,6 +26,74 @@ class AppFormPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: child,
+    );
+  }
+}
+
+class AppErrorAlert extends StatelessWidget {
+  const AppErrorAlert({
+    required this.message,
+    super.key,
+    this.copyButtonKey,
+    this.copyTooltip = 'Copy error details',
+  });
+
+  final Key? copyButtonKey;
+  final String copyTooltip;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedMessage = message.trim();
+    final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: AppUiPalette.textPrimary,
+      height: 1.3,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppUiPalette.dangerSoft,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppUiPalette.danger.withValues(alpha: 0.38)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.error_outline,
+              size: 20,
+              color: AppUiPalette.danger,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: SelectableText(resolvedMessage, style: textStyle)),
+          const SizedBox(width: 4),
+          Tooltip(
+            message: copyTooltip,
+            child: IconButton(
+              key: copyButtonKey,
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+              icon: const Icon(
+                Icons.content_copy,
+                size: 18,
+                color: AppUiPalette.danger,
+              ),
+              onPressed: resolvedMessage.isEmpty
+                  ? null
+                  : () async {
+                      await Clipboard.setData(
+                        ClipboardData(text: resolvedMessage),
+                      );
+                    },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

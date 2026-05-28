@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
@@ -91,4 +92,48 @@ void main() {
       expect(tooltip.message, 'Use a stable schema key.');
     },
   );
+
+  testWidgets('AppErrorAlert renders and copies error details', (
+    WidgetTester tester,
+  ) async {
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (MethodCall call) async {
+        if (call.method == 'Clipboard.setData') {
+          final arguments = Map<Object?, Object?>.from(
+            call.arguments as Map<Object?, Object?>,
+          );
+          copiedText = arguments['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AppErrorAlert(
+            message: '  Error details  ',
+            copyButtonKey: Key('copy-error'),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Error details'), findsOneWidget);
+    expect(find.byIcon(Icons.error_outline), findsOneWidget);
+    expect(find.byTooltip('Copy error details'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('copy-error')));
+    await tester.pump();
+
+    expect(copiedText, 'Error details');
+  });
 }

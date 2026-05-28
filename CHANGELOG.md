@@ -19,6 +19,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.3.0] - 2026-05-28
+
+### Added
+
+### Changed
+
+- Changed persistent panel and form-dialog errors to render as copyable red alert boxes.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed ACP JSON form fields so the dialog scrollbar uses a reserved right-side gutter instead of overlapping the editor scrollbar.
+
+### Security
+
 ## [0.2.0] - 2026-05-20
 
 ### Added

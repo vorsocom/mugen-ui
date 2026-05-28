@@ -112,12 +112,7 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              state.errorMessage!,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
-            ),
+            child: AppErrorAlert(message: state.errorMessage!),
           ),
         const SizedBox(height: 8),
         AppFormPanel(
@@ -1336,12 +1331,7 @@ class _TenantMembershipDialogState
             ),
             if (fieldState.errorText != null) ...[
               const SizedBox(height: 6),
-              Text(
-                fieldState.errorText!,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
-              ),
+              AppErrorAlert(message: fieldState.errorText!),
             ],
             if (_selectedUser != null) ...[
               const SizedBox(height: 8),
@@ -1353,12 +1343,7 @@ class _TenantMembershipDialogState
             ],
             if (_searchError != null && _searchError!.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(
-                _searchError!,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
-              ),
+              AppErrorAlert(message: _searchError!),
             ],
             if (_hasSearched && !_isSearching && _searchError == null) ...[
               const SizedBox(height: 8),

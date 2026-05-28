@@ -59,12 +59,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              state.errorMessage!,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
-            ),
+            child: AppErrorAlert(message: state.errorMessage!),
           ),
         const SizedBox(height: 8),
         _AuditSummaryStrip(state: state),

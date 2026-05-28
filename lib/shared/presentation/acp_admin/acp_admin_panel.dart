@@ -123,12 +123,7 @@ class _AcpAdminPanelState<T extends AcpAdminController>
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              state.errorMessage!,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
-            ),
+            child: AppErrorAlert(message: state.errorMessage!),
           ),
         const SizedBox(height: 8),
         Expanded(
@@ -1787,12 +1782,7 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
             ),
             if (fieldState.errorText != null) ...[
               const SizedBox(height: 6),
-              Text(
-                fieldState.errorText!,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
-              ),
+              AppErrorAlert(message: fieldState.errorText!),
             ],
             if (widget.controller.text.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -1808,12 +1798,7 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
             ],
             if (_searchError != null && _searchError!.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(
-                _searchError!,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: AppUiPalette.danger),
-              ),
+              AppErrorAlert(message: _searchError!),
             ],
             if (_hasSearched && !_isSearching && _searchError == null) ...[
               const SizedBox(height: 8),
@@ -2127,9 +2112,13 @@ class _AcpDynamicFormDialog extends StatefulWidget {
 }
 
 class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
+  static const double _dialogScrollGutterWidth = 18;
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _formScrollController = ScrollController();
   late final Map<String, TextEditingController> _textControllers;
   late final Map<String, bool> _boolValues;
+  String? _formErrorText;
 
   @override
   void initState() {
@@ -2162,6 +2151,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     for (final controller in _textControllers.values) {
       controller.dispose();
     }
+    _formScrollController.dispose();
     super.dispose();
   }
 
@@ -2211,19 +2201,45 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
               ),
             ),
           ],
+          if (_formErrorText != null && _formErrorText!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            AppErrorAlert(
+              key: const Key('acp-dynamic-form-error-alert'),
+              copyButtonKey: const Key('acp-dynamic-form-error-copy-button'),
+              message: _formErrorText!,
+            ),
+          ],
           const SizedBox(height: 12),
           Flexible(
             fit: FlexFit.loose,
             child: Form(
               key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: widget.fields
-                      .map((field) => _buildField(context, field))
-                      .expand((widget) => [widget, const SizedBox(height: 10)])
-                      .toList(growable: false),
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(scrollbars: false),
+                child: Scrollbar(
+                  controller: _formScrollController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  thickness: 8,
+                  radius: const Radius.circular(999),
+                  child: SingleChildScrollView(
+                    controller: _formScrollController,
+                    padding: const EdgeInsets.only(
+                      top: 8,
+                      right: _dialogScrollGutterWidth,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: widget.fields
+                          .map((field) => _buildField(context, field))
+                          .expand(
+                            (widget) => [widget, const SizedBox(height: 10)],
+                          )
+                          .toList(growable: false),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -2454,8 +2470,14 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
   void _submit() {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) {
+      setState(() {
+        _formErrorText = _validationErrorSummary();
+      });
       return;
     }
+    setState(() {
+      _formErrorText = null;
+    });
 
     final payload = <String, dynamic>{};
     for (final field in widget.fields) {
@@ -2495,6 +2517,24 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     }
 
     Navigator.of(context).pop(payload);
+  }
+
+  String _validationErrorSummary() {
+    final errors = <String>[];
+    for (final field in widget.fields) {
+      final value = field.kind == AcpFieldKind.boolean
+          ? (_boolValues[field.key] ?? false).toString()
+          : (_textControllers[field.key]?.text ?? '');
+      final error = _validateField(field, value);
+      if (error != null && error.trim().isNotEmpty) {
+        errors.add('${field.label}: $error');
+      }
+    }
+
+    if (errors.isEmpty) {
+      return 'Review the highlighted fields.';
+    }
+    return errors.join('\n');
   }
 
   String _initialTextValue(AcpFieldDescriptor field, Object? value) {

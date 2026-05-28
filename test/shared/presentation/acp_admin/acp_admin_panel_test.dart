@@ -164,6 +164,21 @@ void main() {
       expect(find.byTooltip('Redo JSON edit'), findsOneWidget);
       expect(find.byTooltip('Format JSON'), findsOneWidget);
       expect(find.byTooltip('Compact JSON'), findsOneWidget);
+
+      final formFinder = find.byType(Form);
+      final scrollView = tester.widget<SingleChildScrollView>(
+        find.descendant(
+          of: formFinder,
+          matching: find.byType(SingleChildScrollView),
+        ),
+      );
+      final scrollbar = tester.widget<Scrollbar>(
+        find.descendant(of: formFinder, matching: find.byType(Scrollbar)),
+      );
+
+      expect(scrollView.padding, const EdgeInsets.only(top: 8, right: 18));
+      expect(scrollbar.thumbVisibility, isTrue);
+      expect(scrollbar.trackVisibility, isTrue);
     },
   );
 
@@ -372,6 +387,26 @@ void main() {
   testWidgets('JSON validation blocks invalid payload submission', (
     WidgetTester tester,
   ) async {
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          final arguments = Map<Object?, Object?>.from(
+            call.arguments as Map<Object?, Object?>,
+          );
+          copiedText = arguments['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
     final repository = await _pumpPanel(
       tester,
       descriptors: <AcpResourceDescriptor>[_jsonResourceDescriptor()],
@@ -384,6 +419,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Enter valid JSON.'), findsOneWidget);
+    expect(find.text('Attributes: Enter valid JSON.'), findsOneWidget);
+    expect(
+      find.byKey(const Key('acp-dynamic-form-error-alert')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('acp-dynamic-form-error-copy-button')),
+    );
+    await tester.pump();
+
+    expect(copiedText, 'Attributes: Enter valid JSON.');
     expect(repository.createPayloads, isEmpty);
   });
 

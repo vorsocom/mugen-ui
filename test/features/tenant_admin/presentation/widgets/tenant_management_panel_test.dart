@@ -32,6 +32,7 @@ import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
   testWidgets(
@@ -101,6 +102,20 @@ void main() {
       expect(repository.lastTenantQuery?.searchTerm, 'tenant 2');
     },
   );
+
+  testWidgets('TenantManagementPanel renders load errors as copyable alerts', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeTenantAdminRepository()
+      ..fetchTenantsShouldFail = true;
+
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppErrorAlert), findsOneWidget);
+    expect(find.text('tenant list failed'), findsOneWidget);
+    expect(find.byTooltip('Copy error details'), findsOneWidget);
+  });
 
   testWidgets('TenantManagementPanel create/edit/lifecycle actions', (
     WidgetTester tester,
@@ -342,6 +357,7 @@ void main() {
       userRepository.searchShouldFail = true;
       await _searchMembershipUsers(tester, 'error');
       expect(find.text('user search failed'), findsOneWidget);
+      expect(find.byType(AppErrorAlert), findsOneWidget);
 
       userRepository.searchShouldFail = false;
       await _searchMembershipUsers(tester, 'z');
@@ -842,6 +858,7 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
   final List<TenantMembershipEntity> _memberships;
 
   bool mutationShouldSucceed = true;
+  bool fetchTenantsShouldFail = false;
   bool returnEmptyDetails = false;
   Duration? fetchTenantsDelay;
   Duration? fetchDetailsDelay;
@@ -970,6 +987,11 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
       await Future<void>.delayed(fetchTenantsDelay!);
     }
     lastTenantQuery = query;
+    if (fetchTenantsShouldFail) {
+      return const Result<PageResult<TenantEntity>>.failure(
+        UnexpectedFailure('tenant list failed'),
+      );
+    }
     final term = query.searchTerm?.toLowerCase().trim() ?? '';
     final filtered = _tenants
         .where((tenant) {

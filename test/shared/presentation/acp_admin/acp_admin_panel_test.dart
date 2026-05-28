@@ -164,6 +164,21 @@ void main() {
       expect(find.byTooltip('Redo JSON edit'), findsOneWidget);
       expect(find.byTooltip('Format JSON'), findsOneWidget);
       expect(find.byTooltip('Compact JSON'), findsOneWidget);
+
+      final formFinder = find.byType(Form);
+      final scrollView = tester.widget<SingleChildScrollView>(
+        find.descendant(
+          of: formFinder,
+          matching: find.byType(SingleChildScrollView),
+        ),
+      );
+      final scrollbar = tester.widget<Scrollbar>(
+        find.descendant(of: formFinder, matching: find.byType(Scrollbar)),
+      );
+
+      expect(scrollView.padding, const EdgeInsets.only(top: 8, right: 18));
+      expect(scrollbar.thumbVisibility, isTrue);
+      expect(scrollbar.trackVisibility, isTrue);
     },
   );
 

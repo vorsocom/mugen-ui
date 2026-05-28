@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed ACP JSON form fields so the dialog scrollbar uses a reserved right-side gutter instead of overlapping the editor scrollbar.
+
 ### Security
 
 ## [0.2.0] - 2026-05-20

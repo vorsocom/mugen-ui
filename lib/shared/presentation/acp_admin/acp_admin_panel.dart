@@ -2127,7 +2127,10 @@ class _AcpDynamicFormDialog extends StatefulWidget {
 }
 
 class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
+  static const double _dialogScrollGutterWidth = 18;
+
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ScrollController _formScrollController = ScrollController();
   late final Map<String, TextEditingController> _textControllers;
   late final Map<String, bool> _boolValues;
 
@@ -2162,6 +2165,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     for (final controller in _textControllers.values) {
       controller.dispose();
     }
+    _formScrollController.dispose();
     super.dispose();
   }
 
@@ -2216,14 +2220,32 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
             fit: FlexFit.loose,
             child: Form(
               key: _formKey,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: widget.fields
-                      .map((field) => _buildField(context, field))
-                      .expand((widget) => [widget, const SizedBox(height: 10)])
-                      .toList(growable: false),
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(scrollbars: false),
+                child: Scrollbar(
+                  controller: _formScrollController,
+                  thumbVisibility: true,
+                  trackVisibility: true,
+                  thickness: 8,
+                  radius: const Radius.circular(999),
+                  child: SingleChildScrollView(
+                    controller: _formScrollController,
+                    padding: const EdgeInsets.only(
+                      top: 8,
+                      right: _dialogScrollGutterWidth,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: widget.fields
+                          .map((field) => _buildField(context, field))
+                          .expand(
+                            (widget) => [widget, const SizedBox(height: 10)],
+                          )
+                          .toList(growable: false),
+                    ),
+                  ),
                 ),
               ),
             ),

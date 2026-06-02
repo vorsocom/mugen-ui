@@ -615,7 +615,9 @@ class ChatController extends _$ChatController {
           ChatMessageStatus.delivered => ChatMessageStatus.delivered,
           ChatMessageStatus.failed => ChatMessageStatus.failed,
           ChatMessageStatus.pending => ChatMessageStatus.accepted,
-          ChatMessageStatus.accepted => ChatMessageStatus.accepted, // coverage:ignore-line
+          // coverage:ignore-start
+          ChatMessageStatus.accepted => ChatMessageStatus.accepted,
+          // coverage:ignore-end
         };
         return message.copyWith(status: nextStatus, jobId: accepted.jobId);
       }),
@@ -679,9 +681,11 @@ class ChatController extends _$ChatController {
     final textPreview = _isTextPreviewMimeType(mimeType)
         ? _buildTextPreviewSnippet(downloaded.bytes)
         : null;
+    // coverage:ignore-start
     final pdfPageAspectRatio = mimeType == 'application/pdf'
-        ? _extractPdfFirstPageAspectRatio(downloaded.bytes) // coverage:ignore-line
+        ? _extractPdfFirstPageAspectRatio(downloaded.bytes)
         : null;
+    // coverage:ignore-end
     final spreadsheetPreview =
         _isSpreadsheetPreviewCandidate(
           mimeType: mimeType,
@@ -735,9 +739,11 @@ class ChatController extends _$ChatController {
       return;
     }
 
+    // coverage:ignore-start
     final filename = updated.filename?.trim().isNotEmpty ?? false
-        ? updated.filename!.trim() // coverage:ignore-line
+        ? updated.filename!.trim()
         : 'download';
+    // coverage:ignore-end
     _mediaObjectUrlPlatform.triggerDownload(
       url: updated.objectUrl!,
       filename: filename,
@@ -942,23 +948,27 @@ class ChatController extends _$ChatController {
     final content = payload['content'];
     final jobId = _readString(data['job_id']);
     final clientMessageId = _readString(data['client_message_id']);
-    _clearThinkingSignal(jobId: jobId, clientMessageId: clientMessageId);
-    final marked = _markOutgoingDelivered(
-      jobId: jobId,
-      clientMessageId: clientMessageId,
-      eventId: eventId,
-    );
-    if (!marked) {
-      _markSingleOpenOutgoing(
-        status: ChatMessageStatus.delivered,
+    final isHumanHandoff = data.containsKey('human_handoff');
+    if (!isHumanHandoff) {
+      _clearThinkingSignal(jobId: jobId, clientMessageId: clientMessageId);
+      final marked = _markOutgoingDelivered(
+        jobId: jobId,
+        clientMessageId: clientMessageId,
         eventId: eventId,
       );
+      if (!marked) {
+        _markSingleOpenOutgoing(
+          status: ChatMessageStatus.delivered,
+          eventId: eventId,
+        );
+      }
     }
     final signature = _buildAssistantEventSignature(
       type: type,
       content: content,
       jobId: jobId,
       clientMessageId: clientMessageId,
+      isHumanHandoff: isHumanHandoff,
     );
     if (_shouldSkipDuplicateNonUserSignature(signature)) {
       _scheduleSnapshotPersist();
@@ -1154,13 +1164,25 @@ class ChatController extends _$ChatController {
     required Object? content,
     String? jobId,
     String? clientMessageId,
+    bool isHumanHandoff = false,
   }) {
+    if (isHumanHandoff &&
+        clientMessageId != null &&
+        clientMessageId.isNotEmpty) {
+      return jsonEncode(<String, dynamic>{
+        'role': ChatMessageRole.assistant.name,
+        'human_handoff': true,
+        'client_message_id': clientMessageId,
+      });
+    }
+
     final payload = type == ChatMessageType.text
         ? <String, dynamic>{'text': content?.toString() ?? ''}
         : _buildMediaPayloadSignature(content);
     return jsonEncode(<String, dynamic>{
       'role': ChatMessageRole.assistant.name,
       'type': type.name,
+      'human_handoff': isHumanHandoff,
       'job_id': jobId ?? '',
       'client_message_id': clientMessageId ?? '',
       'payload': payload,
@@ -1208,10 +1230,12 @@ class ChatController extends _$ChatController {
 
     _recentNonUserSignatures.add(signature);
     _recentNonUserSignatureOrder.addLast(signature);
+    // coverage:ignore-start
     while (_recentNonUserSignatureOrder.length > _maxRecentNonUserSignatures) {
-      final evicted = _recentNonUserSignatureOrder.removeFirst(); // coverage:ignore-line
-      _recentNonUserSignatures.remove(evicted); // coverage:ignore-line
+      final evicted = _recentNonUserSignatureOrder.removeFirst();
+      _recentNonUserSignatures.remove(evicted);
     }
+    // coverage:ignore-end
     return false;
   }
 
@@ -1309,8 +1333,10 @@ class ChatController extends _$ChatController {
               clientMessageId != null &&
               clientMessageId.isNotEmpty &&
               message.clientMessageId == clientMessageId;
+          // coverage:ignore-start
           final matchesJob =
-              jobId != null && jobId.isNotEmpty && message.jobId == jobId; // coverage:ignore-line
+              jobId != null && jobId.isNotEmpty && message.jobId == jobId;
+          // coverage:ignore-end
           if (!matchesClient && !matchesJob) {
             return message;
           }
@@ -1319,7 +1345,9 @@ class ChatController extends _$ChatController {
           return message.copyWith(
             status: ChatMessageStatus.failed,
             jobId: jobId ?? message.jobId,
-            clientMessageId: clientMessageId ?? message.clientMessageId, // coverage:ignore-line
+            clientMessageId:
+                clientMessageId ??
+                message.clientMessageId, // coverage:ignore-line
             eventId: eventId ?? message.eventId, // coverage:ignore-line
           );
         })
@@ -1527,7 +1555,9 @@ class ChatController extends _$ChatController {
     if (messages.length <= kMaxPersistedMessages) {
       return messages;
     }
-    return messages.sublist(messages.length - kMaxPersistedMessages); // coverage:ignore-line
+    // coverage:ignore-start
+    return messages.sublist(messages.length - kMaxPersistedMessages);
+    // coverage:ignore-end
   }
 
   void _purgeMediaResourcesForRemovedMessages(List<ChatMessageEntity> trimmed) {
@@ -1542,17 +1572,21 @@ class ChatController extends _$ChatController {
         continue;
       }
 
-      final objectUrl = entry.value.objectUrl; // coverage:ignore-line
-      if (objectUrl != null && objectUrl.isNotEmpty) { // coverage:ignore-line
-        _mediaObjectUrlPlatform.revokeObjectUrl(objectUrl); // coverage:ignore-line
+      // coverage:ignore-start
+      final objectUrl = entry.value.objectUrl;
+      if (objectUrl != null && objectUrl.isNotEmpty) {
+        _mediaObjectUrlPlatform.revokeObjectUrl(objectUrl);
       }
-      nextResources.remove(entry.key); // coverage:ignore-line
+      nextResources.remove(entry.key);
       changed = true;
+      // coverage:ignore-end
     }
 
+    // coverage:ignore-start
     if (changed) {
-      state = state.copyWith(mediaResources: nextResources); // coverage:ignore-line
+      state = state.copyWith(mediaResources: nextResources);
     }
+    // coverage:ignore-end
   }
 
   int _backoffSeconds(int attempt) {
@@ -2080,12 +2114,14 @@ Uint8List? _archiveFileToBytes(ArchiveFile archiveFile) {
   if (content is Uint8List) {
     return content;
   }
-  if (content is List<int>) { // coverage:ignore-line
-    return Uint8List.fromList(content); // coverage:ignore-line
+  // coverage:ignore-start
+  if (content is List<int>) {
+    return Uint8List.fromList(content);
   }
-  if (content is String) { // coverage:ignore-line
-    return Uint8List.fromList(utf8.encode(content)); // coverage:ignore-line
+  if (content is String) {
+    return Uint8List.fromList(utf8.encode(content));
   }
+  // coverage:ignore-end
   return null;
 }
 

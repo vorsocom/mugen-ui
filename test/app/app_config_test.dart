@@ -156,6 +156,7 @@ void main() {
     expect(definition.defaultShellRouteId, RouteIds.chat);
     expect(shellRouteIds, contains(RouteIds.dashboard));
     expect(shellRouteIds, contains(RouteIds.chat));
+    expect(shellRouteIds, contains(RouteIds.humanHandoff));
     expect(shellRouteIds, contains(RouteIds.localUsers));
     expect(shellRouteIds, contains(RouteIds.tenantManagement));
     expect(shellRouteIds, contains(RouteIds.rolePermissionManagement));
@@ -175,6 +176,19 @@ void main() {
           .firstWhere((route) => route.id == RouteIds.chat)
           .requiredRoles,
       isEmpty,
+    );
+    final shellRouteOrder = definition.shellRoutes
+        .map((route) => route.id)
+        .toList(growable: false);
+    expect(
+      shellRouteOrder.indexOf(RouteIds.humanHandoff),
+      shellRouteOrder.indexOf(RouteIds.chat) + 1,
+    );
+    expect(
+      definition.shellRoutes
+          .firstWhere((route) => route.id == RouteIds.humanHandoff)
+          .requiredRoles,
+      <String>['com.vorsocomputing.mugen.acp:administrator'],
     );
     expect(settingsPanelIds, contains('core.auth.account'));
     expect(settingsPanelIds, contains('core.auth.reset_password'));
@@ -376,6 +390,12 @@ void main() {
       ),
     );
 
+    expect(
+      definition.shellRoutes
+          .firstWhere((route) => route.id == RouteIds.humanHandoff)
+          .builder(context),
+      isA<Padding>(),
+    );
     expect(
       definition.shellRoutes
           .firstWhere((route) => route.id == RouteIds.tenantManagement)

@@ -1,10 +1,12 @@
 import 'dart:collection';
+import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_delivery_result_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_event_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tenant_option_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
@@ -30,6 +32,7 @@ void main() {
     expect(state.sessions, hasLength(1));
     expect(state.transcript.first.sequenceNo, 1);
     expect(repository.sessionQueries.single.status, 'active');
+    expect(repository.eventStreamQueries.single.tenantId, 'tenant-1');
   });
 
   test('filter changes reload sessions with updated query inputs', () async {
@@ -68,6 +71,39 @@ void main() {
     expect(repository.replyInputs.single.content, 'Thanks for waiting.');
     expect(repository.sessionQueries.length, 2);
   });
+
+  test(
+    'live transcript event refreshes sessions and appends new rows',
+    () async {
+      final repository = _FakeHumanHandoffRepository();
+      final container = _buildContainer(repository);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(humanHandoffControllerProvider.notifier);
+      await notifier.loadInitialData();
+
+      repository.eventController.add(
+        const Result<HumanHandoffEventEntity>.success(
+          HumanHandoffEventEntity(
+            eventId: 'tenant-1:event-3',
+            tenantId: 'tenant-1',
+            sessionId: 'session-1',
+            eventType: 'handoff.transcript_appended',
+            sequenceNo: 3,
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(humanHandoffControllerProvider);
+      expect(state.transcript.map((item) => item.sequenceNo), <int>[1, 2, 3]);
+      expect(state.latestTranscriptSequenceNo, 3);
+      expect(state.isLiveListening, isTrue);
+      expect(repository.sessionQueries.length, 2);
+      expect(repository.transcriptQueries.last.afterSequenceNo, 2);
+    },
+  );
 
   test('failed delivery preserves draft and retry reuses message id', () async {
     final repository = _FakeHumanHandoffRepository(
@@ -143,8 +179,14 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
            );
 
   final Queue<HumanHandoffDeliveryResultEntity> deliveryResults;
+  final StreamController<Result<HumanHandoffEventEntity>> eventController =
+      StreamController<Result<HumanHandoffEventEntity>>.broadcast();
   final List<HumanHandoffSessionListQuery> sessionQueries =
       <HumanHandoffSessionListQuery>[];
+  final List<HumanHandoffTranscriptQuery> transcriptQueries =
+      <HumanHandoffTranscriptQuery>[];
+  final List<HumanHandoffEventStreamQuery> eventStreamQueries =
+      <HumanHandoffEventStreamQuery>[];
   final List<HumanHandoffReplyInput> replyInputs = <HumanHandoffReplyInput>[];
   final List<HumanHandoffDeactivateInput> deactivateInputs =
       <HumanHandoffDeactivateInput>[];
@@ -176,25 +218,49 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
   }
 
   @override
-  Future<Result<List<HumanHandoffTranscriptItemEntity>>> listTranscript(
+  Future<Result<HumanHandoffTranscriptResultEntity>> listTranscript(
     HumanHandoffTranscriptQuery query,
   ) async {
-    return const Result<List<HumanHandoffTranscriptItemEntity>>.success(
-      <HumanHandoffTranscriptItemEntity>[
-        HumanHandoffTranscriptItemEntity(
-          sequenceNo: 1,
-          role: 'user',
-          content: 'hello',
-          source: 'human_handoff_user_turn',
-        ),
-        HumanHandoffTranscriptItemEntity(
-          sequenceNo: 2,
-          role: 'assistant',
-          content: 'human reply',
-          source: 'human_handoff',
-        ),
-      ],
+    transcriptQueries.add(query);
+    final items = query.afterSequenceNo == null
+        ? const <HumanHandoffTranscriptItemEntity>[
+            HumanHandoffTranscriptItemEntity(
+              sequenceNo: 1,
+              role: 'user',
+              content: 'hello',
+              source: 'human_handoff_user_turn',
+            ),
+            HumanHandoffTranscriptItemEntity(
+              sequenceNo: 2,
+              role: 'assistant',
+              content: 'human reply',
+              source: 'human_handoff',
+            ),
+          ]
+        : const <HumanHandoffTranscriptItemEntity>[
+            HumanHandoffTranscriptItemEntity(
+              sequenceNo: 3,
+              role: 'user',
+              content: 'new turn',
+              source: 'human_handoff_user_turn',
+            ),
+          ];
+    return Result<HumanHandoffTranscriptResultEntity>.success(
+      HumanHandoffTranscriptResultEntity(
+        items: items,
+        count: items.length,
+        latestSequenceNo: items.last.sequenceNo,
+        hasMore: false,
+      ),
     );
+  }
+
+  @override
+  Stream<Result<HumanHandoffEventEntity>> streamEvents(
+    HumanHandoffEventStreamQuery query,
+  ) {
+    eventStreamQueries.add(query);
+    return eventController.stream;
   }
 
   @override

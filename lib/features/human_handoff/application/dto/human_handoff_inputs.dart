@@ -23,11 +23,13 @@ class HumanHandoffTranscriptQuery {
     required this.tenantId,
     required this.sessionId,
     this.limit = 80,
+    this.afterSequenceNo,
   });
 
   final String tenantId;
   final String sessionId;
   final int limit;
+  final int? afterSequenceNo;
 }
 
 class HumanHandoffReplyInput {
@@ -58,4 +60,16 @@ class HumanHandoffDeactivateInput {
   final String tenantId;
   final String sessionId;
   final String? reason;
+}
+
+class HumanHandoffEventStreamQuery {
+  const HumanHandoffEventStreamQuery({
+    required this.tenantId,
+    this.lastEventId,
+    this.sessionId,
+  });
+
+  final String tenantId;
+  final String? lastEventId;
+  final String? sessionId;
 }

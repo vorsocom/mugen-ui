@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added live Human Handoff operator updates, transcript cursor refreshes, and new inbound-user activity markers.
+
 ### Changed
 
 ### Deprecated

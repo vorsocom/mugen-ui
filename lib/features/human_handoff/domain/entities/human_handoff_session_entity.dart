@@ -16,6 +16,8 @@ class HumanHandoffSessionEntity {
     this.activatedAt,
     this.deactivatedAt,
     this.lastHumanReplyAt,
+    this.lastUserMessageAt,
+    this.lastTranscriptSequenceNo,
     this.lastDeliveryStatus,
     this.lastDeliveryError,
   });
@@ -36,10 +38,21 @@ class HumanHandoffSessionEntity {
   final DateTime? activatedAt;
   final DateTime? deactivatedAt;
   final DateTime? lastHumanReplyAt;
+  final DateTime? lastUserMessageAt;
+  final int? lastTranscriptSequenceNo;
   final String? lastDeliveryStatus;
   final String? lastDeliveryError;
 
   bool get isActive => status.toLowerCase().trim() == 'active';
+  bool get hasNewUserActivity {
+    final userMessageAt = lastUserMessageAt;
+    if (!isActive || userMessageAt == null) {
+      return false;
+    }
+    final humanReplyAt = lastHumanReplyAt;
+    return humanReplyAt == null || userMessageAt.isAfter(humanReplyAt);
+  }
+
   bool get hasDeliveryFailure =>
       lastDeliveryStatus?.toLowerCase().trim() == 'failed' ||
       (lastDeliveryError?.trim().isNotEmpty ?? false);

@@ -22,3 +22,29 @@ class HumanHandoffTranscriptItemEntity {
       role.toLowerCase().trim() == 'assistant' &&
       source.toLowerCase().trim() == 'human_handoff';
 }
+
+class HumanHandoffTranscriptResultEntity {
+  const HumanHandoffTranscriptResultEntity({
+    required this.items,
+    required this.count,
+    required this.hasMore,
+    this.latestSequenceNo,
+  });
+
+  final List<HumanHandoffTranscriptItemEntity> items;
+  final int count;
+  final int? latestSequenceNo;
+  final bool hasMore;
+
+  int? get resolvedLatestSequenceNo {
+    if (latestSequenceNo != null) {
+      return latestSequenceNo;
+    }
+    if (items.isEmpty) {
+      return null;
+    }
+    return items
+        .map((item) => item.sequenceNo)
+        .reduce((value, element) => value > element ? value : element);
+  }
+}

@@ -1,4 +1,6 @@
 const String acpNamespace = 'com.vorsocomputing.mugen.acp';
+const String humanHandoffOperatorRole =
+    'com.vorsocomputing.mugen.human_handoff:operator';
 
 class ApiEndpointsConfig {
   const ApiEndpointsConfig({

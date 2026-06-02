@@ -109,7 +109,7 @@ final MugenUiModule _coreHumanHandoffModule = MugenUiModule(
       id: CoreShellRouteIds.humanHandoff,
       title: 'Human Handoff',
       icon: Icons.support_agent_outlined,
-      requiredRoles: <String>['$acpNamespace:administrator'],
+      requiredRoles: <String>[humanHandoffOperatorRole],
       builder: _buildHumanHandoffRoute,
     ),
   ],

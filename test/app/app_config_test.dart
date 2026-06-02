@@ -188,7 +188,7 @@ void main() {
       definition.shellRoutes
           .firstWhere((route) => route.id == RouteIds.humanHandoff)
           .requiredRoles,
-      <String>['com.vorsocomputing.mugen.acp:administrator'],
+      <String>['com.vorsocomputing.mugen.human_handoff:operator'],
     );
     expect(settingsPanelIds, contains('core.auth.account'));
     expect(settingsPanelIds, contains('core.auth.reset_password'));

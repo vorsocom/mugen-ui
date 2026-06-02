@@ -286,6 +286,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final aiAssistInDrawer = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.text('AI Assist'),
+    );
+    final humanHandoffInDrawer = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.text('Human Handoff'),
+    );
+    expect(humanHandoffInDrawer, findsOneWidget);
+    expect(
+      tester.getTopLeft(humanHandoffInDrawer).dy,
+      greaterThan(tester.getTopLeft(aiAssistInDrawer).dy),
+    );
     expect(find.text('Platform Configuration'), findsOneWidget);
     expect(find.text('LocalUsers'), findsOneWidget);
     expect(find.text('Tenants'), findsOneWidget);
@@ -341,6 +354,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Human Handoff'), findsNothing);
     expect(find.text('LocalUsers'), findsNothing);
     expect(find.text('Tenants'), findsNothing);
     expect(find.text('Roles & Permissions'), findsNothing);
@@ -1471,6 +1485,15 @@ MugenUiAppDefinition _buildShellTestDefinition({
                 id: RouteIds.chat,
                 title: 'AI Assist',
                 icon: Icons.chat_bubble_outline,
+                builder: _buildPlaceholderShellPage,
+              ),
+              ShellRouteDefinition(
+                id: RouteIds.humanHandoff,
+                title: 'Human Handoff',
+                icon: Icons.support_agent_outlined,
+                requiredRoles: <String>[
+                  'com.vorsocomputing.mugen.acp:administrator',
+                ],
                 builder: _buildPlaceholderShellPage,
               ),
               ShellRouteDefinition(

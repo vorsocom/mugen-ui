@@ -231,6 +231,8 @@ class _QueuePane extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 10),
+          _LiveStatusLine(state: state),
+          const SizedBox(height: 10),
           if (state.errorMessage != null) ...[
             AppErrorAlert(message: state.errorMessage!),
             const SizedBox(height: 10),
@@ -310,6 +312,13 @@ class _SessionTile extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  if (session.hasNewUserActivity) ...[
+                    const _StatusPill(
+                      label: 'New user',
+                      color: AppUiPalette.warning,
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   _StatusPill(label: session.status, color: statusColor),
                 ],
               ),
@@ -330,6 +339,10 @@ class _SessionTile extends ConsumerWidget {
                   _TinyMeta(label: 'Room', value: session.roomId),
                   _TinyMeta(label: 'Sender', value: session.senderId),
                   _TinyMeta(label: 'Route', value: session.serviceRouteKey),
+                  _TinyMeta(
+                    label: 'Last user',
+                    value: _formatCompactDateTime(session.lastUserMessageAt),
+                  ),
                 ],
               ),
               if (session.lastDeliveryError?.trim().isNotEmpty ?? false) ...[
@@ -440,6 +453,14 @@ class _SessionHeader extends ConsumerWidget {
               _InfoChip(label: 'Route', value: session.serviceRouteKey),
               _InfoChip(label: 'Owner', value: session.ownerUserId),
               _InfoChip(label: 'Delivery', value: session.lastDeliveryStatus),
+              _InfoChip(
+                label: 'Last User',
+                value: _formatCompactDateTime(session.lastUserMessageAt),
+              ),
+              _InfoChip(
+                label: 'Transcript',
+                value: session.lastTranscriptSequenceNo?.toString(),
+              ),
             ],
           ),
         ],
@@ -700,6 +721,44 @@ class _Pager extends ConsumerWidget {
   }
 }
 
+class _LiveStatusLine extends StatelessWidget {
+  const _LiveStatusLine({required this.state});
+
+  final HumanHandoffState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final error = state.liveErrorMessage?.trim();
+    final color = error != null && error.isNotEmpty
+        ? AppUiPalette.warning
+        : state.isLiveListening
+        ? AppUiPalette.success
+        : AppUiPalette.textMuted;
+    final label = error != null && error.isNotEmpty
+        ? 'Live updates paused'
+        : state.isLiveListening
+        ? 'Live updates on'
+        : 'Live updates off';
+    return Row(
+      children: [
+        Icon(Icons.circle, size: 9, color: color),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _Surface extends StatelessWidget {
   const _Surface({required this.child});
 
@@ -816,4 +875,16 @@ String _formatDateTime(DateTime? dateTime) {
     return '-';
   }
   return dateTime.toLocal().toString();
+}
+
+String? _formatCompactDateTime(DateTime? dateTime) {
+  if (dateTime == null) {
+    return null;
+  }
+  final local = dateTime.toLocal();
+  final paddedMonth = local.month.toString().padLeft(2, '0');
+  final paddedDay = local.day.toString().padLeft(2, '0');
+  final paddedHour = local.hour.toString().padLeft(2, '0');
+  final paddedMinute = local.minute.toString().padLeft(2, '0');
+  return '${local.year}-$paddedMonth-$paddedDay $paddedHour:$paddedMinute';
 }

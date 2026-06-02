@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_delivery_result_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_event_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tenant_option_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
@@ -162,6 +164,8 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
            );
 
   final List<HumanHandoffSessionEntity> sessions;
+  final StreamController<Result<HumanHandoffEventEntity>> eventController =
+      StreamController<Result<HumanHandoffEventEntity>>.broadcast();
   final Queue<HumanHandoffDeliveryResultEntity> deliveryResults;
   final List<HumanHandoffReplyInput> replyInputs = <HumanHandoffReplyInput>[];
   final List<HumanHandoffDeactivateInput> deactivateInputs =
@@ -193,25 +197,38 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
   }
 
   @override
-  Future<Result<List<HumanHandoffTranscriptItemEntity>>> listTranscript(
+  Future<Result<HumanHandoffTranscriptResultEntity>> listTranscript(
     HumanHandoffTranscriptQuery query,
   ) async {
-    return const Result<List<HumanHandoffTranscriptItemEntity>>.success(
-      <HumanHandoffTranscriptItemEntity>[
-        HumanHandoffTranscriptItemEntity(
-          sequenceNo: 1,
-          role: 'user',
-          content: 'hello',
-          source: 'human_handoff_user_turn',
-        ),
-        HumanHandoffTranscriptItemEntity(
-          sequenceNo: 2,
-          role: 'assistant',
-          content: <String, Object>{'text': 'human reply'},
-          source: 'human_handoff',
-        ),
-      ],
+    const items = <HumanHandoffTranscriptItemEntity>[
+      HumanHandoffTranscriptItemEntity(
+        sequenceNo: 1,
+        role: 'user',
+        content: 'hello',
+        source: 'human_handoff_user_turn',
+      ),
+      HumanHandoffTranscriptItemEntity(
+        sequenceNo: 2,
+        role: 'assistant',
+        content: <String, Object>{'text': 'human reply'},
+        source: 'human_handoff',
+      ),
+    ];
+    return const Result<HumanHandoffTranscriptResultEntity>.success(
+      HumanHandoffTranscriptResultEntity(
+        items: items,
+        count: 2,
+        latestSequenceNo: 2,
+        hasMore: false,
+      ),
     );
+  }
+
+  @override
+  Stream<Result<HumanHandoffEventEntity>> streamEvents(
+    HumanHandoffEventStreamQuery query,
+  ) {
+    return eventController.stream;
   }
 
   @override

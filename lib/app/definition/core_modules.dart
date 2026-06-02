@@ -11,6 +11,7 @@ import 'package:mugen_ui/features/auth/presentation/widgets/edit_profile_panel.d
 import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
 import 'package:mugen_ui/features/context_admin/presentation/widgets/context_engine_panel.dart';
+import 'package:mugen_ui/features/human_handoff/presentation/widgets/human_handoff_panel.dart';
 import 'package:mugen_ui/features/orchestration_admin/presentation/widgets/channel_orchestration_panel.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/widgets/rbac_management_panel.dart';
 import 'package:mugen_ui/features/runtime_admin/presentation/widgets/runtime_control_panel.dart';
@@ -26,6 +27,7 @@ MugenUiAppDefinition buildDefaultAppDefinition() {
     modules: <MugenUiModule>[
       _coreAuthModule,
       _coreShellModule,
+      _coreHumanHandoffModule,
       _coreLocalUsersModule,
       _coreTenantModule,
       _coreRbacModule,
@@ -96,6 +98,19 @@ final MugenUiModule _coreShellModule = MugenUiModule(
       title: 'AI Assist',
       icon: Icons.chat_bubble_outline,
       builder: _buildChatPage,
+    ),
+  ],
+);
+
+final MugenUiModule _coreHumanHandoffModule = MugenUiModule(
+  id: 'core.human_handoff',
+  shellRoutes: const <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.humanHandoff,
+      title: 'Human Handoff',
+      icon: Icons.support_agent_outlined,
+      requiredRoles: <String>[humanHandoffOperatorRole],
+      builder: _buildHumanHandoffRoute,
     ),
   ],
 );
@@ -234,6 +249,9 @@ Widget _buildResetPasswordPanel(BuildContext context) =>
     const ResetPasswordPanel();
 
 Widget _buildChatPage(BuildContext context) => const ChatPage();
+
+Widget _buildHumanHandoffRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(16), child: HumanHandoffPanel());
 
 Widget _buildLocalUsersRoute(BuildContext context) =>
     const Padding(padding: EdgeInsets.all(16), child: LocalUserPanel());

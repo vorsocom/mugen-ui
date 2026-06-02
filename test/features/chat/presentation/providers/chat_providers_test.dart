@@ -1018,6 +1018,128 @@ void main() {
     },
   );
 
+  test(
+    'human handoff message with null job id renders as assistant without acking pending user',
+    () async {
+      final repository = _FakeChatRepository();
+      repository.pendingSendTextCompleter =
+          Completer<Result<ChatSendAcceptedEntity>>();
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(chatControllerProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      final sendFuture = notifier.sendMessage('Need a human');
+      await Future<void>.delayed(Duration.zero);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'hh-1',
+            event: 'message',
+            data: <String, dynamic>{
+              'job_id': null,
+              'conversation_id': 'conv-test',
+              'client_message_id': 'human-msg-1',
+              'message': <String, dynamic>{
+                'type': 'text',
+                'content': 'Human operator response',
+              },
+              'human_handoff': <String, dynamic>{
+                'metadata': <String, dynamic>{},
+              },
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(chatControllerProvider);
+      expect(state.messages, hasLength(2));
+      expect(state.messages.first.role, ChatMessageRole.user);
+      expect(state.messages.first.status, ChatMessageStatus.pending);
+      expect(state.messages.last.role, ChatMessageRole.assistant);
+      expect(state.messages.last.text, 'Human operator response');
+      expect(state.messages.last.jobId, isNull);
+      expect(state.messages.last.clientMessageId, 'human-msg-1');
+
+      repository.pendingSendTextCompleter!.complete(
+        Result<ChatSendAcceptedEntity>.success(
+          ChatSendAcceptedEntity(
+            jobId: 'job-send',
+            conversationId: 'conv',
+            acceptedAt: DateTime.utc(2026, 1, 1),
+          ),
+        ),
+      );
+      await sendFuture;
+    },
+  );
+
+  test(
+    'human handoff duplicate client message id is appended once across event ids',
+    () async {
+      final repository = _FakeChatRepository();
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(container.dispose);
+
+      container.read(chatControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'hh-101',
+            event: 'message',
+            data: <String, dynamic>{
+              'job_id': null,
+              'client_message_id': 'human-msg-dup',
+              'message': <String, dynamic>{
+                'type': 'text',
+                'content': 'first delivery',
+              },
+              'human_handoff': <String, dynamic>{
+                'metadata': <String, dynamic>{},
+              },
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: 'hh-102',
+            event: 'message',
+            data: <String, dynamic>{
+              'job_id': null,
+              'client_message_id': 'human-msg-dup',
+              'message': <String, dynamic>{
+                'type': 'text',
+                'content': 'duplicate delivery',
+              },
+              'human_handoff': <String, dynamic>{
+                'metadata': <String, dynamic>{},
+              },
+            },
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final messages = container.read(chatControllerProvider).messages;
+      expect(messages, hasLength(1));
+      expect(messages.single.text, 'first delivery');
+    },
+  );
+
   test('assistant messages with distinct content are both appended', () async {
     final repository = _FakeChatRepository();
     final container = _buildContainer(

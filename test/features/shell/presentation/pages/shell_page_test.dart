@@ -256,7 +256,10 @@ void main() {
           accessToken: 'token',
           refreshToken: 'refresh',
           userId: 'admin-1',
-          roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+          roles: <String>[
+            'com.vorsocomputing.mugen.acp:administrator',
+            'com.vorsocomputing.mugen.human_handoff:operator',
+          ],
         ),
       ),
     );
@@ -286,11 +289,84 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final aiAssistInDrawer = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.text('AI Assist'),
+    );
+    final humanHandoffInDrawer = find.descendant(
+      of: find.byType(Drawer),
+      matching: find.text('Human Handoff'),
+    );
+    expect(humanHandoffInDrawer, findsOneWidget);
+    expect(
+      tester.getTopLeft(humanHandoffInDrawer).dy,
+      greaterThan(tester.getTopLeft(aiAssistInDrawer).dy),
+    );
     expect(find.text('Platform Configuration'), findsOneWidget);
     expect(find.text('LocalUsers'), findsOneWidget);
     expect(find.text('Tenants'), findsOneWidget);
     expect(find.text('Roles & Permissions'), findsOneWidget);
     expect(find.text('Audit Events'), findsOneWidget);
+  });
+
+  testWidgets('drawer shows Human Handoff for dedicated operator permission', (
+    tester,
+  ) async {
+    final config = AppConfig.defaults();
+    final shellController = _TestShellController(
+      initialState: const ShellState(
+        isDrawerCollapsed: false,
+        showSettings: false,
+        activeRoute: RouteIds.chat,
+      ),
+    );
+    final authController = _RoleAwareAuthController(
+      initialState: const AuthControllerState(
+        isLoading: false,
+        session: AuthSession(
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          userId: 'operator-1',
+          username: 'Operator One',
+          roles: <String>[
+            'com.vorsocomputing.mugen.acp:authenticated',
+            'com.vorsocomputing.mugen.human_handoff:operator',
+          ],
+        ),
+      ),
+    );
+    final chatController = _TestChatController(
+      initialState: ChatControllerState(
+        conversationId: 'conv-test',
+        messages: <ChatMessageEntity>[],
+        mediaResources: <String, ChatMediaResourceState>{},
+        attachments: const <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => config),
+          shellControllerProvider.overrideWith(() => shellController),
+          authControllerProvider.overrideWith(() => authController),
+          chatControllerProvider.overrideWith(() => chatController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Human Handoff'), findsOneWidget);
+    expect(find.text('Platform Configuration'), findsNothing);
+    expect(find.text('LocalUsers'), findsNothing);
+    expect(find.text('Tenants'), findsNothing);
+    expect(find.text('Roles & Permissions'), findsNothing);
+    expect(find.text('Audit Events'), findsNothing);
   });
 
   testWidgets('drawer hides tenant admin routes for non-admin users', (
@@ -341,6 +417,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Human Handoff'), findsNothing);
     expect(find.text('LocalUsers'), findsNothing);
     expect(find.text('Tenants'), findsNothing);
     expect(find.text('Roles & Permissions'), findsNothing);
@@ -1471,6 +1548,15 @@ MugenUiAppDefinition _buildShellTestDefinition({
                 id: RouteIds.chat,
                 title: 'AI Assist',
                 icon: Icons.chat_bubble_outline,
+                builder: _buildPlaceholderShellPage,
+              ),
+              ShellRouteDefinition(
+                id: RouteIds.humanHandoff,
+                title: 'Human Handoff',
+                icon: Icons.support_agent_outlined,
+                requiredRoles: <String>[
+                  'com.vorsocomputing.mugen.human_handoff:operator',
+                ],
                 builder: _buildPlaceholderShellPage,
               ),
               ShellRouteDefinition(

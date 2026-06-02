@@ -66,6 +66,7 @@ abstract class AppRoutePaths {
 abstract class CoreShellRouteIds {
   static const String dashboard = 'dashboard';
   static const String chat = 'chat';
+  static const String humanHandoff = 'human-handoff';
   static const String localUsers = 'local-users';
   static const String tenantManagement = 'tenant-management';
   static const String rolePermissionManagement = 'role-permission-management';
@@ -83,6 +84,7 @@ abstract class RouteIds {
 
   static const String dashboard = CoreShellRouteIds.dashboard;
   static const String chat = CoreShellRouteIds.chat;
+  static const String humanHandoff = CoreShellRouteIds.humanHandoff;
   static const String localUsers = CoreShellRouteIds.localUsers;
   static const String tenantManagement = CoreShellRouteIds.tenantManagement;
   static const String rolePermissionManagement =
@@ -110,4 +112,3 @@ abstract class RouteIds {
     return AppRoutePaths.parseInviteRoute(routeName);
   }
 }
-

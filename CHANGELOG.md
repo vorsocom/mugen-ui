@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.4.0] - 2026-06-02
+
+### Added
+
 - Added a Human Handoff operator console for active sessions, transcript review, human replies, delivery failures, and release back to AI.
 
 ### Changed

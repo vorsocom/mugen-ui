@@ -1,5 +1,6 @@
 import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_delivery_result_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_event_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tenant_option_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
@@ -15,8 +16,12 @@ abstract class HumanHandoffRepository {
     HumanHandoffSessionListQuery query,
   );
 
-  Future<Result<List<HumanHandoffTranscriptItemEntity>>> listTranscript(
+  Future<Result<HumanHandoffTranscriptResultEntity>> listTranscript(
     HumanHandoffTranscriptQuery query,
+  );
+
+  Stream<Result<HumanHandoffEventEntity>> streamEvents(
+    HumanHandoffEventStreamQuery query,
   );
 
   Future<Result<HumanHandoffDeliveryResultEntity>> sendReply(

@@ -1,9 +1,12 @@
 // coverage:ignore-file
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_event_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tenant_option_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
@@ -11,6 +14,7 @@ import 'package:mugen_ui/features/human_handoff/domain/repositories/human_handof
 import 'package:mugen_ui/features/human_handoff/infrastructure/repositories/human_handoff_repository_impl.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
+import 'package:mugen_ui/shared/domain/result.dart';
 
 class HumanHandoffState {
   const HumanHandoffState({
@@ -30,11 +34,15 @@ class HumanHandoffState {
     required this.isLoadingTranscript,
     required this.isReplying,
     required this.isReleasing,
+    required this.hasMoreTranscript,
+    required this.isLiveListening,
+    this.latestTranscriptSequenceNo,
     this.selectedTenantId,
     this.selectedSessionId,
     this.pendingReplyMessageId,
     this.lastDeliveryError,
     this.errorMessage,
+    this.liveErrorMessage,
   });
 
   final List<HumanHandoffTenantOptionEntity> tenants;
@@ -53,11 +61,15 @@ class HumanHandoffState {
   final bool isLoadingTranscript;
   final bool isReplying;
   final bool isReleasing;
+  final bool hasMoreTranscript;
+  final bool isLiveListening;
+  final int? latestTranscriptSequenceNo;
   final String? selectedTenantId;
   final String? selectedSessionId;
   final String? pendingReplyMessageId;
   final String? lastDeliveryError;
   final String? errorMessage;
+  final String? liveErrorMessage;
 
   int get pages {
     if (pageSize <= 0) {
@@ -106,16 +118,22 @@ class HumanHandoffState {
     bool? isLoadingTranscript,
     bool? isReplying,
     bool? isReleasing,
+    bool? hasMoreTranscript,
+    bool? isLiveListening,
+    int? latestTranscriptSequenceNo,
     String? selectedTenantId,
     String? selectedSessionId,
     String? pendingReplyMessageId,
     String? lastDeliveryError,
     String? errorMessage,
+    String? liveErrorMessage,
     bool clearSelectedTenant = false,
     bool clearSelectedSession = false,
     bool clearPendingReplyMessage = false,
     bool clearLastDeliveryError = false,
     bool clearError = false,
+    bool clearLiveError = false,
+    bool clearLatestTranscriptSequence = false,
   }) {
     return HumanHandoffState(
       tenants: tenants ?? this.tenants,
@@ -134,6 +152,11 @@ class HumanHandoffState {
       isLoadingTranscript: isLoadingTranscript ?? this.isLoadingTranscript,
       isReplying: isReplying ?? this.isReplying,
       isReleasing: isReleasing ?? this.isReleasing,
+      hasMoreTranscript: hasMoreTranscript ?? this.hasMoreTranscript,
+      isLiveListening: isLiveListening ?? this.isLiveListening,
+      latestTranscriptSequenceNo: clearLatestTranscriptSequence
+          ? null
+          : (latestTranscriptSequenceNo ?? this.latestTranscriptSequenceNo),
       selectedTenantId: clearSelectedTenant
           ? null
           : (selectedTenantId ?? this.selectedTenantId),
@@ -147,6 +170,9 @@ class HumanHandoffState {
           ? null
           : (lastDeliveryError ?? this.lastDeliveryError),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      liveErrorMessage: clearLiveError
+          ? null
+          : (liveErrorMessage ?? this.liveErrorMessage),
     );
   }
 }
@@ -155,6 +181,7 @@ final humanHandoffRepositoryProvider = Provider<HumanHandoffRepository>((ref) {
   return HumanHandoffRepositoryImpl(
     appConfig: ref.watch(appConfigProvider),
     authenticatedHttpClient: ref.watch(authenticatedHttpClientProvider),
+    cookieStore: ref.watch(cookieStoreProvider),
   );
 });
 
@@ -183,17 +210,25 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
           isLoadingTranscript: false,
           isReplying: false,
           isReleasing: false,
+          hasMoreTranscript: false,
+          isLiveListening: false,
         ),
       );
 
   final Ref ref;
   int _messageCounter = 0;
+  StreamSubscription<Result<HumanHandoffEventEntity>>? _eventSubscription;
+  Timer? _eventReconnectTimer;
+  String? _streamTenantId;
+  String? _lastEventId;
+  bool _disposed = false;
 
   Future<void> loadInitialData() async {
     await loadTenants();
     if (state.selectedTenantId != null) {
       await loadSessions();
     }
+    _startEventStream();
   }
 
   Future<void> loadTenants() async {
@@ -223,21 +258,29 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       transcript: tenants.isEmpty
           ? const <HumanHandoffTranscriptItemEntity>[]
           : state.transcript,
+      hasMoreTranscript: tenants.isEmpty ? false : state.hasMoreTranscript,
       clearSelectedTenant: tenants.isEmpty,
       clearSelectedSession: tenants.isEmpty,
+      clearLatestTranscriptSequence: tenants.isEmpty,
       clearError: true,
     );
+    if (tenants.isEmpty) {
+      _stopEventStream();
+    }
   }
 
-  Future<void> loadSessions() async {
+  Future<void> loadSessions({bool refreshTranscript = true}) async {
     final tenantId = state.selectedTenantId;
     if (tenantId == null || tenantId.isEmpty) {
       state = state.copyWith(
         sessions: const <HumanHandoffSessionEntity>[],
         transcript: const <HumanHandoffTranscriptItemEntity>[],
         total: 0,
+        hasMoreTranscript: false,
         clearSelectedSession: true,
+        clearLatestTranscriptSequence: true,
       );
+      _stopEventStream();
       return;
     }
 
@@ -282,16 +325,20 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       transcript: selectedSessionId == null
           ? const <HumanHandoffTranscriptItemEntity>[]
           : state.transcript,
+      hasMoreTranscript: selectedSessionId == null
+          ? false
+          : state.hasMoreTranscript,
       clearSelectedSession: selectedSessionId == null,
+      clearLatestTranscriptSequence: selectedSessionId == null,
       clearError: true,
     );
 
-    if (selectedSessionId != null) {
+    if (selectedSessionId != null && refreshTranscript) {
       await loadTranscript();
     }
   }
 
-  Future<void> loadTranscript() async {
+  Future<void> loadTranscript({bool incremental = false}) async {
     final tenantId = state.selectedTenantId;
     final sessionId = state.selectedSessionId;
     if (tenantId == null ||
@@ -300,15 +347,24 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
         sessionId.isEmpty) {
       state = state.copyWith(
         transcript: const <HumanHandoffTranscriptItemEntity>[],
+        hasMoreTranscript: false,
+        clearLatestTranscriptSequence: true,
       );
       return;
     }
 
+    final afterSequenceNo = incremental
+        ? state.latestTranscriptSequenceNo
+        : null;
     state = state.copyWith(isLoadingTranscript: true, clearError: true);
     final result = await ref
         .read(humanHandoffRepositoryProvider)
         .listTranscript(
-          HumanHandoffTranscriptQuery(tenantId: tenantId, sessionId: sessionId),
+          HumanHandoffTranscriptQuery(
+            tenantId: tenantId,
+            sessionId: sessionId,
+            afterSequenceNo: afterSequenceNo,
+          ),
         );
     if (result.isFailure) {
       _applyFailure(result.failure!, fallback: 'Could not load transcript.');
@@ -316,11 +372,28 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       return;
     }
 
+    final transcriptResult = result.data!;
+    final transcript = incremental
+        ? _mergeTranscriptItems(state.transcript, transcriptResult.items)
+        : transcriptResult.items;
+    final loadedLatestSequenceNo = _latestSequenceNo(transcript);
+    final latestSequenceNo = transcriptResult.hasMore
+        ? loadedLatestSequenceNo
+        : (transcriptResult.latestSequenceNo ?? loadedLatestSequenceNo);
+
     state = state.copyWith(
-      transcript: result.data ?? const <HumanHandoffTranscriptItemEntity>[],
+      transcript: transcript,
+      latestTranscriptSequenceNo: latestSequenceNo,
+      hasMoreTranscript: transcriptResult.hasMore,
       isLoadingTranscript: false,
       clearError: true,
     );
+
+    if (incremental &&
+        transcriptResult.hasMore &&
+        transcriptResult.items.isNotEmpty) {
+      await loadTranscript(incremental: true);
+    }
   }
 
   Future<void> selectTenant(String? tenantId) async {
@@ -337,8 +410,10 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       transcript: const <HumanHandoffTranscriptItemEntity>[],
       clearSelectedSession: true,
       clearLastDeliveryError: true,
+      clearLatestTranscriptSequence: true,
     );
     await loadSessions();
+    _startEventStream();
   }
 
   Future<void> selectSession(String sessionId) async {
@@ -349,7 +424,9 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
     state = state.copyWith(
       selectedSessionId: normalized,
       transcript: const <HumanHandoffTranscriptItemEntity>[],
+      hasMoreTranscript: false,
       clearLastDeliveryError: true,
+      clearLatestTranscriptSequence: true,
       clearError: true,
     );
     await loadTranscript();
@@ -441,7 +518,12 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       clearLastDeliveryError: true,
       clearError: true,
     );
-    await loadSessions();
+    await loadSessions(refreshTranscript: false);
+    if (state.selectedSessionId == session.id) {
+      await loadTranscript(
+        incremental: state.latestTranscriptSequenceNo != null,
+      );
+    }
     return true;
   }
 
@@ -479,6 +561,131 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
     return true;
   }
 
+  void _startEventStream() {
+    final tenantId = state.selectedTenantId?.trim();
+    if (tenantId == null || tenantId.isEmpty || _disposed) {
+      _stopEventStream();
+      return;
+    }
+    if (_eventSubscription != null && _streamTenantId == tenantId) {
+      return;
+    }
+
+    final previousTenantId = _streamTenantId;
+    _stopEventStream(keepLastEventId: previousTenantId == tenantId);
+    if (previousTenantId != tenantId) {
+      _lastEventId = null;
+    }
+    _streamTenantId = tenantId;
+    state = state.copyWith(isLiveListening: true, clearLiveError: true);
+    _eventSubscription = ref
+        .read(humanHandoffRepositoryProvider)
+        .streamEvents(
+          HumanHandoffEventStreamQuery(
+            tenantId: tenantId,
+            lastEventId: _lastEventId,
+          ),
+        )
+        .listen(
+          (result) => unawaited(_handleEventResult(result)),
+          onDone: _handleEventStreamDone,
+        );
+  }
+
+  void _stopEventStream({bool keepLastEventId = false}) {
+    _eventReconnectTimer?.cancel();
+    _eventReconnectTimer = null;
+    _eventSubscription?.cancel();
+    _eventSubscription = null;
+    _streamTenantId = null;
+    if (!keepLastEventId) {
+      _lastEventId = null;
+    }
+    if (!_disposed && state.isLiveListening) {
+      state = state.copyWith(isLiveListening: false);
+    }
+  }
+
+  void _handleEventStreamDone() {
+    _eventSubscription = null;
+    if (_disposed || _streamTenantId == null) {
+      return;
+    }
+    state = state.copyWith(isLiveListening: false);
+    _scheduleEventReconnect();
+  }
+
+  void _scheduleEventReconnect() {
+    if (_disposed || _streamTenantId == null) {
+      return;
+    }
+    _eventReconnectTimer?.cancel();
+    _eventReconnectTimer = Timer(const Duration(seconds: 5), _startEventStream);
+  }
+
+  Future<void> _handleEventResult(
+    Result<HumanHandoffEventEntity> result,
+  ) async {
+    if (_disposed) {
+      return;
+    }
+    if (result.isFailure) {
+      final failure = result.failure!;
+      if (failure is SessionExpiredFailure) {
+        ref.read(authControllerProvider.notifier).refreshSession();
+      }
+      state = state.copyWith(
+        isLiveListening: false,
+        liveErrorMessage: failure.message.trim().isEmpty
+            ? 'Live handoff updates disconnected.'
+            : failure.message,
+      );
+      _scheduleEventReconnect();
+      return;
+    }
+
+    final event = result.data!;
+    final eventId = event.eventId?.trim();
+    if (eventId != null && eventId.isNotEmpty) {
+      _lastEventId = eventId;
+    }
+    state = state.copyWith(isLiveListening: true, clearLiveError: true);
+    await _handleHandoffEvent(event);
+  }
+
+  Future<void> _handleHandoffEvent(HumanHandoffEventEntity event) async {
+    if (event.tenantId.trim().isNotEmpty &&
+        event.tenantId != state.selectedTenantId) {
+      return;
+    }
+
+    if (event.updatesSession) {
+      await loadSessions(refreshTranscript: false);
+    }
+
+    if (event.deliveryError?.trim().isNotEmpty ?? false) {
+      if (event.sessionId == state.selectedSessionId) {
+        state = state.copyWith(lastDeliveryError: event.deliveryError);
+      }
+    }
+
+    final selectedSessionId = state.selectedSessionId;
+    if (!event.appendsTranscript ||
+        selectedSessionId == null ||
+        event.sessionId != selectedSessionId) {
+      return;
+    }
+
+    final eventSequenceNo = event.sequenceNo;
+    final latestSequenceNo = state.latestTranscriptSequenceNo;
+    if (eventSequenceNo != null &&
+        latestSequenceNo != null &&
+        eventSequenceNo <= latestSequenceNo) {
+      return;
+    }
+    await loadTranscript(incremental: latestSequenceNo != null);
+  }
+
   void _applyFailure(Failure failure, {required String fallback}) {
     if (failure is SessionExpiredFailure) {
       ref.read(authControllerProvider.notifier).refreshSession();
@@ -491,5 +698,35 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
     _messageCounter += 1;
     final micros = DateTime.now().toUtc().microsecondsSinceEpoch;
     return 'ui-human-$micros-$_messageCounter';
+  }
+
+  List<HumanHandoffTranscriptItemEntity> _mergeTranscriptItems(
+    List<HumanHandoffTranscriptItemEntity> existing,
+    List<HumanHandoffTranscriptItemEntity> incoming,
+  ) {
+    final bySequenceNo = <int, HumanHandoffTranscriptItemEntity>{
+      for (final item in existing) item.sequenceNo: item,
+      for (final item in incoming) item.sequenceNo: item,
+    };
+    final merged = bySequenceNo.values.toList(growable: false)
+      ..sort((a, b) => a.sequenceNo.compareTo(b.sequenceNo));
+    return merged;
+  }
+
+  int? _latestSequenceNo(List<HumanHandoffTranscriptItemEntity> items) {
+    if (items.isEmpty) {
+      return null;
+    }
+    return items
+        .map((item) => item.sequenceNo)
+        .reduce((value, element) => value > element ? value : element);
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _eventReconnectTimer?.cancel();
+    _eventSubscription?.cancel();
+    super.dispose();
   }
 }

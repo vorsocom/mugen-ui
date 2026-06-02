@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
 import 'package:mugen_ui/features/human_handoff/infrastructure/repositories/human_handoff_repository_impl.dart';
@@ -77,6 +78,8 @@ void main() {
                   'ActivatedAt': '2026-06-01T12:00:00Z',
                   'DeactivatedAt': null,
                   'LastHumanReplyAt': '2026-06-01T12:05:00Z',
+                  'LastUserMessageAt': '2026-06-01T12:06:00Z',
+                  'LastTranscriptSequenceNo': 7,
                   'LastDeliveryStatus': 'failed',
                   'LastDeliveryError': 'delivery failed',
                 },
@@ -101,13 +104,18 @@ void main() {
       final page = result.data!;
       expect(page.total, 1);
       expect(page.items.single.hasDeliveryFailure, isTrue);
+      expect(page.items.single.hasNewUserActivity, isTrue);
+      expect(page.items.single.lastTranscriptSequenceNo, 7);
       expect(page.items.single.activatedAt, DateTime.utc(2026, 6, 1, 12));
 
       final request = fixture.client.requests.single;
       expect(request.path, 'core/acp/v1/tenants/tenant-1/HumanHandoffSessions');
       expect(request.queryParameters[r'$skip'], 15);
       expect(request.queryParameters[r'$top'], 15);
-      expect(request.queryParameters[r'$orderby'], 'ActivatedAt desc');
+      expect(
+        request.queryParameters[r'$orderby'],
+        'LastUserMessageAt desc, LastHumanReplyAt desc, ActivatedAt desc',
+      );
       expect(
         request.queryParameters[r'$filter'],
         "Status eq 'active' and Platform eq 'we''b' and "
@@ -143,6 +151,8 @@ void main() {
               },
             ],
             'Count': 2,
+            'LatestSequenceNo': 2,
+            'HasMore': false,
           }),
         ),
       ],
@@ -157,9 +167,11 @@ void main() {
     );
 
     expect(result.isSuccess, isTrue);
-    expect(result.data!.first.sequenceNo, 1);
-    expect(result.data!.last.isHumanReply, isTrue);
-    expect(result.data!.last.content, isA<Map<String, dynamic>>());
+    expect(result.data!.items.first.sequenceNo, 1);
+    expect(result.data!.items.last.isHumanReply, isTrue);
+    expect(result.data!.items.last.content, isA<Map<String, dynamic>>());
+    expect(result.data!.latestSequenceNo, 2);
+    expect(result.data!.hasMore, isFalse);
     final request = fixture.client.requests.single;
     expect(
       request.path,
@@ -167,6 +179,105 @@ void main() {
     );
     expect(request.body, <String, dynamic>{'Limit': 80});
   });
+
+  test('listTranscript supports incremental transcript cursor', () async {
+    final fixture = _HumanHandoffFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, dynamic>{
+            'Items': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'SequenceNo': 3,
+                'Role': 'user',
+                'Content': 'new turn',
+                'Source': 'human_handoff_user_turn',
+              },
+            ],
+            'Count': 1,
+            'LatestSequenceNo': 3,
+            'HasMore': false,
+          }),
+        ),
+      ],
+    );
+
+    final result = await fixture.repository.listTranscript(
+      const HumanHandoffTranscriptQuery(
+        tenantId: 'tenant-1',
+        sessionId: 'session-1',
+        limit: 80,
+        afterSequenceNo: 2,
+      ),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.data!.items.single.sequenceNo, 3);
+    expect(fixture.client.requests.single.body, <String, dynamic>{
+      'Limit': 80,
+      'AfterSequenceNo': 2,
+    });
+  });
+
+  test(
+    'streamEvents opens tenant SSE stream and maps handoff events',
+    () async {
+      final cookieStore = _MemoryCookieStore();
+      cookieStore.setCookie(
+        'auth',
+        jsonEncode(<String, dynamic>{
+          'access_token': 'access-token',
+          'refresh_token': 'refresh-token',
+          'user_id': 'agent-1',
+        }),
+        60,
+        '/',
+      );
+      final httpClient =
+          _QueueHttpClient(<http.StreamedResponse Function(http.BaseRequest)>[
+            (_) => _streamedResponse(
+              statusCode: 200,
+              body: '''
+id: tenant-1:event-1
+event: handoff.transcript_appended
+data: {"tenant_id":"tenant-1","session_id":"session-1","event_type":"handoff.transcript_appended","sequence_no":3,"occurred_at":"2026-06-01T12:02:00Z"}
+
+''',
+            ),
+          ]);
+      final fixture = _HumanHandoffFixture(
+        cookieStore: cookieStore,
+        httpClient: httpClient,
+      );
+
+      final events = await fixture.repository
+          .streamEvents(
+            const HumanHandoffEventStreamQuery(
+              tenantId: 'tenant-1',
+              lastEventId: 'tenant-1:event-0',
+              sessionId: 'session-1',
+            ),
+          )
+          .toList();
+
+      expect(events.single.isSuccess, isTrue);
+      final event = events.single.data!;
+      expect(event.eventId, 'tenant-1:event-1');
+      expect(event.eventType, 'handoff.transcript_appended');
+      expect(event.sessionId, 'session-1');
+      expect(event.sequenceNo, 3);
+      expect(event.occurredAt, DateTime.utc(2026, 6, 1, 12, 2));
+      final request = httpClient.requests.single;
+      expect(
+        request.url.path,
+        '/api/core/acp/v1/tenants/tenant-1/HumanHandoffEvents/stream',
+      );
+      expect(request.url.queryParameters['last_event_id'], 'tenant-1:event-0');
+      expect(request.url.queryParameters['session_id'], 'session-1');
+      expect(request.headers['Authorization'], 'Bearer access-token');
+      expect(request.headers['Last-Event-ID'], 'tenant-1:event-0');
+    },
+  );
 
   test('sendReply sends PascalCase payload and maps delivery statuses', () async {
     final fixture = _HumanHandoffFixture(
@@ -324,16 +435,23 @@ void main() {
 }
 
 class _HumanHandoffFixture {
-  _HumanHandoffFixture({List<_AuthHandler>? handlers})
-    : client = _QueueAuthenticatedHttpClient(
-        handlers ?? const <_AuthHandler>[],
-      ) {
+  _HumanHandoffFixture({
+    List<_AuthHandler>? handlers,
+    CookieStore? cookieStore,
+    http.Client? httpClient,
+  }) : cookieStore = cookieStore ?? _MemoryCookieStore(),
+       client = _QueueAuthenticatedHttpClient(
+         handlers ?? const <_AuthHandler>[],
+       ) {
     repository = HumanHandoffRepositoryImpl(
       appConfig: AppConfig.defaults(),
       authenticatedHttpClient: client,
+      cookieStore: this.cookieStore,
+      httpClient: httpClient,
     );
   }
 
+  final CookieStore cookieStore;
   final _QueueAuthenticatedHttpClient client;
   late final HumanHandoffRepositoryImpl repository;
 }
@@ -392,6 +510,22 @@ class _NoopHttpTransport implements HttpTransport {
   }
 }
 
+class _QueueHttpClient extends http.BaseClient {
+  _QueueHttpClient(this.handlers);
+
+  final List<http.StreamedResponse Function(http.BaseRequest)> handlers;
+  final List<http.BaseRequest> requests = <http.BaseRequest>[];
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    requests.add(request);
+    if (handlers.isEmpty) {
+      throw StateError('No queued response for request: ${request.url}');
+    }
+    return handlers.removeAt(0)(request);
+  }
+}
+
 AuthenticatedResponse _response({
   required int statusCode,
   String body = '',
@@ -404,5 +538,17 @@ AuthenticatedResponse _response({
       headers: const <String, String>{},
     ),
     sessionExpired: sessionExpired,
+  );
+}
+
+http.StreamedResponse _streamedResponse({
+  required int statusCode,
+  String body = '',
+  Map<String, String> headers = const <String, String>{},
+}) {
+  return http.StreamedResponse(
+    Stream<List<int>>.fromIterable(<List<int>>[utf8.encode(body)]),
+    statusCode,
+    headers: headers,
   );
 }

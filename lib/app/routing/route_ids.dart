@@ -74,6 +74,7 @@ abstract class CoreShellRouteIds {
   static const String runtimeControl = 'runtime-control';
   static const String channelOrchestration = 'channel-orchestration';
   static const String contextEngine = 'context-engine';
+  static const String knowledgePacks = 'knowledge-packs';
   static const String acpConsole = 'acp-console';
 }
 
@@ -94,6 +95,7 @@ abstract class RouteIds {
   static const String channelOrchestration =
       CoreShellRouteIds.channelOrchestration;
   static const String contextEngine = CoreShellRouteIds.contextEngine;
+  static const String knowledgePacks = CoreShellRouteIds.knowledgePacks;
   static const String acpConsole = CoreShellRouteIds.acpConsole;
 
   static String buildInviteRoute({

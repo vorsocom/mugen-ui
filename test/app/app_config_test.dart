@@ -164,6 +164,7 @@ void main() {
     expect(shellRouteIds, contains(RouteIds.runtimeControl));
     expect(shellRouteIds, contains(RouteIds.channelOrchestration));
     expect(shellRouteIds, contains(RouteIds.contextEngine));
+    expect(shellRouteIds, contains(RouteIds.knowledgePacks));
     expect(shellRouteIds, contains(RouteIds.acpConsole));
     expect(
       definition.shellRoutes
@@ -185,10 +186,24 @@ void main() {
       shellRouteOrder.indexOf(RouteIds.chat) + 1,
     );
     expect(
+      shellRouteOrder.indexOf(RouteIds.knowledgePacks),
+      shellRouteOrder.indexOf(RouteIds.contextEngine) + 1,
+    );
+    expect(
+      shellRouteOrder.indexOf(RouteIds.acpConsole),
+      shellRouteOrder.indexOf(RouteIds.knowledgePacks) + 1,
+    );
+    expect(
       definition.shellRoutes
           .firstWhere((route) => route.id == RouteIds.humanHandoff)
           .requiredRoles,
       <String>['com.vorsocomputing.mugen.human_handoff:operator'],
+    );
+    expect(
+      definition.shellRoutes
+          .firstWhere((route) => route.id == RouteIds.knowledgePacks)
+          .requiredRoles,
+      <String>[knowledgePackConfiguratorRole],
     );
     expect(settingsPanelIds, contains('core.auth.account'));
     expect(settingsPanelIds, contains('core.auth.reset_password'));
@@ -429,6 +444,12 @@ void main() {
     expect(
       definition.shellRoutes
           .firstWhere((route) => route.id == RouteIds.contextEngine)
+          .builder(context),
+      isA<Padding>(),
+    );
+    expect(
+      definition.shellRoutes
+          .firstWhere((route) => route.id == RouteIds.knowledgePacks)
           .builder(context),
       isA<Padding>(),
     );

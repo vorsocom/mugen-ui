@@ -12,6 +12,7 @@ import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
 import 'package:mugen_ui/features/context_admin/presentation/widgets/context_engine_panel.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/widgets/human_handoff_panel.dart';
+import 'package:mugen_ui/features/knowledge_pack_admin/presentation/widgets/knowledge_pack_panel.dart';
 import 'package:mugen_ui/features/orchestration_admin/presentation/widgets/channel_orchestration_panel.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/widgets/rbac_management_panel.dart';
 import 'package:mugen_ui/features/runtime_admin/presentation/widgets/runtime_control_panel.dart';
@@ -35,6 +36,7 @@ MugenUiAppDefinition buildDefaultAppDefinition() {
       _coreRuntimeModule,
       _coreChannelOrchestrationModule,
       _coreContextEngineModule,
+      _coreKnowledgePackModule,
       _coreAcpConsoleModule,
       _coreTenantInviteModule,
     ],
@@ -213,6 +215,20 @@ final MugenUiModule _coreContextEngineModule = MugenUiModule(
   ],
 );
 
+final MugenUiModule _coreKnowledgePackModule = MugenUiModule(
+  id: 'core.knowledge_pack',
+  shellRoutes: const <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.knowledgePacks,
+      title: 'Knowledge Packs',
+      icon: Icons.library_books_outlined,
+      section: 'Platform Configuration',
+      requiredRoles: <String>[knowledgePackConfiguratorRole],
+      builder: _buildKnowledgePackRoute,
+    ),
+  ],
+);
+
 final MugenUiModule _coreAcpConsoleModule = MugenUiModule(
   id: 'core.acp_console',
   shellRoutes: const <ShellRouteDefinition>[
@@ -275,6 +291,9 @@ Widget _buildChannelOrchestrationRoute(BuildContext context) => const Padding(
 
 Widget _buildContextEngineRoute(BuildContext context) =>
     const Padding(padding: EdgeInsets.all(16), child: ContextEnginePanel());
+
+Widget _buildKnowledgePackRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(16), child: KnowledgePackPanel());
 
 Widget _buildAcpConsoleRoute(BuildContext context) =>
     const Padding(padding: EdgeInsets.all(16), child: AcpConsolePanel());

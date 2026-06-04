@@ -259,6 +259,7 @@ void main() {
           roles: <String>[
             'com.vorsocomputing.mugen.acp:administrator',
             'com.vorsocomputing.mugen.human_handoff:operator',
+            knowledgePackConfiguratorRole,
           ],
         ),
       ),
@@ -307,6 +308,66 @@ void main() {
     expect(find.text('Tenants'), findsOneWidget);
     expect(find.text('Roles & Permissions'), findsOneWidget);
     expect(find.text('Audit Events'), findsOneWidget);
+    expect(find.text('Knowledge Packs'), findsOneWidget);
+  });
+
+  testWidgets('drawer shows Knowledge Packs for configurator permission', (
+    tester,
+  ) async {
+    final config = AppConfig.defaults();
+    final shellController = _TestShellController(
+      initialState: const ShellState(
+        isDrawerCollapsed: false,
+        showSettings: false,
+        activeRoute: RouteIds.chat,
+      ),
+    );
+    final authController = _RoleAwareAuthController(
+      initialState: const AuthControllerState(
+        isLoading: false,
+        session: AuthSession(
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          userId: 'knowledge-1',
+          roles: <String>[
+            'com.vorsocomputing.mugen.acp:authenticated',
+            knowledgePackConfiguratorRole,
+          ],
+        ),
+      ),
+    );
+    final chatController = _TestChatController(
+      initialState: ChatControllerState(
+        conversationId: 'conv-test',
+        messages: <ChatMessageEntity>[],
+        mediaResources: <String, ChatMediaResourceState>{},
+        attachments: const <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => config),
+          shellControllerProvider.overrideWith(() => shellController),
+          authControllerProvider.overrideWith(() => authController),
+          chatControllerProvider.overrideWith(() => chatController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Platform Configuration'), findsOneWidget);
+    expect(find.text('Knowledge Packs'), findsOneWidget);
+    expect(find.text('LocalUsers'), findsNothing);
+    expect(find.text('Tenants'), findsNothing);
+    expect(find.text('Roles & Permissions'), findsNothing);
+    expect(find.text('Audit Events'), findsNothing);
   });
 
   testWidgets('drawer shows Human Handoff for dedicated operator permission', (

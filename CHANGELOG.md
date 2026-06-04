@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added a Knowledge Packs Platform Configuration panel for knowledge-pack ACP resources and version lifecycle actions.
+
 ### Changed
+
+- Changed Knowledge Packs route visibility to use the backend `knowledge_pack:configurator` permission instead of the global ACP administrator role.
 
 ### Deprecated
 

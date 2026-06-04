@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.5.0] - 2026-06-04
+
+### Added
+
 - Added a Knowledge Packs Platform Configuration panel for knowledge-pack ACP resources and version lifecycle actions.
 
 ### Changed

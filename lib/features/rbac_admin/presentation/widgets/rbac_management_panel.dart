@@ -245,19 +245,31 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
   Widget _buildGlobalRolesTab(RbacAdminState state) {
     return _RbacListSection(
+      key: const ValueKey<String>('rbac-global-roles-section'),
       createButtonKey: const Key('rbac-global-role-create-button'),
       createLabel: 'New Global Role',
+      searchFieldKey: const Key('rbac-global-roles-search-field'),
+      searchHint: 'Search global roles',
       onCreate: _showCreateGlobalRoleDialog,
       emptyMessage: 'No global roles found.',
-      children: state.globalRoles
+      items: state.globalRoles
           .map(
-            (role) => ListTile(
-              title: Text(role.displayName),
-              subtitle: Text('${role.key}  |  ${role.status}'),
-              trailing: _ActionIcon(
-                icon: Icons.edit_outlined,
-                tooltip: 'Edit global role',
-                onPressed: () => _showEditGlobalRoleDialog(role),
+            (role) => _RbacSearchItem(
+              searchText: _joinSearchText([
+                role.displayName,
+                role.key,
+                role.namespace,
+                role.name,
+                role.status,
+              ]),
+              child: ListTile(
+                title: Text(role.displayName),
+                subtitle: Text('${role.key}  |  ${role.status}'),
+                trailing: _ActionIcon(
+                  icon: Icons.edit_outlined,
+                  tooltip: 'Edit global role',
+                  onPressed: () => _showEditGlobalRoleDialog(role),
+                ),
               ),
             ),
           )
@@ -267,25 +279,36 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
   Widget _buildPermissionObjectsTab(RbacAdminState state) {
     return _RbacListSection(
+      key: const ValueKey<String>('rbac-permission-objects-section'),
       createButtonKey: const Key('rbac-permission-object-create-button'),
       createLabel: 'New Permission Object',
+      searchFieldKey: const Key('rbac-permission-objects-search-field'),
+      searchHint: 'Search permission objects',
       onCreate: _showCreatePermissionObjectDialog,
       emptyMessage: 'No permission objects found.',
-      children: state.permissionObjects
+      items: state.permissionObjects
           .map(
-            (permissionObject) => ListTile(
-              title: Text(permissionObject.key),
-              subtitle: Text(permissionObject.status),
-              trailing: _ActionIcon(
-                icon: _isDeprecatedStatus(permissionObject.status)
-                    ? Icons.play_circle_outline
-                    : Icons.pause_circle_outline,
-                tooltip: _isDeprecatedStatus(permissionObject.status)
-                    ? 'Reactivate permission object'
-                    : 'Deprecate permission object',
-                onPressed: () => _runPermissionObjectLifecycle(
-                  permissionObject,
-                  deprecate: !_isDeprecatedStatus(permissionObject.status),
+            (permissionObject) => _RbacSearchItem(
+              searchText: _joinSearchText([
+                permissionObject.key,
+                permissionObject.namespace,
+                permissionObject.name,
+                permissionObject.status,
+              ]),
+              child: ListTile(
+                title: Text(permissionObject.key),
+                subtitle: Text(permissionObject.status),
+                trailing: _ActionIcon(
+                  icon: _isDeprecatedStatus(permissionObject.status)
+                      ? Icons.play_circle_outline
+                      : Icons.pause_circle_outline,
+                  tooltip: _isDeprecatedStatus(permissionObject.status)
+                      ? 'Reactivate permission object'
+                      : 'Deprecate permission object',
+                  onPressed: () => _runPermissionObjectLifecycle(
+                    permissionObject,
+                    deprecate: !_isDeprecatedStatus(permissionObject.status),
+                  ),
                 ),
               ),
             ),
@@ -296,25 +319,36 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
   Widget _buildPermissionTypesTab(RbacAdminState state) {
     return _RbacListSection(
+      key: const ValueKey<String>('rbac-permission-types-section'),
       createButtonKey: const Key('rbac-permission-type-create-button'),
       createLabel: 'New Permission Type',
+      searchFieldKey: const Key('rbac-permission-types-search-field'),
+      searchHint: 'Search permission types',
       onCreate: _showCreatePermissionTypeDialog,
       emptyMessage: 'No permission types found.',
-      children: state.permissionTypes
+      items: state.permissionTypes
           .map(
-            (permissionType) => ListTile(
-              title: Text(permissionType.key),
-              subtitle: Text(permissionType.status),
-              trailing: _ActionIcon(
-                icon: _isDeprecatedStatus(permissionType.status)
-                    ? Icons.play_circle_outline
-                    : Icons.pause_circle_outline,
-                tooltip: _isDeprecatedStatus(permissionType.status)
-                    ? 'Reactivate permission type'
-                    : 'Deprecate permission type',
-                onPressed: () => _runPermissionTypeLifecycle(
-                  permissionType,
-                  deprecate: !_isDeprecatedStatus(permissionType.status),
+            (permissionType) => _RbacSearchItem(
+              searchText: _joinSearchText([
+                permissionType.key,
+                permissionType.namespace,
+                permissionType.name,
+                permissionType.status,
+              ]),
+              child: ListTile(
+                title: Text(permissionType.key),
+                subtitle: Text(permissionType.status),
+                trailing: _ActionIcon(
+                  icon: _isDeprecatedStatus(permissionType.status)
+                      ? Icons.play_circle_outline
+                      : Icons.pause_circle_outline,
+                  tooltip: _isDeprecatedStatus(permissionType.status)
+                      ? 'Reactivate permission type'
+                      : 'Deprecate permission type',
+                  onPressed: () => _runPermissionTypeLifecycle(
+                    permissionType,
+                    deprecate: !_isDeprecatedStatus(permissionType.status),
+                  ),
                 ),
               ),
             ),
@@ -325,33 +359,39 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
   Widget _buildGlobalGrantsTab(RbacAdminState state) {
     return _RbacListSection(
+      key: const ValueKey<String>('rbac-global-grants-section'),
       createButtonKey: const Key('rbac-global-grant-create-button'),
       createLabel: 'New Global Grant',
+      searchFieldKey: const Key('rbac-global-grants-search-field'),
+      searchHint: 'Search global grants',
       onCreate: _showCreateGlobalGrantDialog,
       emptyMessage: 'No global grants found.',
-      children: state.globalPermissionEntries
+      items: state.globalPermissionEntries
           .map(
-            (entry) => ListTile(
-              title: Text(entry.roleDisplayName),
-              subtitle: Text(
-                '${entry.permissionObjectDisplayName}  |  ${entry.permissionTypeDisplayName}',
-              ),
-              trailing: Wrap(
-                spacing: 4,
-                children: [
-                  _ActionIcon(
-                    icon: entry.permitted
-                        ? Icons.toggle_on_outlined
-                        : Icons.toggle_off_outlined,
-                    tooltip: entry.permitted ? 'Set denied' : 'Set permitted',
-                    onPressed: () => _toggleGlobalGrant(entry),
-                  ),
-                  _ActionIcon(
-                    icon: Icons.delete_outline,
-                    tooltip: 'Delete global grant',
-                    onPressed: () => _deleteGlobalGrant(entry),
-                  ),
-                ],
+            (entry) => _RbacSearchItem(
+              searchText: _permissionEntrySearchText(entry),
+              child: ListTile(
+                title: Text(entry.roleDisplayName),
+                subtitle: Text(
+                  '${entry.permissionObjectDisplayName}  |  ${entry.permissionTypeDisplayName}',
+                ),
+                trailing: Wrap(
+                  spacing: 4,
+                  children: [
+                    _ActionIcon(
+                      icon: entry.permitted
+                          ? Icons.toggle_on_outlined
+                          : Icons.toggle_off_outlined,
+                      tooltip: entry.permitted ? 'Set denied' : 'Set permitted',
+                      onPressed: () => _toggleGlobalGrant(entry),
+                    ),
+                    _ActionIcon(
+                      icon: Icons.delete_outline,
+                      tooltip: 'Delete global grant',
+                      onPressed: () => _deleteGlobalGrant(entry),
+                    ),
+                  ],
+                ),
               ),
             ),
           )
@@ -368,40 +408,52 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     }
 
     return _RbacListSection(
+      key: const ValueKey<String>('rbac-tenant-roles-section'),
       createButtonKey: const Key('rbac-tenant-role-create-button'),
       createLabel: 'New Tenant Role',
+      searchFieldKey: const Key('rbac-tenant-roles-search-field'),
+      searchHint: 'Search tenant roles',
       onCreate: () => _showCreateTenantRoleDialog(tenantId),
       emptyMessage: 'No tenant roles found.',
-      children: state.tenantRoles
+      items: state.tenantRoles
           .map(
-            (role) => ListTile(
-              title: Text(role.displayName),
-              subtitle: Text('${role.key}  |  ${role.status}'),
-              trailing: Wrap(
-                spacing: 4,
-                children: [
-                  _ActionIcon(
-                    icon: Icons.edit_outlined,
-                    tooltip: 'Edit tenant role',
-                    onPressed: () => _showEditTenantRoleDialog(
-                      tenantId: tenantId,
-                      role: role,
+            (role) => _RbacSearchItem(
+              searchText: _joinSearchText([
+                role.displayName,
+                role.key,
+                role.namespace,
+                role.name,
+                role.status,
+              ]),
+              child: ListTile(
+                title: Text(role.displayName),
+                subtitle: Text('${role.key}  |  ${role.status}'),
+                trailing: Wrap(
+                  spacing: 4,
+                  children: [
+                    _ActionIcon(
+                      icon: Icons.edit_outlined,
+                      tooltip: 'Edit tenant role',
+                      onPressed: () => _showEditTenantRoleDialog(
+                        tenantId: tenantId,
+                        role: role,
+                      ),
                     ),
-                  ),
-                  _ActionIcon(
-                    icon: _isDeprecatedStatus(role.status)
-                        ? Icons.play_circle_outline
-                        : Icons.pause_circle_outline,
-                    tooltip: _isDeprecatedStatus(role.status)
-                        ? 'Reactivate tenant role'
-                        : 'Deprecate tenant role',
-                    onPressed: () => _runTenantRoleLifecycle(
-                      tenantId: tenantId,
-                      role: role,
-                      deprecate: !_isDeprecatedStatus(role.status),
+                    _ActionIcon(
+                      icon: _isDeprecatedStatus(role.status)
+                          ? Icons.play_circle_outline
+                          : Icons.pause_circle_outline,
+                      tooltip: _isDeprecatedStatus(role.status)
+                          ? 'Reactivate tenant role'
+                          : 'Deprecate tenant role',
+                      onPressed: () => _runTenantRoleLifecycle(
+                        tenantId: tenantId,
+                        role: role,
+                        deprecate: !_isDeprecatedStatus(role.status),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           )
@@ -418,35 +470,41 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     }
 
     return _RbacListSection(
+      key: const ValueKey<String>('rbac-tenant-grants-section'),
       createButtonKey: const Key('rbac-tenant-grant-create-button'),
       createLabel: 'New Tenant Grant',
+      searchFieldKey: const Key('rbac-tenant-grants-search-field'),
+      searchHint: 'Search tenant grants',
       onCreate: () => _showCreateTenantGrantDialog(tenantId),
       emptyMessage: 'No tenant grants found.',
-      children: state.tenantPermissionEntries
+      items: state.tenantPermissionEntries
           .map(
-            (entry) => ListTile(
-              title: Text(entry.roleDisplayName),
-              subtitle: Text(
-                '${entry.permissionObjectDisplayName}  |  ${entry.permissionTypeDisplayName}',
-              ),
-              trailing: Wrap(
-                spacing: 4,
-                children: [
-                  _ActionIcon(
-                    icon: entry.permitted
-                        ? Icons.toggle_on_outlined
-                        : Icons.toggle_off_outlined,
-                    tooltip: entry.permitted ? 'Set denied' : 'Set permitted',
-                    onPressed: () =>
-                        _toggleTenantGrant(tenantId: tenantId, entry: entry),
-                  ),
-                  _ActionIcon(
-                    icon: Icons.delete_outline,
-                    tooltip: 'Delete tenant grant',
-                    onPressed: () =>
-                        _deleteTenantGrant(tenantId: tenantId, entry: entry),
-                  ),
-                ],
+            (entry) => _RbacSearchItem(
+              searchText: _permissionEntrySearchText(entry),
+              child: ListTile(
+                title: Text(entry.roleDisplayName),
+                subtitle: Text(
+                  '${entry.permissionObjectDisplayName}  |  ${entry.permissionTypeDisplayName}',
+                ),
+                trailing: Wrap(
+                  spacing: 4,
+                  children: [
+                    _ActionIcon(
+                      icon: entry.permitted
+                          ? Icons.toggle_on_outlined
+                          : Icons.toggle_off_outlined,
+                      tooltip: entry.permitted ? 'Set denied' : 'Set permitted',
+                      onPressed: () =>
+                          _toggleTenantGrant(tenantId: tenantId, entry: entry),
+                    ),
+                    _ActionIcon(
+                      icon: Icons.delete_outline,
+                      tooltip: 'Delete tenant grant',
+                      onPressed: () =>
+                          _deleteTenantGrant(tenantId: tenantId, entry: entry),
+                    ),
+                  ],
+                ),
               ),
             ),
           )
@@ -1506,45 +1564,135 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
   bool _isDeprecatedStatus(String status) {
     return status.toLowerCase().contains('deprecated');
   }
+
+  String _permissionEntrySearchText(RbacPermissionEntryEntity entry) {
+    return _joinSearchText([
+      entry.roleDisplayName,
+      entry.permissionObjectDisplayName,
+      entry.permissionTypeDisplayName,
+      entry.permitted ? 'permitted' : 'denied',
+    ]);
+  }
+
+  String _joinSearchText(List<String> values) {
+    return values.map((value) => value.trim()).join(' ');
+  }
 }
 
-class _RbacListSection extends StatelessWidget {
+class _RbacSearchItem {
+  _RbacSearchItem({required String searchText, required this.child})
+    : searchText = searchText.toLowerCase();
+
+  final String searchText;
+  final Widget child;
+
+  bool matches(List<String> tokens) {
+    return tokens.every(searchText.contains);
+  }
+}
+
+class _RbacListSection extends StatefulWidget {
   const _RbacListSection({
     required this.createButtonKey,
     required this.createLabel,
+    required this.searchFieldKey,
+    required this.searchHint,
     required this.onCreate,
     required this.emptyMessage,
-    required this.children,
+    required this.items,
+    super.key,
   });
 
   final Key createButtonKey;
   final String createLabel;
+  final Key searchFieldKey;
+  final String searchHint;
   final VoidCallback onCreate;
   final String emptyMessage;
-  final List<Widget> children;
+  final List<_RbacSearchItem> items;
+
+  @override
+  State<_RbacListSection> createState() => _RbacListSectionState();
+}
+
+class _RbacListSectionState extends State<_RbacListSection> {
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<_RbacSearchItem> _visibleItems() {
+    final tokens = _searchController.text
+        .trim()
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((token) => token.isNotEmpty)
+        .toList(growable: false);
+    if (tokens.isEmpty) {
+      return widget.items;
+    }
+
+    return widget.items
+        .where((item) => item.matches(tokens))
+        .toList(growable: false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final visibleItems = _visibleItems();
+    final hasSearchTerm = _searchController.text.trim().isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerLeft,
-          child: OutlinedButton.icon(
-            key: createButtonKey,
-            onPressed: onCreate,
-            icon: const Icon(Icons.add),
-            label: Text(createLabel),
-          ),
+        Row(
+          children: [
+            OutlinedButton.icon(
+              key: widget.createButtonKey,
+              onPressed: widget.onCreate,
+              icon: const Icon(Icons.add),
+              label: Text(widget.createLabel),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                key: widget.searchFieldKey,
+                controller: _searchController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Search',
+                  hintText: widget.searchHint,
+                  suffixIcon: hasSearchTerm
+                      ? IconButton(
+                          tooltip: 'Clear search',
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            setState(_searchController.clear);
+                          },
+                        )
+                      : const Icon(Icons.search),
+                ),
+                onChanged: (_) {
+                  setState(() {});
+                },
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: children.isEmpty
-              ? Center(child: Text(emptyMessage))
+          child: visibleItems.isEmpty
+              ? Center(
+                  child: Text(
+                    hasSearchTerm ? 'No matching rows.' : widget.emptyMessage,
+                  ),
+                )
               : ListView.separated(
-                  itemCount: children.length,
+                  itemCount: visibleItems.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, index) => children[index],
+                  itemBuilder: (_, index) => visibleItems[index].child,
                 ),
         ),
       ],

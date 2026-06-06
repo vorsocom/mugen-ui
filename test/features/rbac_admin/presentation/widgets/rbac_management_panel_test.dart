@@ -98,6 +98,54 @@ void main() {
     expect(find.text('New Tenant Grant'), findsOneWidget);
   });
 
+  testWidgets('RbacManagementPanel filters active table rows', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeRbacAdminRepository()..addSearchFixturesForTest();
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Administrator'), findsOneWidget);
+    expect(find.text('Auditor'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-global-roles-search-field')),
+      'auditor',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Auditor'), findsOneWidget);
+    expect(find.text('Administrator'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-permission-objects')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('acp:tenant'), findsOneWidget);
+    expect(find.text('acp:user'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-permission-objects-search-field')),
+      'user',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('acp:user'), findsOneWidget);
+    expect(find.text('acp:tenant'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-global-grants')),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('rbac-global-grants-search-field')),
+      'read',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Auditor'), findsOneWidget);
+    expect(find.text('Administrator'), findsNothing);
+    expect(find.text('acp:user  |  acp:read'), findsOneWidget);
+    expect(find.text('acp:tenant  |  acp:manage'), findsNothing);
+  });
+
   testWidgets('RbacManagementPanel validates role dialogs', (
     WidgetTester tester,
   ) async {
@@ -504,6 +552,68 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
     _permissionTypes
       ..clear()
       ..add(permissionType);
+  }
+
+  void addSearchFixturesForTest() {
+    _globalRoles.add(
+      RbacRoleEntity(
+        id: 'gr-2',
+        namespace: 'acp',
+        name: 'auditor',
+        displayName: 'Auditor',
+        status: 'active',
+        rowVersion: 1,
+        dateCreated: DateTime.utc(2024, 1, 1),
+        dateLastModified: DateTime.utc(2024, 1, 1),
+        tenantId: null,
+        deleted: false,
+        seedData: false,
+      ),
+    );
+    _permissionObjects.add(
+      RbacPermissionObjectEntity(
+        id: 'po-2',
+        namespace: 'acp',
+        name: 'user',
+        status: 'active',
+        rowVersion: 1,
+        dateCreated: DateTime.utc(2024, 1, 1),
+        dateLastModified: DateTime.utc(2024, 1, 1),
+        deleted: false,
+        seedData: false,
+      ),
+    );
+    _permissionTypes.add(
+      RbacPermissionTypeEntity(
+        id: 'pt-2',
+        namespace: 'acp',
+        name: 'read',
+        status: 'active',
+        rowVersion: 1,
+        dateCreated: DateTime.utc(2024, 1, 1),
+        dateLastModified: DateTime.utc(2024, 1, 1),
+        deleted: false,
+        seedData: false,
+      ),
+    );
+    _globalEntries.add(
+      RbacPermissionEntryEntity(
+        id: 'gpe-2',
+        tenantId: null,
+        roleId: 'gr-2',
+        roleDisplayName: 'Auditor',
+        permissionObjectId: 'po-2',
+        permissionObjectDisplayName: 'acp:user',
+        permissionTypeId: 'pt-2',
+        permissionTypeDisplayName: 'acp:read',
+        permitted: true,
+        rowVersion: 1,
+        dateCreated: DateTime.utc(2024, 1, 1),
+        dateLastModified: DateTime.utc(2024, 1, 1),
+        deleted: false,
+        seedData: false,
+      ),
+    );
   }
 
   final List<RbacCreateGlobalRoleInput> createGlobalRoleInputs =

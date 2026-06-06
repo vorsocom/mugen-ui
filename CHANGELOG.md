@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added search controls to the Roles & Permissions tables.
+
 ### Changed
 
 - Changed AI Assist route visibility to use the backend `com.vorsocomputing.mugen.web:access` permission instead of allowing every authenticated shell session.

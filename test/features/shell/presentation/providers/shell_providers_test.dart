@@ -84,7 +84,10 @@ void main() {
           accessToken: 'token',
           refreshToken: 'refresh',
           userId: 'user-1',
-          roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+          roles: <String>[
+            'com.vorsocomputing.mugen.acp:authenticated',
+            webPlatformAccessRole,
+          ],
         ),
       );
       final container = ProviderContainer(
@@ -97,6 +100,7 @@ void main() {
                   id: RouteIds.chat,
                   title: 'AI Assist',
                   icon: Icons.chat_bubble_outline,
+                  requiredRoles: <String>[webPlatformAccessRole],
                   builder: _buildPlaceholderPage,
                 ),
                 ShellRouteDefinition(
@@ -129,7 +133,10 @@ void main() {
         accessToken: 'token',
         refreshToken: 'refresh',
         userId: 'user-1',
-        roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+        roles: <String>[
+          'com.vorsocomputing.mugen.acp:authenticated',
+          webPlatformAccessRole,
+        ],
       ),
     );
     final container = ProviderContainer(
@@ -155,7 +162,10 @@ void main() {
           accessToken: 'token',
           refreshToken: 'refresh',
           userId: 'admin-1',
-          roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+          roles: <String>[
+            'com.vorsocomputing.mugen.acp:administrator',
+            webPlatformAccessRole,
+          ],
         ),
       );
       final container = ProviderContainer(
@@ -174,7 +184,10 @@ void main() {
           accessToken: 'token',
           refreshToken: 'refresh',
           userId: 'user-1',
-          roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+          roles: <String>[
+            'com.vorsocomputing.mugen.acp:authenticated',
+            webPlatformAccessRole,
+          ],
         ),
       );
 
@@ -207,7 +220,10 @@ void main() {
         accessToken: 'token',
         refreshToken: 'refresh',
         userId: 'user-1',
-        roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+        roles: <String>[
+          'com.vorsocomputing.mugen.acp:authenticated',
+          webPlatformAccessRole,
+        ],
       ),
     );
     final container = ProviderContainer(

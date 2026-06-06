@@ -46,6 +46,11 @@ const Key _shellAccountSettingsPanelResetPasswordKey = Key(
 const Key _shellAccountSettingsPanelUsersKey = Key(
   'shell-account-settings-panel-test.settings.local_users',
 );
+const List<String> _webAccessRoles = <String>[webPlatformAccessRole];
+const List<String> _authenticatedWebAccessRoles = <String>[
+  'com.vorsocomputing.mugen.acp:authenticated',
+  webPlatformAccessRole,
+];
 
 void main() {
   testWidgets('user bar title follows active SPA route', (tester) async {
@@ -146,7 +151,12 @@ void main() {
       final authController = _TestAuthController(
         initialState: const AuthControllerState(
           isLoading: false,
-          session: null,
+          session: AuthSession(
+            accessToken: 'token',
+            refreshToken: 'refresh',
+            userId: 'user-1',
+            roles: _webAccessRoles,
+          ),
         ),
       );
       final chatController = _TestChatController(
@@ -260,6 +270,7 @@ void main() {
             'com.vorsocomputing.mugen.acp:administrator',
             'com.vorsocomputing.mugen.human_handoff:operator',
             knowledgePackConfiguratorRole,
+            webPlatformAccessRole,
           ],
         ),
       ),
@@ -332,6 +343,7 @@ void main() {
           roles: <String>[
             'com.vorsocomputing.mugen.acp:authenticated',
             knowledgePackConfiguratorRole,
+            webPlatformAccessRole,
           ],
         ),
       ),
@@ -392,6 +404,7 @@ void main() {
           roles: <String>[
             'com.vorsocomputing.mugen.acp:authenticated',
             'com.vorsocomputing.mugen.human_handoff:operator',
+            webPlatformAccessRole,
           ],
         ),
       ),
@@ -448,7 +461,7 @@ void main() {
           accessToken: 'token',
           refreshToken: 'refresh',
           userId: 'user-1',
-          roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+          roles: _authenticatedWebAccessRoles,
         ),
       ),
     );
@@ -483,6 +496,69 @@ void main() {
     expect(find.text('Tenants'), findsNothing);
     expect(find.text('Roles & Permissions'), findsNothing);
     expect(find.text('Audit Events'), findsNothing);
+  });
+
+  testWidgets('AI Assist is hidden when web access permission is missing', (
+    tester,
+  ) async {
+    final config = AppConfig.defaults();
+    final shellController = _TestShellController(
+      initialState: const ShellState(
+        isDrawerCollapsed: false,
+        showSettings: false,
+        activeRoute: RouteIds.chat,
+      ),
+    );
+    final authController = _RoleAwareAuthController(
+      initialState: const AuthControllerState(
+        isLoading: false,
+        session: AuthSession(
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          userId: 'user-1',
+          roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+        ),
+      ),
+    );
+    final chatController = _TestChatController(
+      initialState: ChatControllerState(
+        conversationId: 'conv-test',
+        messages: <ChatMessageEntity>[],
+        mediaResources: <String, ChatMediaResourceState>{},
+        attachments: const <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          appConfigProvider.overrideWith((ref) => config),
+          shellControllerProvider.overrideWith(() => shellController),
+          authControllerProvider.overrideWith(() => authController),
+          chatControllerProvider.overrideWith(() => chatController),
+        ],
+        child: const MaterialApp(home: ShellPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final title = tester.widget<Text>(
+      find.byKey(const Key('shell-user-bar-title')),
+    );
+    expect(title.data, 'Access Restricted');
+    expect(find.byKey(_shellNoAccessibleRoutesKey), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(Drawer),
+        matching: find.text('AI Assist'),
+      ),
+      findsNothing,
+    );
+    expect(find.text('Connected'), findsNothing);
   });
 
   testWidgets('account menu opens and shows settings and logout actions', (
@@ -723,7 +799,12 @@ void main() {
       final authController = _TestAuthController(
         initialState: const AuthControllerState(
           isLoading: false,
-          session: null,
+          session: AuthSession(
+            accessToken: 'token',
+            refreshToken: 'refresh',
+            userId: 'user-1',
+            roles: _webAccessRoles,
+          ),
         ),
       );
       final chatController = _TestChatController(
@@ -838,7 +919,12 @@ void main() {
       final authController = _TestAuthController(
         initialState: const AuthControllerState(
           isLoading: false,
-          session: null,
+          session: AuthSession(
+            accessToken: 'token',
+            refreshToken: 'refresh',
+            userId: 'user-1',
+            roles: _webAccessRoles,
+          ),
         ),
       );
       final chatController = _TestChatController(
@@ -889,7 +975,15 @@ void main() {
       ),
     );
     final authController = _TestAuthController(
-      initialState: const AuthControllerState(isLoading: false, session: null),
+      initialState: const AuthControllerState(
+        isLoading: false,
+        session: AuthSession(
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          userId: 'user-1',
+          roles: _webAccessRoles,
+        ),
+      ),
     );
     final chatController = _TestChatController(
       initialState: ChatControllerState(
@@ -1003,7 +1097,12 @@ void main() {
       final authController = _TestAuthController(
         initialState: const AuthControllerState(
           isLoading: false,
-          session: null,
+          session: AuthSession(
+            accessToken: 'token',
+            refreshToken: 'refresh',
+            userId: 'user-1',
+            roles: _webAccessRoles,
+          ),
         ),
       );
       final chatController = _TestChatController(
@@ -1133,7 +1232,7 @@ void main() {
             accessToken: 'token',
             refreshToken: 'refresh',
             userId: 'user-1',
-            roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+            roles: _authenticatedWebAccessRoles,
           ),
         ),
       );
@@ -1193,7 +1292,10 @@ void main() {
             accessToken: 'token',
             refreshToken: 'refresh',
             userId: 'admin-1',
-            roles: <String>['com.vorsocomputing.mugen.acp:administrator'],
+            roles: <String>[
+              'com.vorsocomputing.mugen.acp:administrator',
+              webPlatformAccessRole,
+            ],
           ),
         ),
       );
@@ -1236,7 +1338,7 @@ void main() {
           accessToken: 'token',
           refreshToken: 'refresh',
           userId: 'user-1',
-          roles: <String>['com.vorsocomputing.mugen.acp:authenticated'],
+          roles: _authenticatedWebAccessRoles,
         ),
       );
       await tester.pump();
@@ -1320,7 +1422,15 @@ void main() {
       ),
     );
     final authController = _TestAuthController(
-      initialState: const AuthControllerState(isLoading: false, session: null),
+      initialState: const AuthControllerState(
+        isLoading: false,
+        session: AuthSession(
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          userId: 'user-1',
+          roles: _webAccessRoles,
+        ),
+      ),
     );
     final chatController = _TestChatController(
       initialState: ChatControllerState(
@@ -1369,7 +1479,15 @@ void main() {
       ),
     );
     final authController = _TestAuthController(
-      initialState: const AuthControllerState(isLoading: false, session: null),
+      initialState: const AuthControllerState(
+        isLoading: false,
+        session: AuthSession(
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          userId: 'user-1',
+          roles: _webAccessRoles,
+        ),
+      ),
     );
     final chatController = _TestChatController(
       initialState: ChatControllerState(
@@ -1420,7 +1538,15 @@ void main() {
       ),
     );
     final authController = _TestAuthController(
-      initialState: const AuthControllerState(isLoading: false, session: null),
+      initialState: const AuthControllerState(
+        isLoading: false,
+        session: AuthSession(
+          accessToken: 'token',
+          refreshToken: 'refresh',
+          userId: 'user-1',
+          roles: _webAccessRoles,
+        ),
+      ),
     );
     final chatController = _TestChatController(
       initialState: ChatControllerState(

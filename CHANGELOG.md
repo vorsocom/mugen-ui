@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed AI Assist route visibility to use the backend `com.vorsocomputing.mugen.web:access` permission instead of allowing every authenticated shell session.
+
 ### Deprecated
 
 ### Removed

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/shell/application/shell_route_access.dart';
@@ -14,6 +15,7 @@ void main() {
         defaultShellRouteId: RouteIds.chat,
         sessionRoles: const <String>[
           'com.vorsocomputing.mugen.acp:authenticated',
+          webPlatformAccessRole,
         ],
         requestedRoute: RouteIds.localUsers,
       );
@@ -34,6 +36,7 @@ void main() {
         defaultShellRouteId: RouteIds.localUsers,
         sessionRoles: const <String>[
           'com.vorsocomputing.mugen.acp:authenticated',
+          webPlatformAccessRole,
         ],
         requestedRoute: RouteIds.localUsers,
       );
@@ -50,6 +53,7 @@ void main() {
       defaultShellRouteId: RouteIds.chat,
       sessionRoles: const <String>[
         'com.vorsocomputing.mugen.acp:authenticated',
+        webPlatformAccessRole,
       ],
       requestedRoute: 'mystery-route',
     );
@@ -59,6 +63,27 @@ void main() {
     expect(access.displayedRouteId, 'mystery-route');
     expect(access.showLockedOutState, isFalse);
   });
+
+  test(
+    'resolveShellRouteAccess returns locked-out state when chat permission is missing',
+    () {
+      final access = resolveShellRouteAccess(
+        shellRoutes: _routeAccessRoutes(),
+        defaultShellRouteId: RouteIds.chat,
+        sessionRoles: const <String>[
+          'com.vorsocomputing.mugen.acp:authenticated',
+        ],
+        requestedRoute: RouteIds.chat,
+      );
+
+      expect(access.isKnownRoute, isTrue);
+      expect(access.isUnauthorizedKnownRoute, isTrue);
+      expect(access.shouldRedirect, isFalse);
+      expect(access.showLockedOutState, isTrue);
+      expect(access.displayedRouteId, isNull);
+      expect(access.allowedRoutes, isEmpty);
+    },
+  );
 
   test(
     'resolveShellRouteAccess returns locked-out state when no routes are allowed',
@@ -96,6 +121,7 @@ List<ShellRouteDefinition> _routeAccessRoutes() {
       id: RouteIds.chat,
       title: 'AI Assist',
       icon: Icons.chat_bubble_outline,
+      requiredRoles: <String>[webPlatformAccessRole],
       builder: _buildPlaceholderPage,
     ),
     ShellRouteDefinition(

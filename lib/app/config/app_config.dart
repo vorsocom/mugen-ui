@@ -3,6 +3,7 @@ const String humanHandoffOperatorRole =
     'com.vorsocomputing.mugen.human_handoff:operator';
 const String knowledgePackConfiguratorRole =
     'com.vorsocomputing.mugen.knowledge_pack:configurator';
+const String webPlatformAccessRole = 'com.vorsocomputing.mugen.web:access';
 
 class ApiEndpointsConfig {
   const ApiEndpointsConfig({

@@ -176,7 +176,13 @@ void main() {
       definition.shellRoutes
           .firstWhere((route) => route.id == RouteIds.chat)
           .requiredRoles,
-      isEmpty,
+      <String>[webPlatformAccessRole],
+    );
+    expect(
+      definition.shellRoutes
+          .firstWhere((route) => route.id == RouteIds.dashboard)
+          .requiredRoles,
+      <String>[webPlatformAccessRole],
     );
     final shellRouteOrder = definition.shellRoutes
         .map((route) => route.id)

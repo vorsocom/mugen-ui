@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added an Amplify Hosting build spec that installs Flutter and injects
+  `MUGEN_UI_API_BASE_URL` into the web release build.
+
 ### Changed
 
 ### Deprecated

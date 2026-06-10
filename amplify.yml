@@ -1,0 +1,21 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - ': "${MUGEN_UI_API_BASE_URL:?MUGEN_UI_API_BASE_URL must be set in Amplify Hosting environment variables}"'
+        - sudo yum install -y xz tar git
+        - git clone https://github.com/flutter/flutter.git -b stable --depth 1 /tmp/flutter
+        - export PATH="$PATH:/tmp/flutter/bin"
+        - flutter config --no-analytics
+        - flutter channel stable
+        - flutter doctor
+        - flutter pub get
+    build:
+      commands:
+        - export PATH="$PATH:/tmp/flutter/bin"
+        - flutter build web --release --no-wasm-dry-run --dart-define=MUGEN_UI_API_BASE_URL="$MUGEN_UI_API_BASE_URL"
+  artifacts:
+    baseDirectory: build/web
+    files:
+      - '**/*'

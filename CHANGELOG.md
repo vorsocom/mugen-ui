@@ -19,6 +19,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.8.0] - 2026-06-17
+
+### Added
+
+- Added Codex convenience prompts for mugen-ui work sessions, workspace
+  cloning, architecture, deployment, CI troubleshooting, and release workflow
+  guidance, including downstream UI release safety and upstream/main sync rules.
+- Added a downstream provenance TOML sample for downstream UI app
+  initialization.
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [0.7.0] - 2026-06-10
 
 ### Added

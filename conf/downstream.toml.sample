@@ -1,0 +1,16 @@
+schema_version = 1
+
+[app]
+slug = "your-app-slug"
+name = "Your mugen-ui App"
+author = "Your Organization"
+copyright = "Copyright (c) 2026, Your Organization"
+email = "team@example.com"
+version = "0.0.0"
+
+[upstream]
+repo = "<upstream-owner>/mugen-ui"
+branch = "main"
+sync_ref = "<merged-upstream-commit-sha>"
+# Optional: set only when sync_ref corresponds to exactly one upstream tag.
+# sync_tag = "<upstream-tag>"

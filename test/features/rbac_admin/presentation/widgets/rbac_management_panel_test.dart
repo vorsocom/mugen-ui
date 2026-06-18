@@ -379,25 +379,69 @@ void main() {
       find.widgetWithText(FilledButton, 'Create Role Membership'),
     );
     await tester.pumpAndSettle();
+    expect(find.text('Select a user.'), findsOneWidget);
+    expect(find.text('Select a role.'), findsOneWidget);
+    expect(repository.createTenantRoleMembershipInputs, isEmpty);
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-role-membership-user-search-field')),
+      'alice-login',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('rbac-role-membership-user-option-user-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('rbac-role-membership-selected-user')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-role-membership-role-search-field')),
+      'member',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('rbac-role-membership-role-option-tr-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('rbac-role-membership-role-option-tr-2')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const Key('rbac-role-membership-role-option-tr-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('rbac-role-membership-selected-role')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Create Role Membership'),
+    );
+    await tester.pumpAndSettle();
     expect(find.text('This user already has this role.'), findsOneWidget);
     expect(repository.createTenantRoleMembershipInputs, isEmpty);
 
-    await tester.tap(
-      find.byKey(const Key('rbac-role-membership-user-dropdown')),
+    await tester.enterText(
+      find.byKey(const Key('rbac-role-membership-user-search-field')),
+      'bob',
     );
     await tester.pumpAndSettle();
-    expect(find.text('bob@example.com'), findsOneWidget);
-    expect(find.text('carol@example.com'), findsNothing);
-    await tester.tap(find.text('bob@example.com').last);
-    await tester.pumpAndSettle();
-
-    await tester.tap(
-      find.byKey(const Key('rbac-role-membership-role-dropdown')),
+    expect(
+      find.byKey(const Key('rbac-role-membership-user-option-user-2')),
+      findsOneWidget,
     );
-    await tester.pumpAndSettle();
-    expect(find.text('Member (acp:member)'), findsWidgets);
-    expect(find.text('Legacy (acp:legacy)'), findsNothing);
-    await tester.tap(find.text('Member (acp:member)').last);
+    expect(
+      find.byKey(const Key('rbac-role-membership-user-option-user-3')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const Key('rbac-role-membership-user-option-user-2')),
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(
@@ -675,6 +719,7 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
           membershipId: 'tm-1',
           tenantId: 'tenant-1',
           userId: 'user-1',
+          username: 'alice-login',
           displayName: 'alice@example.com',
           email: 'alice@example.com',
           status: 'active',
@@ -684,6 +729,7 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
           membershipId: 'tm-2',
           tenantId: 'tenant-1',
           userId: 'user-2',
+          username: 'bob-login',
           displayName: 'bob@example.com',
           email: 'bob@example.com',
           status: 'active',
@@ -693,6 +739,7 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
           membershipId: 'tm-3',
           tenantId: 'tenant-1',
           userId: 'user-3',
+          username: 'carol-login',
           displayName: 'carol@example.com',
           email: 'carol@example.com',
           status: 'suspended',

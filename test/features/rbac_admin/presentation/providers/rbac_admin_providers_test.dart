@@ -378,6 +378,7 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
           membershipId: 'tm-1',
           tenantId: 'tenant-1',
           userId: 'user-1',
+          username: 'alice-login',
           displayName: 'alice@example.com',
           email: 'alice@example.com',
           status: 'active',

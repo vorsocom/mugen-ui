@@ -2,7 +2,9 @@ import 'package:mugen_ui/features/rbac_admin/application/dto/rbac_admin_inputs.d
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_entry_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_object_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_membership_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_member_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_summary_entity.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 
@@ -73,5 +75,20 @@ abstract class RbacAdminRepository {
   );
   Future<Result<void>> deleteTenantPermissionEntry(
     RbacDeleteTenantPermissionEntryInput input,
+  );
+
+  Future<Result<List<RbacRoleMembershipEntity>>> fetchTenantRoleMemberships({
+    required String tenantId,
+    int top = 200,
+  });
+  Future<Result<List<RbacTenantMemberEntity>>> fetchTenantMembers({
+    required String tenantId,
+    int top = 200,
+  });
+  Future<Result<void>> createTenantRoleMembership(
+    RbacCreateRoleMembershipInput input,
+  );
+  Future<Result<void>> deleteTenantRoleMembership(
+    RbacDeleteRoleMembershipInput input,
   );
 }

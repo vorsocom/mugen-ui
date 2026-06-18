@@ -7,7 +7,9 @@ import 'package:mugen_ui/features/rbac_admin/application/dto/rbac_admin_inputs.d
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_entry_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_object_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_membership_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_member_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_summary_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/repositories/rbac_admin_repository.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/providers/rbac_admin_providers.dart';
@@ -64,6 +66,13 @@ void main() {
     expect(
       _tabTooltipMessage(
         tester,
+        const Key('rbac-management-tab-role-memberships-info'),
+      ),
+      'Users assigned to tenant roles in the selected tenant.',
+    );
+    expect(
+      _tabTooltipMessage(
+        tester,
         const Key('rbac-management-tab-tenant-grants-info'),
       ),
       'Permissions assigned to tenant roles in the selected tenant.',
@@ -90,6 +99,12 @@ void main() {
     await tester.tap(find.byKey(const Key('rbac-management-tab-tenant-roles')));
     await tester.pumpAndSettle();
     expect(find.text('New Tenant Role'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-role-memberships')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('New Role Membership'), findsOneWidget);
 
     await tester.tap(
       find.byKey(const Key('rbac-management-tab-tenant-grants')),
@@ -144,6 +159,21 @@ void main() {
     expect(find.text('Administrator'), findsNothing);
     expect(find.text('acp:user  |  acp:read'), findsOneWidget);
     expect(find.text('acp:tenant  |  acp:manage'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-role-memberships')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('alice@example.com'), findsOneWidget);
+    expect(find.text('bob@example.com'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-role-memberships-search-field')),
+      'auditor',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('bob@example.com'), findsOneWidget);
+    expect(find.text('alice@example.com'), findsNothing);
   });
 
   testWidgets('RbacManagementPanel validates role dialogs', (
@@ -319,6 +349,88 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('RbacManagementPanel manages role memberships', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeRbacAdminRepository();
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-role-memberships')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Role Membership'), findsOneWidget);
+    expect(
+      find.text(
+        'Users may need to sign out and back in for route and session claims to refresh.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('alice@example.com'), findsOneWidget);
+    expect(find.text('Member  |  acp:member'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('rbac-role-membership-create-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Create Role Membership'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('This user already has this role.'), findsOneWidget);
+    expect(repository.createTenantRoleMembershipInputs, isEmpty);
+
+    await tester.tap(
+      find.byKey(const Key('rbac-role-membership-user-dropdown')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('bob@example.com'), findsOneWidget);
+    expect(find.text('carol@example.com'), findsNothing);
+    await tester.tap(find.text('bob@example.com').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('rbac-role-membership-role-dropdown')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Member (acp:member)'), findsWidgets);
+    expect(find.text('Legacy (acp:legacy)'), findsNothing);
+    await tester.tap(find.text('Member (acp:member)').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Create Role Membership'),
+    );
+    await tester.pumpAndSettle();
+    expect(repository.createTenantRoleMembershipInputs, hasLength(1));
+    expect(
+      repository.createTenantRoleMembershipInputs.single.tenantId,
+      'tenant-1',
+    );
+    expect(repository.createTenantRoleMembershipInputs.single.roleId, 'tr-1');
+    expect(repository.createTenantRoleMembershipInputs.single.userId, 'user-2');
+    expect(find.byType(Dialog), findsNothing);
+
+    await tester.tap(find.byTooltip('Delete role membership').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(repository.deleteTenantRoleMembershipInputs, isEmpty);
+
+    await tester.tap(find.byTooltip('Delete role membership').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(repository.deleteTenantRoleMembershipInputs, hasLength(1));
+    expect(
+      repository.deleteTenantRoleMembershipInputs.single.membershipId,
+      'rm-1',
+    );
+    expect(repository.deleteTenantRoleMembershipInputs.single.rowVersion, 7);
+  });
+
   testWidgets('RbacManagementPanel enforces tenant-required tabs', (
     WidgetTester tester,
   ) async {
@@ -330,6 +442,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.text('Select a tenant to manage tenant roles.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-role-memberships')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Select a tenant to manage role memberships.'),
       findsOneWidget,
     );
 
@@ -529,6 +650,54 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
           deleted: false,
           seedData: false,
         ),
+      ],
+      _tenantRoleMemberships = <RbacRoleMembershipEntity>[
+        RbacRoleMembershipEntity(
+          id: 'rm-1',
+          tenantId: 'tenant-1',
+          roleId: 'tr-1',
+          userId: 'user-1',
+          roleDisplayName: 'Member',
+          roleKey: 'acp:member',
+          roleNamespace: 'acp',
+          roleName: 'member',
+          userDisplayName: 'alice@example.com',
+          userEmail: 'alice@example.com',
+          rowVersion: 7,
+          dateCreated: DateTime.utc(2024, 1, 1),
+          dateLastModified: DateTime.utc(2024, 1, 1),
+          deleted: false,
+          seedData: false,
+        ),
+      ],
+      _tenantMembers = <RbacTenantMemberEntity>[
+        const RbacTenantMemberEntity(
+          membershipId: 'tm-1',
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+          displayName: 'alice@example.com',
+          email: 'alice@example.com',
+          status: 'active',
+          deleted: false,
+        ),
+        const RbacTenantMemberEntity(
+          membershipId: 'tm-2',
+          tenantId: 'tenant-1',
+          userId: 'user-2',
+          displayName: 'bob@example.com',
+          email: 'bob@example.com',
+          status: 'active',
+          deleted: false,
+        ),
+        const RbacTenantMemberEntity(
+          membershipId: 'tm-3',
+          tenantId: 'tenant-1',
+          userId: 'user-3',
+          displayName: 'carol@example.com',
+          email: 'carol@example.com',
+          status: 'suspended',
+          deleted: false,
+        ),
       ];
 
   final List<RbacTenantSummaryEntity> _tenants;
@@ -538,6 +707,8 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   final List<RbacPermissionTypeEntity> _permissionTypes;
   final List<RbacPermissionEntryEntity> _globalEntries;
   final List<RbacPermissionEntryEntity> _tenantEntries;
+  final List<RbacRoleMembershipEntity> _tenantRoleMemberships;
+  final List<RbacTenantMemberEntity> _tenantMembers;
 
   bool returnNoTenants = false;
   bool mutationShouldSucceed = true;
@@ -614,6 +785,25 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
         seedData: false,
       ),
     );
+    _tenantRoleMemberships.add(
+      RbacRoleMembershipEntity(
+        id: 'rm-2',
+        tenantId: 'tenant-1',
+        roleId: 'tr-2',
+        userId: 'user-2',
+        roleDisplayName: 'Auditor',
+        roleKey: 'acp:auditor',
+        roleNamespace: 'acp',
+        roleName: 'auditor',
+        userDisplayName: 'bob@example.com',
+        userEmail: 'bob@example.com',
+        rowVersion: 1,
+        dateCreated: DateTime.utc(2024, 1, 1),
+        dateLastModified: DateTime.utc(2024, 1, 1),
+        deleted: false,
+        seedData: false,
+      ),
+    );
   }
 
   final List<RbacCreateGlobalRoleInput> createGlobalRoleInputs =
@@ -636,6 +826,10 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   updateTenantPermissionEntryInputs = <RbacUpdateTenantPermissionEntryInput>[];
   final List<RbacDeleteTenantPermissionEntryInput>
   deleteTenantPermissionEntryInputs = <RbacDeleteTenantPermissionEntryInput>[];
+  final List<RbacCreateRoleMembershipInput> createTenantRoleMembershipInputs =
+      <RbacCreateRoleMembershipInput>[];
+  final List<RbacDeleteRoleMembershipInput> deleteTenantRoleMembershipInputs =
+      <RbacDeleteRoleMembershipInput>[];
 
   @override
   Future<Result<void>> createGlobalPermissionEntry(
@@ -672,6 +866,14 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   }
 
   @override
+  Future<Result<void>> createTenantRoleMembership(
+    RbacCreateRoleMembershipInput input,
+  ) async {
+    createTenantRoleMembershipInputs.add(input);
+    return _mutationResult();
+  }
+
+  @override
   Future<Result<void>> createTenantRole(RbacCreateTenantRoleInput input) async {
     return _mutationResult();
   }
@@ -689,6 +891,14 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
     RbacDeleteTenantPermissionEntryInput input,
   ) async {
     deleteTenantPermissionEntryInputs.add(input);
+    return _mutationResult();
+  }
+
+  @override
+  Future<Result<void>> deleteTenantRoleMembership(
+    RbacDeleteRoleMembershipInput input,
+  ) async {
+    deleteTenantRoleMembershipInputs.add(input);
     return _mutationResult();
   }
 
@@ -761,6 +971,24 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
     int top = 200,
   }) async {
     return Result<List<RbacPermissionEntryEntity>>.success(_tenantEntries);
+  }
+
+  @override
+  Future<Result<List<RbacRoleMembershipEntity>>> fetchTenantRoleMemberships({
+    required String tenantId,
+    int top = 200,
+  }) async {
+    return Result<List<RbacRoleMembershipEntity>>.success(
+      _tenantRoleMemberships,
+    );
+  }
+
+  @override
+  Future<Result<List<RbacTenantMemberEntity>>> fetchTenantMembers({
+    required String tenantId,
+    int top = 200,
+  }) async {
+    return Result<List<RbacTenantMemberEntity>>.success(_tenantMembers);
   }
 
   @override

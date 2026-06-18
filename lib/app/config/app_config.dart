@@ -47,6 +47,7 @@ class ApiEndpointsConfig {
     required this.rbacPermissionTypeActionReactivate,
     required this.rbacGlobalPermissionEntry,
     required this.rbacTenantPermissionEntry,
+    required this.rbacTenantRoleMembership,
     required this.auditEvent,
     required this.auditEventTenant,
     required this.webMessages,
@@ -94,6 +95,7 @@ class ApiEndpointsConfig {
   final String rbacPermissionTypeActionReactivate;
   final String rbacGlobalPermissionEntry;
   final String rbacTenantPermissionEntry;
+  final String rbacTenantRoleMembership;
   final String auditEvent;
   final String auditEventTenant;
   final String webMessages;
@@ -174,6 +176,8 @@ class ApiEndpointsConfig {
           override.rbacGlobalPermissionEntry ?? rbacGlobalPermissionEntry,
       rbacTenantPermissionEntry:
           override.rbacTenantPermissionEntry ?? rbacTenantPermissionEntry,
+      rbacTenantRoleMembership:
+          override.rbacTenantRoleMembership ?? rbacTenantRoleMembership,
       auditEvent: override.auditEvent ?? auditEvent,
       auditEventTenant: override.auditEventTenant ?? auditEventTenant,
       webMessages: override.webMessages ?? webMessages,
@@ -225,6 +229,7 @@ class ApiEndpointsOverride {
     this.rbacPermissionTypeActionReactivate,
     this.rbacGlobalPermissionEntry,
     this.rbacTenantPermissionEntry,
+    this.rbacTenantRoleMembership,
     this.auditEvent,
     this.auditEventTenant,
     this.webMessages,
@@ -272,6 +277,7 @@ class ApiEndpointsOverride {
   final String? rbacPermissionTypeActionReactivate;
   final String? rbacGlobalPermissionEntry;
   final String? rbacTenantPermissionEntry;
+  final String? rbacTenantRoleMembership;
   final String? auditEvent;
   final String? auditEventTenant;
   final String? webMessages;
@@ -397,6 +403,8 @@ class AppConfig {
           rbacGlobalPermissionEntry: 'core/acp/v1/GlobalPermissionEntries',
           rbacTenantPermissionEntry:
               'core/acp/v1/tenants/{tenant_id}/PermissionEntries',
+          rbacTenantRoleMembership:
+              'core/acp/v1/tenants/{tenant_id}/RoleMemberships',
           auditEvent: 'core/acp/v1/AuditEvents',
           auditEventTenant: 'core/acp/v1/tenants/{tenant_id}/AuditEvents',
           webMessages: 'core/web/v1/messages',

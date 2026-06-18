@@ -86,6 +86,7 @@ void main() {
             'access_token': 'new-token',
             'refresh_token': 'new-refresh',
             'user_id': 'u1',
+            'roles': <String>['new-role'],
           }),
           headers: const <String, String>{'content-type': 'application/json'},
         ),
@@ -106,6 +107,8 @@ void main() {
         60,
         '/',
       );
+      String? refreshedAccessToken;
+      List<String>? refreshedRoles;
 
       final client = AuthenticatedHttpClient(
         httpClient: AcpHttpClient(
@@ -114,6 +117,10 @@ void main() {
         ),
         cookieStore: cookieStore,
         refreshPath: 'core/acp/v1/auth/refresh',
+        onSessionRefreshed: (session) {
+          refreshedAccessToken = session.accessToken;
+          refreshedRoles = session.roles;
+        },
       );
 
       final response = await client.send(
@@ -127,6 +134,8 @@ void main() {
         transport.requests[2].headers['Authorization'],
         'Bearer new-token',
       );
+      expect(refreshedAccessToken, 'new-token');
+      expect(refreshedRoles, <String>['new-role']);
     },
   );
 
@@ -211,6 +220,7 @@ void main() {
         60,
         '/',
       );
+      var refreshNotifications = 0;
 
       final client = AuthenticatedHttpClient(
         httpClient: AcpHttpClient(
@@ -219,6 +229,9 @@ void main() {
         ),
         cookieStore: cookieStore,
         refreshPath: 'core/acp/v1/auth/refresh',
+        onSessionRefreshed: (_) {
+          refreshNotifications += 1;
+        },
       );
 
       final response = await client.send(
@@ -233,6 +246,7 @@ void main() {
         'Bearer new-token',
       );
       expect(cookieStore.getCookie('auth'), isNull);
+      expect(refreshNotifications, 0);
     },
   );
 }

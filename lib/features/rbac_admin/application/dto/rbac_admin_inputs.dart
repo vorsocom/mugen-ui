@@ -179,3 +179,27 @@ class RbacDeleteTenantPermissionEntryInput {
   final String entryId;
   final int rowVersion;
 }
+
+class RbacCreateRoleMembershipInput {
+  const RbacCreateRoleMembershipInput({
+    required this.tenantId,
+    required this.roleId,
+    required this.userId,
+  });
+
+  final String tenantId;
+  final String roleId;
+  final String userId;
+}
+
+class RbacDeleteRoleMembershipInput {
+  const RbacDeleteRoleMembershipInput({
+    required this.tenantId,
+    required this.membershipId,
+    required this.rowVersion,
+  });
+
+  final String tenantId;
+  final String membershipId;
+  final int rowVersion;
+}

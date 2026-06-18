@@ -169,6 +169,51 @@ void main() {
               ],
             }),
           ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'value': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'Id': 'rm-1',
+                  'TenantId': 'tenant-1',
+                  'RoleId': 'tr-1',
+                  'UserId': 'user-1',
+                  'RowVersion': 10,
+                  'CreatedAt': '2026-01-01T00:00:00Z',
+                  'UpdatedAt': '2026-01-02T00:00:00Z',
+                  'DeletedAt': null,
+                  'SeedData': false,
+                  'Role': <String, dynamic>{
+                    'Namespace': 'acp',
+                    'Name': 'viewer',
+                    'DisplayName': '',
+                  },
+                  'User': <String, dynamic>{
+                    'Username': 'alice',
+                    'LoginEmail': 'alice@example.com',
+                  },
+                },
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'value': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'Id': 'tm-1',
+                  'TenantId': 'tenant-1',
+                  'UserId': 'user-1',
+                  'Status': 'active',
+                  'DeletedAt': null,
+                  'User': <String, dynamic>{
+                    'Username': 'alice',
+                    'LoginEmail': 'alice@example.com',
+                  },
+                },
+              ],
+            }),
+          ),
         ],
       );
 
@@ -188,6 +233,12 @@ void main() {
           .fetchGlobalPermissionEntries(top: 33);
       final tenantEntries = await fixture.repository
           .fetchTenantPermissionEntries(tenantId: 'tenant-1', top: 22);
+      final roleMemberships = await fixture.repository
+          .fetchTenantRoleMemberships(tenantId: 'tenant-1', top: 11);
+      final tenantMembers = await fixture.repository.fetchTenantMembers(
+        tenantId: 'tenant-1',
+        top: 10,
+      );
 
       expect(tenants.isSuccess, isTrue);
       expect(tenants.data!.single.name, 'Tenant One');
@@ -221,7 +272,19 @@ void main() {
       expect(tenantEntries.data!.single.tenantId, 'tenant-1');
       expect(tenantEntries.data!.single.permitted, isFalse);
 
-      expect(fixture.client.requests, hasLength(7));
+      expect(roleMemberships.isSuccess, isTrue);
+      expect(roleMemberships.data!.single.roleDisplayName, 'acp:viewer');
+      expect(roleMemberships.data!.single.roleKey, 'acp:viewer');
+      expect(roleMemberships.data!.single.userDisplayName, 'alice@example.com');
+      expect(roleMemberships.data!.single.userEmail, 'alice@example.com');
+      expect(roleMemberships.data!.single.rowVersion, 10);
+
+      expect(tenantMembers.isSuccess, isTrue);
+      expect(tenantMembers.data!.single.membershipId, 'tm-1');
+      expect(tenantMembers.data!.single.displayName, 'alice@example.com');
+      expect(tenantMembers.data!.single.status, 'active');
+
+      expect(fixture.client.requests, hasLength(9));
       expect(fixture.client.requests[0].path, 'core/acp/v1/Tenants');
       expect(fixture.client.requests[0].queryParameters[r'$top'], 150);
       expect(
@@ -267,6 +330,27 @@ void main() {
         fixture.client.requests[6].queryParameters[r'$expand'],
         'Role,PermissionObject,PermissionType',
       );
+
+      expect(
+        fixture.client.requests[7].path,
+        'core/acp/v1/tenants/tenant-1/RoleMemberships',
+      );
+      expect(fixture.client.requests[7].queryParameters[r'$top'], 11);
+      expect(
+        fixture.client.requests[7].queryParameters[r'$orderby'],
+        'CreatedAt desc',
+      );
+      expect(
+        fixture.client.requests[7].queryParameters[r'$expand'],
+        'Role,User',
+      );
+
+      expect(
+        fixture.client.requests[8].path,
+        'core/acp/v1/tenants/tenant-1/TenantMemberships',
+      );
+      expect(fixture.client.requests[8].queryParameters[r'$top'], 10);
+      expect(fixture.client.requests[8].queryParameters[r'$expand'], 'User');
     });
   });
 
@@ -304,6 +388,18 @@ void main() {
               'message': 'Tenant permission entry read failed',
             }),
           ),
+          (_) => _response(
+            statusCode: 409,
+            body: jsonEncode(<String, dynamic>{
+              'message': 'Role membership read conflict',
+            }),
+          ),
+          (_) => _response(
+            statusCode: 500,
+            body: jsonEncode(<String, dynamic>{
+              'message': 'Tenant member read failed',
+            }),
+          ),
         ],
       );
 
@@ -316,6 +412,11 @@ void main() {
           .fetchGlobalPermissionEntries();
       final tenantEntries = await fixture.repository
           .fetchTenantPermissionEntries(tenantId: 'tenant-1');
+      final roleMemberships = await fixture.repository
+          .fetchTenantRoleMemberships(tenantId: 'tenant-1');
+      final tenantMembers = await fixture.repository.fetchTenantMembers(
+        tenantId: 'tenant-1',
+      );
 
       expect(tenants.isFailure, isTrue);
       expect(tenants.failure, isA<ApiFailure>());
@@ -343,6 +444,14 @@ void main() {
         tenantEntries.failure!.message,
         'Tenant permission entry read failed',
       );
+
+      expect(roleMemberships.isFailure, isTrue);
+      expect(roleMemberships.failure, isA<ApiFailure>());
+      expect(roleMemberships.failure!.message, 'Role membership read conflict');
+
+      expect(tenantMembers.isFailure, isTrue);
+      expect(tenantMembers.failure, isA<ApiFailure>());
+      expect(tenantMembers.failure!.message, 'Tenant member read failed');
     });
 
     test('maps RFC dates and numeric/string coercions', () async {
@@ -416,6 +525,38 @@ void main() {
               ],
             }),
           ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'value': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'Id': 'rm-coerce',
+                  'TenantId': '',
+                  'RoleId': 'role-fallback',
+                  'UserId': 'user-fallback',
+                  'RowVersion': '11',
+                  'CreatedAt': '',
+                  'UpdatedAt': '',
+                  'DeletedAt': null,
+                  'SeedData': 'false',
+                },
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'value': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'Id': 'tm-coerce',
+                  'TenantId': '',
+                  'UserId': 'tenant-user-fallback',
+                  'Status': 'active',
+                  'DeletedAt': null,
+                },
+              ],
+            }),
+          ),
         ],
       );
 
@@ -424,6 +565,11 @@ void main() {
           .fetchPermissionObjects();
       final globalEntries = await fixture.repository
           .fetchGlobalPermissionEntries();
+      final roleMemberships = await fixture.repository
+          .fetchTenantRoleMemberships(tenantId: 'tenant-1');
+      final tenantMembers = await fixture.repository.fetchTenantMembers(
+        tenantId: 'tenant-1',
+      );
 
       expect(permissionTypes.isSuccess, isTrue);
       final type = permissionTypes.data!.single;
@@ -462,6 +608,19 @@ void main() {
         entry.dateLastModified,
         DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       );
+
+      expect(roleMemberships.isSuccess, isTrue);
+      final membership = roleMemberships.data!.single;
+      expect(membership.tenantId, 'tenant-1');
+      expect(membership.roleDisplayName, 'role-fallback');
+      expect(membership.roleKey, 'role-fallback');
+      expect(membership.userDisplayName, 'user-fallback');
+      expect(membership.rowVersion, 11);
+
+      expect(tenantMembers.isSuccess, isTrue);
+      final member = tenantMembers.data!.single;
+      expect(member.tenantId, 'tenant-1');
+      expect(member.displayName, 'tenant-user-fallback');
     });
   });
 
@@ -469,7 +628,7 @@ void main() {
     test('sends expected CRUD and action requests', () async {
       final fixture = _RbacAdminFixture(
         handlers: List<_AuthHandler>.filled(
-          18,
+          20,
           (_) => _response(statusCode: 204),
         ),
       );
@@ -598,8 +757,22 @@ void main() {
           rowVersion: 12,
         ),
       );
+      await fixture.repository.createTenantRoleMembership(
+        const RbacCreateRoleMembershipInput(
+          tenantId: 'tenant-1',
+          roleId: 'tr-1',
+          userId: 'user-1',
+        ),
+      );
+      await fixture.repository.deleteTenantRoleMembership(
+        const RbacDeleteRoleMembershipInput(
+          tenantId: 'tenant-1',
+          membershipId: 'rm-1',
+          rowVersion: 13,
+        ),
+      );
 
-      expect(fixture.client.requests, hasLength(18));
+      expect(fixture.client.requests, hasLength(20));
       expect(fixture.client.requests[0].path, 'core/acp/v1/GlobalRoles');
       expect(fixture.client.requests[0].body, <String, dynamic>{
         'Namespace': 'acp',
@@ -669,6 +842,27 @@ void main() {
         'core/acp/v1/tenants/tenant-1/PermissionEntries/tpe-1',
       );
       expect(fixture.client.requests[17].method, HttpMethod.delete);
+      expect(fixture.client.requests[17].body, <String, dynamic>{
+        'RowVersion': 12,
+      });
+
+      expect(
+        fixture.client.requests[18].path,
+        'core/acp/v1/tenants/tenant-1/RoleMemberships',
+      );
+      expect(fixture.client.requests[18].body, <String, dynamic>{
+        'TenantId': 'tenant-1',
+        'RoleId': 'tr-1',
+        'UserId': 'user-1',
+      });
+      expect(fixture.client.requests[19].method, HttpMethod.delete);
+      expect(
+        fixture.client.requests[19].path,
+        'core/acp/v1/tenants/tenant-1/RoleMemberships/rm-1',
+      );
+      expect(fixture.client.requests[19].body, <String, dynamic>{
+        'RowVersion': 13,
+      });
     });
   });
 

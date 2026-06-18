@@ -17,6 +17,11 @@ import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 
 part 'auth_providers.g.dart';
 
+final StreamProvider<AuthSession> authSessionRefreshEventsProvider =
+    StreamProvider<AuthSession>(
+      (ref) => ref.watch(authSessionRefreshBusProvider).stream,
+    );
+
 class AuthControllerState {
   const AuthControllerState({
     required this.isLoading,
@@ -72,6 +77,18 @@ AuthApplicationService authApplicationService(Ref ref) {
 class AuthController extends _$AuthController {
   @override
   AuthControllerState build() {
+    ref.listen<AsyncValue<AuthSession>>(authSessionRefreshEventsProvider, (
+      _,
+      next,
+    ) {
+      final refreshedSession = next.valueOrNull;
+      if (refreshedSession == null) {
+        return;
+      }
+
+      state = state.copyWith(session: refreshedSession, clearError: true);
+    });
+
     final repository = ref.watch(authRepositoryProvider);
     final session = repository.currentSession().data;
     return AuthControllerState(isLoading: false, session: session);

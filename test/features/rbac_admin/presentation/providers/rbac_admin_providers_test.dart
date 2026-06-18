@@ -5,7 +5,9 @@ import 'package:mugen_ui/features/rbac_admin/application/dto/rbac_admin_inputs.d
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_entry_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_object_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_membership_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_member_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_summary_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/repositories/rbac_admin_repository.dart';
 import 'package:mugen_ui/features/rbac_admin/infrastructure/repositories/rbac_admin_repository_impl.dart';
@@ -44,6 +46,8 @@ void main() {
     expect(state.selectedTenantId, 'tenant-1');
     expect(state.tenantRoles, hasLength(1));
     expect(state.tenantPermissionEntries, hasLength(1));
+    expect(state.tenantRoleMemberships, hasLength(1));
+    expect(state.tenantMembers, hasLength(1));
 
     await notifier.selectTenant('tenant-2');
     expect(
@@ -52,8 +56,15 @@ void main() {
     );
     expect(repository.lastTenantRoleTenantId, 'tenant-2');
     expect(repository.lastTenantEntryTenantId, 'tenant-2');
+    expect(repository.lastTenantRoleMembershipTenantId, 'tenant-2');
+    expect(repository.lastTenantMemberTenantId, 'tenant-2');
     expect(repository.fetchTenantRolesCallCount, greaterThanOrEqualTo(2));
     expect(repository.fetchTenantEntriesCallCount, greaterThanOrEqualTo(2));
+    expect(
+      repository.fetchTenantRoleMembershipsCallCount,
+      greaterThanOrEqualTo(2),
+    );
+    expect(repository.fetchTenantMembersCallCount, greaterThanOrEqualTo(2));
   });
 
   test('RbacAdminController mutation success and conflict paths', () async {
@@ -92,6 +103,22 @@ void main() {
     expect(createTenantGrantOk, isTrue);
     expect(repository.createTenantPermissionEntryInputs, hasLength(1));
 
+    final roleMembershipFetchesBeforeCreate =
+        repository.fetchTenantRoleMembershipsCallCount;
+    final createRoleMembershipOk = await notifier.createTenantRoleMembership(
+      const RbacCreateRoleMembershipInput(
+        tenantId: 'tenant-1',
+        roleId: 'tr-1',
+        userId: 'user-2',
+      ),
+    );
+    expect(createRoleMembershipOk, isTrue);
+    expect(repository.createTenantRoleMembershipInputs, hasLength(1));
+    expect(
+      repository.fetchTenantRoleMembershipsCallCount,
+      greaterThan(roleMembershipFetchesBeforeCreate),
+    );
+
     repository.mutationResult = const Result<void>.failure(
       ApiFailure(409, 'Conflict'),
     );
@@ -107,6 +134,26 @@ void main() {
     expect(
       container.read(rbacAdminControllerProvider).errorMessage,
       'Tenant grants changed on the server. Reloading list.',
+    );
+
+    final roleMembershipFetchesBeforeConflict =
+        repository.fetchTenantRoleMembershipsCallCount;
+    final roleMembershipConflict = await notifier.deleteTenantRoleMembership(
+      const RbacDeleteRoleMembershipInput(
+        tenantId: 'tenant-1',
+        membershipId: 'rm-1',
+        rowVersion: 1,
+      ),
+    );
+    expect(roleMembershipConflict, isFalse);
+    expect(repository.deleteTenantRoleMembershipInputs, hasLength(1));
+    expect(
+      repository.fetchTenantRoleMembershipsCallCount,
+      greaterThan(roleMembershipFetchesBeforeConflict),
+    );
+    expect(
+      container.read(rbacAdminControllerProvider).errorMessage,
+      'Role memberships changed on the server. Reloading list.',
     );
 
     repository.mutationResult = const Result<void>.failure(
@@ -140,6 +187,33 @@ void main() {
       'global roles failed',
     );
   });
+
+  test(
+    'RbacAdminController clears tenant-scoped state without tenants',
+    () async {
+      final repository = _FakeRbacAdminRepository()..returnNoTenants = true;
+      final container = ProviderContainer(
+        overrides: <Override>[
+          rbacAdminRepositoryProvider.overrideWithValue(repository),
+          authControllerProvider.overrideWith(() => _TestAuthController()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container
+          .read(rbacAdminControllerProvider.notifier)
+          .loadInitialData();
+
+      final state = container.read(rbacAdminControllerProvider);
+      expect(state.selectedTenantId, isNull);
+      expect(state.tenantRoles, isEmpty);
+      expect(state.tenantPermissionEntries, isEmpty);
+      expect(state.tenantRoleMemberships, isEmpty);
+      expect(state.tenantMembers, isEmpty);
+      expect(repository.fetchTenantRoleMembershipsCallCount, 0);
+      expect(repository.fetchTenantMembersCallCount, 0);
+    },
+  );
 }
 
 class _TestAuthController extends AuthController {
@@ -279,6 +353,36 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
           deleted: false,
           seedData: false,
         ),
+      ],
+      _tenantRoleMemberships = <RbacRoleMembershipEntity>[
+        RbacRoleMembershipEntity(
+          id: 'rm-1',
+          tenantId: 'tenant-1',
+          roleId: 'tr-1',
+          userId: 'user-1',
+          roleDisplayName: 'Member',
+          roleKey: 'acp:member',
+          roleNamespace: 'acp',
+          roleName: 'member',
+          userDisplayName: 'alice@example.com',
+          userEmail: 'alice@example.com',
+          rowVersion: 1,
+          dateCreated: DateTime.utc(2024, 1, 1),
+          dateLastModified: DateTime.utc(2024, 1, 1),
+          deleted: false,
+          seedData: false,
+        ),
+      ],
+      _tenantMembers = <RbacTenantMemberEntity>[
+        const RbacTenantMemberEntity(
+          membershipId: 'tm-1',
+          tenantId: 'tenant-1',
+          userId: 'user-1',
+          displayName: 'alice@example.com',
+          email: 'alice@example.com',
+          status: 'active',
+          deleted: false,
+        ),
       ];
 
   final List<RbacTenantSummaryEntity> _tenants;
@@ -288,6 +392,10 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   final List<RbacPermissionTypeEntity> _permissionTypes;
   final List<RbacPermissionEntryEntity> _globalEntries;
   final List<RbacPermissionEntryEntity> _tenantEntries;
+  final List<RbacRoleMembershipEntity> _tenantRoleMemberships;
+  final List<RbacTenantMemberEntity> _tenantMembers;
+
+  bool returnNoTenants = false;
 
   Result<List<RbacTenantSummaryEntity>> fetchTenantsResult =
       const Result<List<RbacTenantSummaryEntity>>.success(
@@ -313,18 +421,34 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
       const Result<List<RbacPermissionEntryEntity>>.success(
         <RbacPermissionEntryEntity>[],
       );
+  Result<List<RbacRoleMembershipEntity>> fetchTenantRoleMembershipsResult =
+      const Result<List<RbacRoleMembershipEntity>>.success(
+        <RbacRoleMembershipEntity>[],
+      );
+  Result<List<RbacTenantMemberEntity>> fetchTenantMembersResult =
+      const Result<List<RbacTenantMemberEntity>>.success(
+        <RbacTenantMemberEntity>[],
+      );
 
   Result<void> mutationResult = const Result<void>.success(null);
 
   int fetchTenantRolesCallCount = 0;
   int fetchTenantEntriesCallCount = 0;
+  int fetchTenantRoleMembershipsCallCount = 0;
+  int fetchTenantMembersCallCount = 0;
   String? lastTenantRoleTenantId;
   String? lastTenantEntryTenantId;
+  String? lastTenantRoleMembershipTenantId;
+  String? lastTenantMemberTenantId;
 
   final List<RbacCreateGlobalRoleInput> createGlobalRoleInputs =
       <RbacCreateGlobalRoleInput>[];
   final List<RbacCreateTenantPermissionEntryInput>
   createTenantPermissionEntryInputs = <RbacCreateTenantPermissionEntryInput>[];
+  final List<RbacCreateRoleMembershipInput> createTenantRoleMembershipInputs =
+      <RbacCreateRoleMembershipInput>[];
+  final List<RbacDeleteRoleMembershipInput> deleteTenantRoleMembershipInputs =
+      <RbacDeleteRoleMembershipInput>[];
 
   @override
   Future<Result<void>> createGlobalPermissionEntry(
@@ -362,6 +486,14 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   }
 
   @override
+  Future<Result<void>> createTenantRoleMembership(
+    RbacCreateRoleMembershipInput input,
+  ) async {
+    createTenantRoleMembershipInputs.add(input);
+    return mutationResult;
+  }
+
+  @override
   Future<Result<void>> createTenantRole(RbacCreateTenantRoleInput input) async {
     return mutationResult;
   }
@@ -377,6 +509,14 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   Future<Result<void>> deleteTenantPermissionEntry(
     RbacDeleteTenantPermissionEntryInput input,
   ) async {
+    return mutationResult;
+  }
+
+  @override
+  Future<Result<void>> deleteTenantRoleMembership(
+    RbacDeleteRoleMembershipInput input,
+  ) async {
+    deleteTenantRoleMembershipInputs.add(input);
     return mutationResult;
   }
 
@@ -453,6 +593,11 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   Future<Result<List<RbacTenantSummaryEntity>>> fetchTenants({
     int top = 200,
   }) async {
+    if (returnNoTenants) {
+      return const Result<List<RbacTenantSummaryEntity>>.success(
+        <RbacTenantSummaryEntity>[],
+      );
+    }
     if (fetchTenantsResult.isSuccess && fetchTenantsResult.data!.isEmpty) {
       return Result<List<RbacTenantSummaryEntity>>.success(_tenants);
     }
@@ -473,6 +618,38 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
     }
 
     return fetchTenantEntriesResult;
+  }
+
+  @override
+  Future<Result<List<RbacRoleMembershipEntity>>> fetchTenantRoleMemberships({
+    required String tenantId,
+    int top = 200,
+  }) async {
+    fetchTenantRoleMembershipsCallCount += 1;
+    lastTenantRoleMembershipTenantId = tenantId;
+    if (fetchTenantRoleMembershipsResult.isSuccess &&
+        fetchTenantRoleMembershipsResult.data!.isEmpty) {
+      return Result<List<RbacRoleMembershipEntity>>.success(
+        _tenantRoleMemberships,
+      );
+    }
+
+    return fetchTenantRoleMembershipsResult;
+  }
+
+  @override
+  Future<Result<List<RbacTenantMemberEntity>>> fetchTenantMembers({
+    required String tenantId,
+    int top = 200,
+  }) async {
+    fetchTenantMembersCallCount += 1;
+    lastTenantMemberTenantId = tenantId;
+    if (fetchTenantMembersResult.isSuccess &&
+        fetchTenantMembersResult.data!.isEmpty) {
+      return Result<List<RbacTenantMemberEntity>>.success(_tenantMembers);
+    }
+
+    return fetchTenantMembersResult;
   }
 
   @override

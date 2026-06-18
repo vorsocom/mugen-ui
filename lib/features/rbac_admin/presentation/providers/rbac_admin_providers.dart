@@ -7,7 +7,9 @@ import 'package:mugen_ui/features/rbac_admin/application/dto/rbac_admin_inputs.d
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_entry_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_object_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_membership_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_member_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_summary_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/repositories/rbac_admin_repository.dart';
 import 'package:mugen_ui/features/rbac_admin/infrastructure/repositories/rbac_admin_repository_impl.dart';
@@ -20,6 +22,7 @@ enum RbacAdminTab {
   permissionTypes,
   globalGrants,
   tenantRoles,
+  roleMemberships,
   tenantGrants,
 }
 
@@ -32,6 +35,8 @@ class RbacAdminState {
     required this.permissionTypes,
     required this.globalPermissionEntries,
     required this.tenantPermissionEntries,
+    required this.tenantRoleMemberships,
+    required this.tenantMembers,
     required this.activeTab,
     required this.isLoadingGlobal,
     required this.isLoadingTenantScoped,
@@ -47,6 +52,8 @@ class RbacAdminState {
   final List<RbacPermissionTypeEntity> permissionTypes;
   final List<RbacPermissionEntryEntity> globalPermissionEntries;
   final List<RbacPermissionEntryEntity> tenantPermissionEntries;
+  final List<RbacRoleMembershipEntity> tenantRoleMemberships;
+  final List<RbacTenantMemberEntity> tenantMembers;
   final RbacAdminTab activeTab;
   final bool isLoadingGlobal;
   final bool isLoadingTenantScoped;
@@ -76,6 +83,8 @@ class RbacAdminState {
     List<RbacPermissionTypeEntity>? permissionTypes,
     List<RbacPermissionEntryEntity>? globalPermissionEntries,
     List<RbacPermissionEntryEntity>? tenantPermissionEntries,
+    List<RbacRoleMembershipEntity>? tenantRoleMemberships,
+    List<RbacTenantMemberEntity>? tenantMembers,
     RbacAdminTab? activeTab,
     bool? isLoadingGlobal,
     bool? isLoadingTenantScoped,
@@ -95,6 +104,9 @@ class RbacAdminState {
           globalPermissionEntries ?? this.globalPermissionEntries,
       tenantPermissionEntries:
           tenantPermissionEntries ?? this.tenantPermissionEntries,
+      tenantRoleMemberships:
+          tenantRoleMemberships ?? this.tenantRoleMemberships,
+      tenantMembers: tenantMembers ?? this.tenantMembers,
       activeTab: activeTab ?? this.activeTab,
       isLoadingGlobal: isLoadingGlobal ?? this.isLoadingGlobal,
       isLoadingTenantScoped:
@@ -132,6 +144,8 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
           permissionTypes: <RbacPermissionTypeEntity>[],
           globalPermissionEntries: <RbacPermissionEntryEntity>[],
           tenantPermissionEntries: <RbacPermissionEntryEntity>[],
+          tenantRoleMemberships: <RbacRoleMembershipEntity>[],
+          tenantMembers: <RbacTenantMemberEntity>[],
           activeTab: RbacAdminTab.globalRoles,
           isLoadingGlobal: false,
           isLoadingTenantScoped: false,
@@ -181,6 +195,8 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
       state = state.copyWith(
         tenantRoles: const <RbacRoleEntity>[],
         tenantPermissionEntries: const <RbacPermissionEntryEntity>[],
+        tenantRoleMemberships: const <RbacRoleMembershipEntity>[],
+        tenantMembers: const <RbacTenantMemberEntity>[],
       );
       if (firstFailure != null) {
         _applyFailure(firstFailure, fallback: 'Could not load RBAC resources.');
@@ -217,6 +233,8 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
       state = state.copyWith(
         tenantRoles: const <RbacRoleEntity>[],
         tenantPermissionEntries: const <RbacPermissionEntryEntity>[],
+        tenantRoleMemberships: const <RbacRoleMembershipEntity>[],
+        tenantMembers: const <RbacTenantMemberEntity>[],
       );
       return;
     }
@@ -230,17 +248,29 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
     final tenantEntriesResult = await repository.fetchTenantPermissionEntries(
       tenantId: effectiveTenantId,
     );
+    final roleMembershipsResult = await repository.fetchTenantRoleMemberships(
+      tenantId: effectiveTenantId,
+    );
+    final tenantMembersResult = await repository.fetchTenantMembers(
+      tenantId: effectiveTenantId,
+    );
 
     state = state.copyWith(
       tenantRoles: tenantRolesResult.data ?? state.tenantRoles,
       tenantPermissionEntries:
           tenantEntriesResult.data ?? state.tenantPermissionEntries,
+      tenantRoleMemberships:
+          roleMembershipsResult.data ?? state.tenantRoleMemberships,
+      tenantMembers: tenantMembersResult.data ?? state.tenantMembers,
       isLoadingTenantScoped: false,
       clearError: true,
     );
 
     final firstFailure =
-        tenantRolesResult.failure ?? tenantEntriesResult.failure;
+        tenantRolesResult.failure ??
+        tenantEntriesResult.failure ??
+        roleMembershipsResult.failure ??
+        tenantMembersResult.failure;
     if (firstFailure != null) {
       _applyFailure(
         firstFailure,
@@ -457,6 +487,34 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
     );
   }
 
+  Future<bool> createTenantRoleMembership(
+    RbacCreateRoleMembershipInput input,
+  ) async {
+    return _runMutation(
+      () => ref
+          .read(rbacAdminRepositoryProvider)
+          .createTenantRoleMembership(input),
+      conflictMessage:
+          'Role memberships changed on the server. Reloading list.',
+      reloadOnSuccess: () => _reloadTenantRoleMemberships(input.tenantId),
+      reloadOnConflict: () => _reloadTenantRoleMemberships(input.tenantId),
+    );
+  }
+
+  Future<bool> deleteTenantRoleMembership(
+    RbacDeleteRoleMembershipInput input,
+  ) async {
+    return _runMutation(
+      () => ref
+          .read(rbacAdminRepositoryProvider)
+          .deleteTenantRoleMembership(input),
+      conflictMessage:
+          'Role memberships changed on the server. Reloading list.',
+      reloadOnSuccess: () => _reloadTenantRoleMemberships(input.tenantId),
+      reloadOnConflict: () => _reloadTenantRoleMemberships(input.tenantId),
+    );
+  }
+
   Future<void> _reloadGlobalRoles() async {
     final response = await ref
         .read(rbacAdminRepositoryProvider)
@@ -516,6 +574,24 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
 
     state = state.copyWith(
       globalPermissionEntries: response.data!,
+      clearError: true,
+    );
+  }
+
+  Future<void> _reloadTenantRoleMemberships(String tenantId) async {
+    final response = await ref
+        .read(rbacAdminRepositoryProvider)
+        .fetchTenantRoleMemberships(tenantId: tenantId);
+    if (response.isFailure) {
+      _applyFailure(
+        response.failure!,
+        fallback: 'Could not load role memberships.',
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      tenantRoleMemberships: response.data!,
       clearError: true,
     );
   }

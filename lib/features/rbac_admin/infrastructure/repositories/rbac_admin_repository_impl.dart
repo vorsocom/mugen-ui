@@ -6,7 +6,9 @@ import 'package:mugen_ui/features/rbac_admin/application/dto/rbac_admin_inputs.d
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_entry_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_object_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_membership_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_member_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_summary_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/repositories/rbac_admin_repository.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
@@ -526,6 +528,101 @@ class RbacAdminRepositoryImpl implements RbacAdminRepository {
     );
   }
 
+  @override
+  Future<Result<List<RbacRoleMembershipEntity>>> fetchTenantRoleMemberships({
+    required String tenantId,
+    int top = 200,
+  }) async {
+    final response = await _sendRequest(
+      AcpRequest(
+        method: HttpMethod.get,
+        path: _tenantRoleMembershipBasePath(tenantId),
+        queryParameters: <String, dynamic>{
+          r'$top': top,
+          r'$orderby': 'CreatedAt desc',
+          r'$expand': 'Role,User',
+        },
+      ),
+    );
+    if (response.isFailure) {
+      return Result<List<RbacRoleMembershipEntity>>.failure(response.failure!);
+    }
+
+    final body = _decodeMap(response.data!.response.body);
+    if (body == null) {
+      return const Result<List<RbacRoleMembershipEntity>>.failure(
+        UnexpectedFailure('Unexpected API response.'),
+      );
+    }
+
+    return Result<List<RbacRoleMembershipEntity>>.success(
+      _mapList(body['value'], (raw) => _mapRoleMembership(raw, tenantId)),
+    );
+  }
+
+  @override
+  Future<Result<List<RbacTenantMemberEntity>>> fetchTenantMembers({
+    required String tenantId,
+    int top = 200,
+  }) async {
+    final response = await _sendRequest(
+      AcpRequest(
+        method: HttpMethod.get,
+        path: _tenantMembershipBasePath(tenantId),
+        queryParameters: <String, dynamic>{
+          r'$top': top,
+          r'$orderby': 'CreatedAt desc',
+          r'$expand': 'User',
+        },
+      ),
+    );
+    if (response.isFailure) {
+      return Result<List<RbacTenantMemberEntity>>.failure(response.failure!);
+    }
+
+    final body = _decodeMap(response.data!.response.body);
+    if (body == null) {
+      return const Result<List<RbacTenantMemberEntity>>.failure(
+        UnexpectedFailure('Unexpected API response.'),
+      );
+    }
+
+    return Result<List<RbacTenantMemberEntity>>.success(
+      _mapList(body['value'], (raw) => _mapTenantMember(raw, tenantId)),
+    );
+  }
+
+  @override
+  Future<Result<void>> createTenantRoleMembership(
+    RbacCreateRoleMembershipInput input,
+  ) async {
+    return _sendVoid(
+      AcpRequest(
+        method: HttpMethod.post,
+        path: _tenantRoleMembershipBasePath(input.tenantId),
+        body: <String, dynamic>{
+          'TenantId': input.tenantId,
+          'RoleId': input.roleId,
+          'UserId': input.userId,
+        },
+      ),
+    );
+  }
+
+  @override
+  Future<Result<void>> deleteTenantRoleMembership(
+    RbacDeleteRoleMembershipInput input,
+  ) async {
+    return _sendVoid(
+      AcpRequest(
+        method: HttpMethod.delete,
+        path:
+            '${_tenantRoleMembershipBasePath(input.tenantId)}/${input.membershipId}',
+        body: <String, dynamic>{'RowVersion': input.rowVersion},
+      ),
+    );
+  }
+
   Future<Result<AuthenticatedResponse>> _sendRequest(AcpRequest request) async {
     try {
       final response = await authenticatedHttpClient.send(request);
@@ -757,6 +854,75 @@ class RbacAdminRepositoryImpl implements RbacAdminRepository {
     );
   }
 
+  RbacRoleMembershipEntity _mapRoleMembership(
+    Map<String, dynamic> raw,
+    String tenantId,
+  ) {
+    final roleMap = _toNullableMap(raw['Role']);
+    final roleNamespace = roleMap == null
+        ? ''
+        : _asString(roleMap['Namespace']);
+    final roleName = roleMap == null ? '' : _asString(roleMap['Name']);
+    final roleKey = _roleKey(
+      namespace: roleNamespace,
+      name: roleName,
+      fallback: _asString(raw['RoleId']),
+    );
+    final roleDisplayName = _roleDisplayName(
+      roleMap,
+      roleKey: roleKey,
+      roleId: _asString(raw['RoleId']),
+    );
+
+    final userMap = _toNullableMap(raw['User']);
+    final userId = _asString(raw['UserId']);
+    final userEmail = userMap == null ? '' : _asString(userMap['LoginEmail']);
+    final userName = userMap == null ? '' : _asString(userMap['Username']);
+    final userDisplayName = _firstNonEmpty([userEmail, userName, userId]);
+
+    return RbacRoleMembershipEntity(
+      id: _asString(raw['Id']),
+      tenantId: _asString(raw['TenantId']).isEmpty
+          ? tenantId
+          : _asString(raw['TenantId']),
+      roleId: _asString(raw['RoleId']),
+      userId: userId,
+      roleDisplayName: roleDisplayName,
+      roleKey: roleKey,
+      roleNamespace: roleNamespace,
+      roleName: roleName,
+      userDisplayName: userDisplayName,
+      userEmail: userEmail,
+      rowVersion: _parseInt(raw['RowVersion']) ?? 0,
+      dateCreated: _parseDate(raw['CreatedAt']),
+      dateLastModified: _parseDate(raw['UpdatedAt']),
+      deleted: raw['DeletedAt'] != null,
+      seedData: _toBool(raw['SeedData']),
+    );
+  }
+
+  RbacTenantMemberEntity _mapTenantMember(
+    Map<String, dynamic> raw,
+    String tenantId,
+  ) {
+    final userMap = _toNullableMap(raw['User']);
+    final userId = _asString(raw['UserId']);
+    final email = userMap == null ? '' : _asString(userMap['LoginEmail']);
+    final username = userMap == null ? '' : _asString(userMap['Username']);
+
+    return RbacTenantMemberEntity(
+      membershipId: _asString(raw['Id']),
+      tenantId: _asString(raw['TenantId']).isEmpty
+          ? tenantId
+          : _asString(raw['TenantId']),
+      userId: userId,
+      displayName: _firstNonEmpty([email, username, userId]),
+      email: email,
+      status: _asString(raw['Status']),
+      deleted: raw['DeletedAt'] != null,
+    );
+  }
+
   String _tenantRoleBasePath(String tenantId) {
     return appConfig.api.endpoints.rbacTenantRole.replaceAll(
       '{tenant_id}',
@@ -769,6 +935,45 @@ class RbacAdminRepositoryImpl implements RbacAdminRepository {
       '{tenant_id}',
       tenantId,
     );
+  }
+
+  String _tenantRoleMembershipBasePath(String tenantId) {
+    return appConfig.api.endpoints.rbacTenantRoleMembership.replaceAll(
+      '{tenant_id}',
+      tenantId,
+    );
+  }
+
+  String _tenantMembershipBasePath(String tenantId) {
+    return appConfig.api.endpoints.tenantMembership.replaceAll(
+      '{tenant_id}',
+      tenantId,
+    );
+  }
+
+  String _roleKey({
+    required String namespace,
+    required String name,
+    required String fallback,
+  }) {
+    if (namespace.isNotEmpty && name.isNotEmpty) {
+      return '$namespace:$name';
+    }
+    if (name.isNotEmpty) {
+      return name;
+    }
+    return fallback;
+  }
+
+  String _roleDisplayName(
+    Map<String, dynamic>? roleMap, {
+    required String roleKey,
+    required String roleId,
+  }) {
+    final displayName = roleMap == null
+        ? ''
+        : _asString(roleMap['DisplayName']);
+    return _firstNonEmpty([displayName, roleKey, roleId]);
   }
 
   DateTime _parseDate(dynamic value, {DateTime? fallback}) {
@@ -823,6 +1028,17 @@ class RbacAdminRepositoryImpl implements RbacAdminRepository {
 
   String _asString(dynamic value) {
     return value?.toString() ?? '';
+  }
+
+  String _firstNonEmpty(List<String> values) {
+    for (final value in values) {
+      final normalized = value.trim();
+      if (normalized.isNotEmpty) {
+        return normalized;
+      }
+    }
+
+    return '';
   }
 
   String? _asNullableString(dynamic value) {

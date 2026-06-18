@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Changed tenant role membership creation to use searchable member and role
+  pickers with explicit selections.
+
 ### Security
 
 ## [0.9.0] - 2026-06-18

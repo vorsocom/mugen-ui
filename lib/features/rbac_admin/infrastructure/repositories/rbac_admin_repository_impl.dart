@@ -916,6 +916,7 @@ class RbacAdminRepositoryImpl implements RbacAdminRepository {
           ? tenantId
           : _asString(raw['TenantId']),
       userId: userId,
+      username: username,
       displayName: _firstNonEmpty([email, username, userId]),
       email: email,
       status: _asString(raw['Status']),

@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Synced in-memory auth session roles after successful token refreshes so route
+  visibility follows refreshed RBAC claims without requiring a reload.
+
 ### Security
 
 ## [0.8.0] - 2026-06-17

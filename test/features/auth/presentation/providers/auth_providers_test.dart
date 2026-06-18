@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
 import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
@@ -7,6 +8,7 @@ import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dar
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
+import 'package:mugen_ui/shared/infrastructure/auth/auth_session_refresh_bus.dart';
 
 void main() {
   test('AuthControllerState copyWith supports clear flags and auth getter', () {
@@ -135,6 +137,47 @@ void main() {
       container.read(authControllerProvider).errorMessage,
       'bad credentials',
     );
+  });
+
+  test('AuthController applies refreshed sessions from refresh bus', () async {
+    final repository = _FakeAuthRepository();
+    repository.currentSessionResult = const Result<AuthSession?>.success(
+      AuthSession(
+        accessToken: 'old-token',
+        refreshToken: 'old-refresh',
+        userId: 'u1',
+        roles: <String>['reader'],
+      ),
+    );
+    final refreshBus = AuthSessionRefreshBus();
+    addTearDown(refreshBus.close);
+
+    final container = ProviderContainer(
+      overrides: <Override>[
+        authRepositoryProvider.overrideWithValue(repository),
+        authSessionRefreshBusProvider.overrideWithValue(refreshBus),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    expect(container.read(authControllerProvider).session?.roles, <String>[
+      'reader',
+    ]);
+
+    await Future<void>.delayed(Duration.zero);
+    refreshBus.publish(
+      const AuthSession(
+        accessToken: 'new-token',
+        refreshToken: 'new-refresh',
+        userId: 'u1',
+        roles: <String>['reader', 'operator'],
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final refreshedState = container.read(authControllerProvider);
+    expect(refreshedState.session?.accessToken, 'new-token');
+    expect(refreshedState.session?.roles, <String>['reader', 'operator']);
   });
 }
 

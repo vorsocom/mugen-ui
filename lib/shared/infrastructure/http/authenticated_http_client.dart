@@ -1,5 +1,4 @@
-import 'dart:convert';
-
+import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 import 'package:mugen_ui/shared/infrastructure/auth/auth_cookie_codec.dart';
 import 'package:mugen_ui/shared/infrastructure/auth/cookie_store.dart';
 import 'package:mugen_ui/shared/infrastructure/http/acp_http_client.dart';
@@ -20,11 +19,13 @@ class AuthenticatedHttpClient {
     required this.httpClient,
     required this.cookieStore,
     required this.refreshPath,
+    this.onSessionRefreshed,
   });
 
   final AcpHttpClient httpClient;
   final CookieStore cookieStore;
   final String refreshPath;
+  final void Function(AuthSession session)? onSessionRefreshed;
 
   Future<AuthenticatedResponse> send(AcpRequest request) async {
     final headers = Map<String, String>.from(request.headers);
@@ -51,15 +52,15 @@ class AuthenticatedHttpClient {
       return AuthenticatedResponse(response: response, sessionExpired: false);
     }
 
-    final refreshedToken = await _refreshToken();
-    if (refreshedToken == null) {
+    final refreshedSession = await _refreshSession();
+    if (refreshedSession == null) {
       cookieStore.removeCookie('auth', '/');
       return AuthenticatedResponse(response: response, sessionExpired: true);
     }
 
     final retryHeaders = <String, String>{
       ...headers,
-      'Authorization': 'Bearer $refreshedToken',
+      'Authorization': 'Bearer ${refreshedSession.accessToken}',
     };
 
     response = await httpClient.send(request, headers: retryHeaders);
@@ -67,6 +68,8 @@ class AuthenticatedHttpClient {
     final sessionExpired = _shouldRefresh(request, response);
     if (sessionExpired) {
       cookieStore.removeCookie('auth', '/');
+    } else {
+      _notifySessionRefreshed(refreshedSession);
     }
 
     return AuthenticatedResponse(
@@ -83,7 +86,7 @@ class AuthenticatedHttpClient {
     return response.statusCode == 401;
   }
 
-  Future<String?> _refreshToken() async {
+  Future<AuthSession?> _refreshSession() async {
     final session = parseAuthSession(cookieStore.getCookie('auth'));
     if (session == null || session.refreshToken.isEmpty) {
       return null;
@@ -106,15 +109,14 @@ class AuthenticatedHttpClient {
     cookieStore.removeCookie('auth', '/');
     cookieStore.setCookie('auth', refreshResponse.body, 60 * 60 * 24 * 7, '/');
 
-    try {
-      final payload = jsonDecode(refreshResponse.body);
-      if (payload is! Map || payload['access_token'] == null) {
-        return null;
-      }
+    return parseAuthSession(cookieStore.getCookie('auth'));
+  }
 
-      return payload['access_token'].toString();
+  void _notifySessionRefreshed(AuthSession session) {
+    try {
+      onSessionRefreshed?.call(session);
     } catch (_) {
-      return null;
+      // Authentication should not fail because a UI listener failed.
     }
   }
 }

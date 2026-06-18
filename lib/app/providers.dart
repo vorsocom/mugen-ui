@@ -5,6 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/extension/app_definition.dart';
+import 'package:mugen_ui/shared/infrastructure/auth/auth_session_refresh_bus.dart';
 import 'package:mugen_ui/shared/infrastructure/auth/cookie_store.dart';
 import 'package:mugen_ui/shared/infrastructure/http/acp_http_client.dart';
 import 'package:mugen_ui/shared/infrastructure/http/authenticated_http_client.dart';
@@ -26,6 +27,13 @@ final Provider<List<SettingsPanelDefinition>> settingsPanelDefinitionsProvider =
     Provider<List<SettingsPanelDefinition>>(
       (ref) => ref.watch(appDefinitionProvider).settingsPanels,
     );
+
+final Provider<AuthSessionRefreshBus> authSessionRefreshBusProvider =
+    Provider<AuthSessionRefreshBus>((ref) {
+      final bus = AuthSessionRefreshBus();
+      ref.onDispose(bus.close);
+      return bus;
+    });
 
 @Riverpod(keepAlive: true)
 AppConfig appConfig(Ref ref) {
@@ -65,6 +73,7 @@ AuthenticatedHttpClient authenticatedHttpClient(Ref ref) {
     httpClient: ref.watch(acpHttpClientProvider),
     cookieStore: ref.watch(cookieStoreProvider),
     refreshPath: config.api.endpoints.authRefresh,
+    onSessionRefreshed: ref.watch(authSessionRefreshBusProvider).publish,
   );
 }
 

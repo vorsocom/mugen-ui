@@ -281,6 +281,7 @@ void main() {
 
       expect(tenantMembers.isSuccess, isTrue);
       expect(tenantMembers.data!.single.membershipId, 'tm-1');
+      expect(tenantMembers.data!.single.username, 'alice');
       expect(tenantMembers.data!.single.displayName, 'alice@example.com');
       expect(tenantMembers.data!.single.status, 'active');
 

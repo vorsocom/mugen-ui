@@ -3,6 +3,7 @@ class RbacTenantMemberEntity {
     required this.membershipId,
     required this.tenantId,
     required this.userId,
+    required this.username,
     required this.displayName,
     required this.email,
     required this.status,
@@ -12,6 +13,7 @@ class RbacTenantMemberEntity {
   final String membershipId;
   final String tenantId;
   final String userId;
+  final String username;
   final String displayName;
   final String email;
   final String status;

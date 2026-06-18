@@ -1380,178 +1380,127 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     }
 
     final formKey = GlobalKey<FormState>();
-    final roleSearchController = TextEditingController();
-    final userSearchController = TextEditingController();
-    String? selectedRoleId = activeRoles.first.id;
-    String? selectedUserId = activeMembers.first.userId;
+    RbacRoleEntity? selectedRole;
+    RbacTenantMemberEntity? selectedMember;
 
     await showDialog<void>(
       context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
-          final visibleRoles = _filterRoleOptions(
-            activeRoles,
-            roleSearchController.text,
-            selectedRoleId,
-          );
-          final visibleMembers = _filterMemberOptions(
-            activeMembers,
-            userSearchController.text,
-            selectedUserId,
-          );
+      builder: (_) => Dialog(
+        child: SizedBox(
+          width: _formDialogPanelWidth,
+          child: AppFormPanel(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDialogTitle('Create Role Membership'),
+                  const SizedBox(height: 12),
+                  _RbacEntitySearchField<RbacTenantMemberEntity>(
+                    searchFieldKey: const Key(
+                      'rbac-role-membership-user-search-field',
+                    ),
+                    selectedKey: const Key(
+                      'rbac-role-membership-selected-user',
+                    ),
+                    optionKeyPrefix: 'rbac-role-membership-user-option',
+                    labelText: 'User',
+                    hintText: 'Search by name or email',
+                    helpText: acpFieldHelpText(key: 'UserId', label: 'User'),
+                    suffixIcon: Icons.person_search_outlined,
+                    options: activeMembers,
+                    optionKey: (member) => member.userId,
+                    optionTitle: (member) => member.displayName,
+                    optionSubtitle: _tenantMemberSearchSubtitle,
+                    optionSearchText: _tenantMemberSearchText,
+                    selectedLabel: _tenantMemberOptionLabel,
+                    emptyMessage: 'No matching users found.',
+                    validator: (member) {
+                      if (member == null) {
+                        return 'Select a user.';
+                      }
 
-          return Dialog(
-            child: SizedBox(
-              width: _formDialogPanelWidth,
-              child: AppFormPanel(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildDialogTitle('Create Role Membership'),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        key: const Key(
-                          'rbac-role-membership-user-search-field',
-                        ),
-                        controller: userSearchController,
-                        decoration: appFormInputDecoration(
-                          labelText: 'Search Users',
-                          hintText: 'Search by name or email',
-                        ),
-                        onChanged: (_) {
-                          setDialogState(() {});
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        key: const Key('rbac-role-membership-user-dropdown'),
-                        isExpanded: true,
-                        initialValue: selectedUserId,
-                        decoration: appFormInputDecoration(
-                          labelText: 'User',
-                          helpText: acpFieldHelpText(
-                            key: 'UserId',
-                            label: 'User',
-                          ),
-                        ),
-                        items: visibleMembers
-                            .map(
-                              (member) => DropdownMenuItem<String>(
-                                value: member.userId,
-                                child: _buildDropdownLabel(
-                                  _tenantMemberOptionLabel(member),
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedUserId = value;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Field cannot be empty.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        key: const Key(
-                          'rbac-role-membership-role-search-field',
-                        ),
-                        controller: roleSearchController,
-                        decoration: appFormInputDecoration(
-                          labelText: 'Search Roles',
-                          hintText: 'Search by role name',
-                        ),
-                        onChanged: (_) {
-                          setDialogState(() {});
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        key: const Key('rbac-role-membership-role-dropdown'),
-                        isExpanded: true,
-                        initialValue: selectedRoleId,
-                        decoration: appFormInputDecoration(
-                          labelText: 'Role',
-                          helpText: acpFieldHelpText(
-                            key: 'RoleId',
-                            label: 'Role',
-                          ),
-                        ),
-                        items: visibleRoles
-                            .map(
-                              (role) => DropdownMenuItem<String>(
-                                value: role.id,
-                                child: _buildDropdownLabel(
-                                  '${role.displayName} (${role.key})',
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedRoleId = value;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null) {
-                            return 'Field cannot be empty.';
-                          }
-                          if (_hasRoleMembershipDuplicate(
-                            state,
-                            roleId: value,
-                            userId: selectedUserId,
-                          )) {
-                            return 'This user already has this role.';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                      _DialogActions(
-                        submitLabel: 'Create Role Membership',
-                        onSubmit: () async {
-                          final isValid =
-                              formKey.currentState?.validate() ?? false;
-                          if (!isValid ||
-                              selectedRoleId == null ||
-                              selectedUserId == null) {
-                            return;
-                          }
-
-                          final success = await ref
-                              .read(rbacAdminControllerProvider.notifier)
-                              .createTenantRoleMembership(
-                                RbacCreateRoleMembershipInput(
-                                  tenantId: tenantId,
-                                  roleId: selectedRoleId!,
-                                  userId: selectedUserId!,
-                                ),
-                              );
-                          _showMutationResult(
-                            successMessage: 'Role membership created.',
-                            failureMessage: 'Role membership create failed.',
-                            success: success,
-                          );
-
-                          if (success && mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                      ),
-                    ],
+                      return null;
+                    },
+                    onSelected: (member) {
+                      selectedMember = member;
+                    },
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  _RbacEntitySearchField<RbacRoleEntity>(
+                    searchFieldKey: const Key(
+                      'rbac-role-membership-role-search-field',
+                    ),
+                    selectedKey: const Key(
+                      'rbac-role-membership-selected-role',
+                    ),
+                    optionKeyPrefix: 'rbac-role-membership-role-option',
+                    labelText: 'Role',
+                    hintText: 'Search by role name or key',
+                    helpText: acpFieldHelpText(key: 'RoleId', label: 'Role'),
+                    suffixIcon: Icons.manage_search_outlined,
+                    options: activeRoles,
+                    optionKey: (role) => role.id,
+                    optionTitle: (role) => role.displayName,
+                    optionSubtitle: _tenantRoleSearchSubtitle,
+                    optionSearchText: _tenantRoleSearchText,
+                    selectedLabel: (role) =>
+                        '${role.displayName}  |  ${role.key}',
+                    emptyMessage: 'No matching roles found.',
+                    validator: (role) {
+                      if (role == null) {
+                        return 'Select a role.';
+                      }
+                      if (_hasRoleMembershipDuplicate(
+                        state,
+                        roleId: role.id,
+                        userId: selectedMember?.userId,
+                      )) {
+                        return 'This user already has this role.';
+                      }
+
+                      return null;
+                    },
+                    onSelected: (role) {
+                      selectedRole = role;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _DialogActions(
+                    submitLabel: 'Create Role Membership',
+                    onSubmit: () async {
+                      final isValid = formKey.currentState?.validate() ?? false;
+                      if (!isValid ||
+                          selectedRole == null ||
+                          selectedMember == null) {
+                        return;
+                      }
+
+                      final success = await ref
+                          .read(rbacAdminControllerProvider.notifier)
+                          .createTenantRoleMembership(
+                            RbacCreateRoleMembershipInput(
+                              tenantId: tenantId,
+                              roleId: selectedRole!.id,
+                              userId: selectedMember!.userId,
+                            ),
+                          );
+                      _showMutationResult(
+                        successMessage: 'Role membership created.',
+                        failureMessage: 'Role membership create failed.',
+                        success: success,
+                      );
+
+                      if (success && mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ],
               ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
@@ -1905,85 +1854,6 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     );
   }
 
-  List<RbacRoleEntity> _filterRoleOptions(
-    List<RbacRoleEntity> roles,
-    String searchTerm,
-    String? selectedRoleId,
-  ) {
-    final normalized = searchTerm.trim().toLowerCase();
-    final filtered = normalized.isEmpty
-        ? roles
-        : roles
-              .where(
-                (role) => _joinSearchText([
-                  role.displayName,
-                  role.key,
-                  role.namespace,
-                  role.name,
-                ]).toLowerCase().contains(normalized),
-              )
-              .toList(growable: false);
-    return _preserveSelectedRole(filtered, roles, selectedRoleId);
-  }
-
-  List<RbacTenantMemberEntity> _filterMemberOptions(
-    List<RbacTenantMemberEntity> members,
-    String searchTerm,
-    String? selectedUserId,
-  ) {
-    final normalized = searchTerm.trim().toLowerCase();
-    final filtered = normalized.isEmpty
-        ? members
-        : members
-              .where(
-                (member) => _joinSearchText([
-                  member.displayName,
-                  member.email,
-                  member.userId,
-                ]).toLowerCase().contains(normalized),
-              )
-              .toList(growable: false);
-    return _preserveSelectedMember(filtered, members, selectedUserId);
-  }
-
-  List<RbacRoleEntity> _preserveSelectedRole(
-    List<RbacRoleEntity> filtered,
-    List<RbacRoleEntity> allRoles,
-    String? selectedRoleId,
-  ) {
-    if (selectedRoleId == null ||
-        filtered.any((role) => role.id == selectedRoleId)) {
-      return filtered;
-    }
-
-    for (final role in allRoles) {
-      if (role.id == selectedRoleId) {
-        return <RbacRoleEntity>[role, ...filtered];
-      }
-    }
-
-    return filtered;
-  }
-
-  List<RbacTenantMemberEntity> _preserveSelectedMember(
-    List<RbacTenantMemberEntity> filtered,
-    List<RbacTenantMemberEntity> allMembers,
-    String? selectedUserId,
-  ) {
-    if (selectedUserId == null ||
-        filtered.any((member) => member.userId == selectedUserId)) {
-      return filtered;
-    }
-
-    for (final member in allMembers) {
-      if (member.userId == selectedUserId) {
-        return <RbacTenantMemberEntity>[member, ...filtered];
-      }
-    }
-
-    return filtered;
-  }
-
   String _tenantMemberOptionLabel(RbacTenantMemberEntity member) {
     if (member.email.isEmpty || member.email == member.displayName) {
       return member.displayName;
@@ -1992,8 +1862,265 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     return '${member.displayName} (${member.email})';
   }
 
+  String _tenantMemberSearchText(RbacTenantMemberEntity member) {
+    return _joinSearchText([
+      member.displayName,
+      member.username,
+      member.email,
+      member.userId,
+    ]);
+  }
+
+  String _tenantMemberSearchSubtitle(RbacTenantMemberEntity member) {
+    final details = <String>[
+      member.username,
+      member.email,
+      member.userId,
+    ].where((value) => value.trim().isNotEmpty).toList(growable: false);
+    if (details.isEmpty) {
+      return member.userId;
+    }
+
+    return details.join('  |  ');
+  }
+
+  String _tenantRoleSearchText(RbacRoleEntity role) {
+    return _joinSearchText([
+      role.displayName,
+      role.key,
+      role.namespace,
+      role.name,
+    ]);
+  }
+
+  String _tenantRoleSearchSubtitle(RbacRoleEntity role) {
+    return '${role.key}  |  ${role.id}';
+  }
+
   String _joinSearchText(List<String> values) {
     return values.map((value) => value.trim()).join(' ');
+  }
+}
+
+class _RbacEntitySearchField<T> extends StatefulWidget {
+  const _RbacEntitySearchField({
+    required this.searchFieldKey,
+    required this.selectedKey,
+    required this.optionKeyPrefix,
+    required this.labelText,
+    required this.hintText,
+    required this.helpText,
+    required this.suffixIcon,
+    required this.options,
+    required this.optionKey,
+    required this.optionTitle,
+    required this.optionSubtitle,
+    required this.optionSearchText,
+    required this.selectedLabel,
+    required this.emptyMessage,
+    required this.onSelected,
+    this.validator,
+  });
+
+  final Key searchFieldKey;
+  final Key selectedKey;
+  final String optionKeyPrefix;
+  final String labelText;
+  final String hintText;
+  final String? helpText;
+  final IconData suffixIcon;
+  final List<T> options;
+  final String Function(T option) optionKey;
+  final String Function(T option) optionTitle;
+  final String Function(T option) optionSubtitle;
+  final String Function(T option) optionSearchText;
+  final String Function(T option) selectedLabel;
+  final String emptyMessage;
+  final ValueChanged<T?> onSelected;
+  final FormFieldValidator<T>? validator;
+
+  @override
+  State<_RbacEntitySearchField<T>> createState() =>
+      _RbacEntitySearchFieldState<T>();
+}
+
+class _RbacEntitySearchFieldState<T> extends State<_RbacEntitySearchField<T>> {
+  final TextEditingController _searchController = TextEditingController();
+
+  T? _selected;
+  bool _hasSearched = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FormField<T>(
+      validator: widget.validator,
+      builder: (fieldState) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              key: widget.searchFieldKey,
+              controller: _searchController,
+              decoration: appFormInputDecoration(
+                labelText: widget.labelText,
+                hintText: widget.hintText,
+                suffixIcon: Icon(widget.suffixIcon),
+                helpText: widget.helpText,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _hasSearched = value.trim().isNotEmpty;
+                });
+              },
+            ),
+            if (fieldState.errorText != null) ...[
+              const SizedBox(height: 6),
+              AppErrorAlert(message: fieldState.errorText!),
+            ],
+            if (_selected != null) ...[
+              const SizedBox(height: 8),
+              _RbacSelectedEntityTile(
+                selectedKey: widget.selectedKey,
+                label: widget.selectedLabel(_selected as T),
+                onClear: () => _clearSelection(fieldState),
+              ),
+            ],
+            if (_hasSearched) ...[
+              const SizedBox(height: 8),
+              _buildResults(fieldState),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildResults(FormFieldState<T> fieldState) {
+    final results = _filteredOptions();
+    if (results.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppUiPalette.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(widget.emptyMessage),
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 220),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: AppUiPalette.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: results.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final option = results[index];
+            final isSelected = identical(_selected, option);
+            return ListTile(
+              key: Key('${widget.optionKeyPrefix}-${widget.optionKey(option)}'),
+              selected: isSelected,
+              leading: Icon(
+                isSelected
+                    ? Icons.check_circle_outline
+                    : Icons.manage_search_outlined,
+              ),
+              title: Text(widget.optionTitle(option)),
+              subtitle: Text(widget.optionSubtitle(option)),
+              onTap: () => _selectOption(option, fieldState),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  List<T> _filteredOptions() {
+    final normalized = _searchController.text.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return <T>[];
+    }
+
+    return widget.options
+        .where(
+          (option) => widget
+              .optionSearchText(option)
+              .toLowerCase()
+              .contains(normalized),
+        )
+        .toList(growable: false);
+  }
+
+  void _selectOption(T option, FormFieldState<T> fieldState) {
+    setState(() {
+      _selected = option;
+      _searchController.text = widget.optionTitle(option);
+      _hasSearched = false;
+    });
+    fieldState.didChange(option);
+    fieldState.validate();
+    widget.onSelected(option);
+  }
+
+  void _clearSelection(FormFieldState<T> fieldState) {
+    setState(() {
+      _selected = null;
+      _searchController.clear();
+      _hasSearched = false;
+    });
+    fieldState.didChange(null);
+    fieldState.validate();
+    widget.onSelected(null);
+  }
+}
+
+class _RbacSelectedEntityTile extends StatelessWidget {
+  const _RbacSelectedEntityTile({
+    required this.selectedKey,
+    required this.label,
+    required this.onClear,
+  });
+
+  final Key selectedKey;
+  final String label;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: selectedKey,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppUiPalette.surfaceStrong,
+        border: Border.all(color: AppUiPalette.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(label, overflow: TextOverflow.ellipsis)),
+          IconButton(
+            tooltip: 'Clear selection',
+            onPressed: onClear,
+            icon: const Icon(Icons.close, size: 18),
+          ),
+        ],
+      ),
+    );
   }
 }
 

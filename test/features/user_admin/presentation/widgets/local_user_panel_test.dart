@@ -24,6 +24,7 @@ import 'package:mugen_ui/shared/application/query_models.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
   testWidgets(
@@ -287,6 +288,23 @@ void main() {
     expect(find.textContaining('Sessions - alice'), findsNothing);
   });
 
+  testWidgets('sessions dialog caps height on shorter viewports', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeUserAdminRepository()..sessionCount = 24;
+
+    await _pumpPanel(tester, repository, surfaceSize: const Size(900, 520));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Sessions').first);
+    await tester.pumpAndSettle();
+
+    final panelSize = tester.getSize(find.byType(AppFormPanel).last);
+    expect(panelSize.height, lessThanOrEqualTo(520 - 48));
+    expect(panelSize.height, lessThanOrEqualTo(760));
+    expect(find.byType(ListView), findsOneWidget);
+  });
+
   testWidgets('sessions dialog shows loading error when fetch fails', (
     WidgetTester tester,
   ) async {
@@ -423,9 +441,10 @@ void main() {
 
 Future<void> _pumpPanel(
   WidgetTester tester,
-  _FakeUserAdminRepository repository,
-) async {
-  await tester.binding.setSurfaceSize(const Size(1600, 1200));
+  _FakeUserAdminRepository repository, {
+  Size surfaceSize = const Size(1600, 1200),
+}) async {
+  await tester.binding.setSurfaceSize(surfaceSize);
   addTearDown(() async {
     await tester.binding.setSurfaceSize(null);
   });
@@ -612,6 +631,7 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   bool fetchSessionsShouldSucceed = true;
   bool emptySessions = false;
   bool revokeSessionShouldSucceed = true;
+  int sessionCount = 2;
   Duration? fetchUsersDelay;
 
   final List<UserListQuery> fetchUsersQueries = <UserListQuery>[];
@@ -674,24 +694,20 @@ class _FakeUserAdminRepository implements UserAdminRepository {
         <UserSessionEntity>[],
       );
     }
-    return Result<List<UserSessionEntity>>.success(<UserSessionEntity>[
-      UserSessionEntity(
-        id: 'session-$userId-1',
-        userId: userId,
-        tokenJti: 'token-$userId-1',
-        expiresAt: DateTime.utc(2030, 1, 2),
-        dateCreated: DateTime.utc(2030, 1, 1),
-        dateLastModified: DateTime.utc(2030, 1, 1),
-      ),
-      UserSessionEntity(
-        id: 'session-$userId-2',
-        userId: userId,
-        tokenJti: 'token-$userId-2',
-        expiresAt: DateTime.utc(2030, 1, 3),
-        dateCreated: DateTime.utc(2030, 1, 2),
-        dateLastModified: DateTime.utc(2030, 1, 2),
-      ),
-    ]);
+    return Result<List<UserSessionEntity>>.success(
+      List<UserSessionEntity>.generate(sessionCount, (index) {
+        final sessionNumber = index + 1;
+        final createdAt = DateTime.utc(2030, 1, 1).add(Duration(days: index));
+        return UserSessionEntity(
+          id: 'session-$userId-$sessionNumber',
+          userId: userId,
+          tokenJti: 'token-$userId-$sessionNumber',
+          expiresAt: createdAt.add(const Duration(days: 1)),
+          dateCreated: createdAt,
+          dateLastModified: createdAt,
+        );
+      }),
+    );
   }
 
   @override

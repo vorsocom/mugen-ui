@@ -26,6 +26,7 @@ void main() {
             authDeleteUser: 'custom/users/{user_id}/delete',
             tenantMembershipActionSuspend:
                 'custom/tenants/{tenant_id}/memberships/{membership_id}/suspend',
+            rbacGlobalRoleMembership: 'custom/global-role-memberships',
             rbacTenantRoleMembership:
                 'custom/tenants/{tenant_id}/role-memberships',
             auditEvent: 'custom/audit-events',
@@ -114,6 +115,10 @@ void main() {
       'core/acp/v1/tenants/{tenant_id}/PermissionEntries',
     );
     expect(
+      defaults.api.endpoints.rbacGlobalRoleMembership,
+      'core/acp/v1/GlobalRoleMemberships',
+    );
+    expect(
       defaults.api.endpoints.rbacTenantRoleMembership,
       'core/acp/v1/tenants/{tenant_id}/RoleMemberships',
     );
@@ -127,6 +132,10 @@ void main() {
       'custom/tenants/{tenant_id}/memberships/{membership_id}/suspend',
     );
     expect(merged.api.endpoints.auditEvent, 'custom/audit-events');
+    expect(
+      merged.api.endpoints.rbacGlobalRoleMembership,
+      'custom/global-role-memberships',
+    );
     expect(
       merged.api.endpoints.rbacTenantRoleMembership,
       'custom/tenants/{tenant_id}/role-memberships',
@@ -150,6 +159,10 @@ void main() {
     expect(
       mergedWithoutSuspendOverride.api.endpoints.rbacTenantRoleMembership,
       defaults.api.endpoints.rbacTenantRoleMembership,
+    );
+    expect(
+      mergedWithoutSuspendOverride.api.endpoints.rbacGlobalRoleMembership,
+      defaults.api.endpoints.rbacGlobalRoleMembership,
     );
     expect(runtimeOverride.appName, isNull);
     expect(apiOverride.baseUrl, isNull);

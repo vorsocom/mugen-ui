@@ -55,6 +55,24 @@ void main() {
             body: jsonEncode(<String, dynamic>{
               'value': <Map<String, dynamic>>[
                 <String, dynamic>{
+                  'Id': 'user-1',
+                  'Username': 'alice',
+                  'LoginEmail': 'alice@example.com',
+                  'DeletedAt': null,
+                  'SeedData': false,
+                  'Person': <String, dynamic>{
+                    'FirstName': 'Alice',
+                    'LastName': 'Admin',
+                  },
+                },
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'value': <Map<String, dynamic>>[
+                <String, dynamic>{
                   'Id': 'tr-1',
                   'Namespace': 'acp',
                   'Name': 'viewer',
@@ -142,6 +160,32 @@ void main() {
             body: jsonEncode(<String, dynamic>{
               'value': <Map<String, dynamic>>[
                 <String, dynamic>{
+                  'Id': 'grm-1',
+                  'GlobalRoleId': 'gr-1',
+                  'UserId': 'user-1',
+                  'RowVersion': 8,
+                  'CreatedAt': '2026-01-01T00:00:00Z',
+                  'UpdatedAt': '2026-01-02T00:00:00Z',
+                  'DeletedAt': null,
+                  'SeedData': false,
+                  'GlobalRole': <String, dynamic>{
+                    'Namespace': 'acp',
+                    'Name': 'administrator',
+                    'DisplayName': '',
+                  },
+                  'User': <String, dynamic>{
+                    'Username': 'alice',
+                    'LoginEmail': 'alice@example.com',
+                  },
+                },
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, dynamic>{
+              'value': <Map<String, dynamic>>[
+                <String, dynamic>{
                   'Id': 'tpe-1',
                   'RoleId': 'tr-1',
                   'PermissionObjectId': 'po-1',
@@ -219,6 +263,7 @@ void main() {
 
       final tenants = await fixture.repository.fetchTenants(top: 150);
       final globalRoles = await fixture.repository.fetchGlobalRoles(top: 77);
+      final globalUsers = await fixture.repository.fetchGlobalUsers(top: 76);
       final tenantRoles = await fixture.repository.fetchTenantRoles(
         tenantId: 'tenant-1',
         top: 66,
@@ -231,6 +276,8 @@ void main() {
       );
       final globalEntries = await fixture.repository
           .fetchGlobalPermissionEntries(top: 33);
+      final globalRoleMemberships = await fixture.repository
+          .fetchGlobalRoleMemberships(top: 32);
       final tenantEntries = await fixture.repository
           .fetchTenantPermissionEntries(tenantId: 'tenant-1', top: 22);
       final roleMemberships = await fixture.repository
@@ -245,6 +292,10 @@ void main() {
 
       expect(globalRoles.isSuccess, isTrue);
       expect(globalRoles.data!.single.displayName, 'Administrator');
+
+      expect(globalUsers.isSuccess, isTrue);
+      expect(globalUsers.data!.single.displayName, 'Alice Admin');
+      expect(globalUsers.data!.single.email, 'alice@example.com');
 
       expect(tenantRoles.isSuccess, isTrue);
       expect(tenantRoles.data!.single.displayName, 'acp:viewer');
@@ -267,6 +318,14 @@ void main() {
         'acp:manage',
       );
 
+      expect(globalRoleMemberships.isSuccess, isTrue);
+      expect(
+        globalRoleMemberships.data!.single.roleDisplayName,
+        'acp:administrator',
+      );
+      expect(globalRoleMemberships.data!.single.tenantId, isNull);
+      expect(globalRoleMemberships.data!.single.rowVersion, 8);
+
       expect(tenantEntries.isSuccess, isTrue);
       expect(tenantEntries.data!.single.roleDisplayName, 'Viewer');
       expect(tenantEntries.data!.single.tenantId, 'tenant-1');
@@ -285,7 +344,7 @@ void main() {
       expect(tenantMembers.data!.single.displayName, 'alice@example.com');
       expect(tenantMembers.data!.single.status, 'active');
 
-      expect(fixture.client.requests, hasLength(9));
+      expect(fixture.client.requests, hasLength(11));
       expect(fixture.client.requests[0].path, 'core/acp/v1/Tenants');
       expect(fixture.client.requests[0].queryParameters[r'$top'], 150);
       expect(
@@ -299,59 +358,73 @@ void main() {
         'DisplayName asc',
       );
 
+      expect(fixture.client.requests[2].path, 'core/acp/v1/Users');
+      expect(fixture.client.requests[2].queryParameters[r'$top'], 76);
+      expect(fixture.client.requests[2].queryParameters[r'$expand'], 'Person');
+
       expect(
-        fixture.client.requests[2].path,
+        fixture.client.requests[3].path,
         'core/acp/v1/tenants/tenant-1/Roles',
       );
-      expect(fixture.client.requests[2].queryParameters[r'$top'], 66);
+      expect(fixture.client.requests[3].queryParameters[r'$top'], 66);
 
-      expect(fixture.client.requests[3].path, 'core/acp/v1/PermissionObjects');
+      expect(fixture.client.requests[4].path, 'core/acp/v1/PermissionObjects');
       expect(
-        fixture.client.requests[3].queryParameters[r'$orderby'],
+        fixture.client.requests[4].queryParameters[r'$orderby'],
         'Namespace asc,Name asc',
       );
 
-      expect(fixture.client.requests[4].path, 'core/acp/v1/PermissionTypes');
-      expect(fixture.client.requests[4].queryParameters[r'$top'], 44);
+      expect(fixture.client.requests[5].path, 'core/acp/v1/PermissionTypes');
+      expect(fixture.client.requests[5].queryParameters[r'$top'], 44);
 
       expect(
-        fixture.client.requests[5].path,
+        fixture.client.requests[6].path,
         'core/acp/v1/GlobalPermissionEntries',
       );
       expect(
-        fixture.client.requests[5].queryParameters[r'$expand'],
+        fixture.client.requests[6].queryParameters[r'$expand'],
         'GlobalRole,PermissionObject,PermissionType',
       );
 
       expect(
-        fixture.client.requests[6].path,
-        'core/acp/v1/tenants/tenant-1/PermissionEntries',
-      );
-      expect(
-        fixture.client.requests[6].queryParameters[r'$expand'],
-        'Role,PermissionObject,PermissionType',
-      );
-
-      expect(
         fixture.client.requests[7].path,
-        'core/acp/v1/tenants/tenant-1/RoleMemberships',
+        'core/acp/v1/GlobalRoleMemberships',
       );
-      expect(fixture.client.requests[7].queryParameters[r'$top'], 11);
-      expect(
-        fixture.client.requests[7].queryParameters[r'$orderby'],
-        'CreatedAt desc',
-      );
+      expect(fixture.client.requests[7].queryParameters[r'$top'], 32);
       expect(
         fixture.client.requests[7].queryParameters[r'$expand'],
-        'Role,User',
+        'GlobalRole,User',
       );
 
       expect(
         fixture.client.requests[8].path,
+        'core/acp/v1/tenants/tenant-1/PermissionEntries',
+      );
+      expect(
+        fixture.client.requests[8].queryParameters[r'$expand'],
+        'Role,PermissionObject,PermissionType',
+      );
+
+      expect(
+        fixture.client.requests[9].path,
+        'core/acp/v1/tenants/tenant-1/RoleMemberships',
+      );
+      expect(fixture.client.requests[9].queryParameters[r'$top'], 11);
+      expect(
+        fixture.client.requests[9].queryParameters[r'$orderby'],
+        'CreatedAt desc',
+      );
+      expect(
+        fixture.client.requests[9].queryParameters[r'$expand'],
+        'Role,User',
+      );
+
+      expect(
+        fixture.client.requests[10].path,
         'core/acp/v1/tenants/tenant-1/TenantMemberships',
       );
-      expect(fixture.client.requests[8].queryParameters[r'$top'], 10);
-      expect(fixture.client.requests[8].queryParameters[r'$expand'], 'User');
+      expect(fixture.client.requests[10].queryParameters[r'$top'], 10);
+      expect(fixture.client.requests[10].queryParameters[r'$expand'], 'User');
     });
   });
 
@@ -363,6 +436,12 @@ void main() {
             statusCode: 429,
             body: jsonEncode(<String, dynamic>{
               'detail': 'Tenant query throttled',
+            }),
+          ),
+          (_) => _response(
+            statusCode: 400,
+            body: jsonEncode(<String, dynamic>{
+              'error': 'Global user lookup failed',
             }),
           ),
           (_) => _response(
@@ -381,6 +460,12 @@ void main() {
             statusCode: 500,
             body: jsonEncode(<String, dynamic>{
               'message': 'Global permission entry read failed',
+            }),
+          ),
+          (_) => _response(
+            statusCode: 503,
+            body: jsonEncode(<String, dynamic>{
+              'message': 'Global role membership read conflict',
             }),
           ),
           (_) => _response(
@@ -405,12 +490,15 @@ void main() {
       );
 
       final tenants = await fixture.repository.fetchTenants();
+      final globalUsers = await fixture.repository.fetchGlobalUsers();
       final tenantRoles = await fixture.repository.fetchTenantRoles(
         tenantId: 'tenant-1',
       );
       final permissionTypes = await fixture.repository.fetchPermissionTypes();
       final globalEntries = await fixture.repository
           .fetchGlobalPermissionEntries();
+      final globalRoleMemberships = await fixture.repository
+          .fetchGlobalRoleMemberships();
       final tenantEntries = await fixture.repository
           .fetchTenantPermissionEntries(tenantId: 'tenant-1');
       final roleMemberships = await fixture.repository
@@ -423,6 +511,10 @@ void main() {
       expect(tenants.failure, isA<ApiFailure>());
       expect((tenants.failure as ApiFailure).statusCode, 429);
       expect(tenants.failure!.message, 'Tenant query throttled');
+
+      expect(globalUsers.isFailure, isTrue);
+      expect(globalUsers.failure, isA<ApiFailure>());
+      expect(globalUsers.failure!.message, 'Global user lookup failed');
 
       expect(tenantRoles.isFailure, isTrue);
       expect(tenantRoles.failure, isA<ApiFailure>());
@@ -437,6 +529,13 @@ void main() {
       expect(
         globalEntries.failure!.message,
         'Global permission entry read failed',
+      );
+
+      expect(globalRoleMemberships.isFailure, isTrue);
+      expect(globalRoleMemberships.failure, isA<ApiFailure>());
+      expect(
+        globalRoleMemberships.failure!.message,
+        'Global role membership read conflict',
       );
 
       expect(tenantEntries.isFailure, isTrue);
@@ -629,7 +728,7 @@ void main() {
     test('sends expected CRUD and action requests', () async {
       final fixture = _RbacAdminFixture(
         handlers: List<_AuthHandler>.filled(
-          20,
+          22,
           (_) => _response(statusCode: 204),
         ),
       );
@@ -733,6 +832,18 @@ void main() {
           rowVersion: 10,
         ),
       );
+      await fixture.repository.createGlobalRoleMembership(
+        const RbacCreateGlobalRoleMembershipInput(
+          roleId: 'gr-1',
+          userId: 'user-1',
+        ),
+      );
+      await fixture.repository.deleteGlobalRoleMembership(
+        const RbacDeleteGlobalRoleMembershipInput(
+          membershipId: 'grm-1',
+          rowVersion: 11,
+        ),
+      );
 
       await fixture.repository.createTenantPermissionEntry(
         const RbacCreateTenantPermissionEntryInput(
@@ -747,7 +858,7 @@ void main() {
         const RbacUpdateTenantPermissionEntryInput(
           tenantId: 'tenant-1',
           entryId: 'tpe-1',
-          rowVersion: 11,
+          rowVersion: 12,
           permitted: false,
         ),
       );
@@ -755,7 +866,7 @@ void main() {
         const RbacDeleteTenantPermissionEntryInput(
           tenantId: 'tenant-1',
           entryId: 'tpe-1',
-          rowVersion: 12,
+          rowVersion: 13,
         ),
       );
       await fixture.repository.createTenantRoleMembership(
@@ -769,11 +880,11 @@ void main() {
         const RbacDeleteRoleMembershipInput(
           tenantId: 'tenant-1',
           membershipId: 'rm-1',
-          rowVersion: 13,
+          rowVersion: 14,
         ),
       );
 
-      expect(fixture.client.requests, hasLength(20));
+      expect(fixture.client.requests, hasLength(22));
       expect(fixture.client.requests[0].path, 'core/acp/v1/GlobalRoles');
       expect(fixture.client.requests[0].body, <String, dynamic>{
         'Namespace': 'acp',
@@ -836,33 +947,50 @@ void main() {
 
       expect(
         fixture.client.requests[15].path,
-        'core/acp/v1/tenants/tenant-1/PermissionEntries',
+        'core/acp/v1/GlobalRoleMemberships',
       );
+      expect(fixture.client.requests[15].body, <String, dynamic>{
+        'GlobalRoleId': 'gr-1',
+        'UserId': 'user-1',
+      });
+      expect(fixture.client.requests[16].method, HttpMethod.delete);
       expect(
         fixture.client.requests[16].path,
-        'core/acp/v1/tenants/tenant-1/PermissionEntries/tpe-1',
+        'core/acp/v1/GlobalRoleMemberships/grm-1',
       );
-      expect(fixture.client.requests[17].method, HttpMethod.delete);
-      expect(fixture.client.requests[17].body, <String, dynamic>{
-        'RowVersion': 12,
+      expect(fixture.client.requests[16].body, <String, dynamic>{
+        'RowVersion': 11,
       });
 
       expect(
+        fixture.client.requests[17].path,
+        'core/acp/v1/tenants/tenant-1/PermissionEntries',
+      );
+      expect(
         fixture.client.requests[18].path,
+        'core/acp/v1/tenants/tenant-1/PermissionEntries/tpe-1',
+      );
+      expect(fixture.client.requests[19].method, HttpMethod.delete);
+      expect(fixture.client.requests[19].body, <String, dynamic>{
+        'RowVersion': 13,
+      });
+
+      expect(
+        fixture.client.requests[20].path,
         'core/acp/v1/tenants/tenant-1/RoleMemberships',
       );
-      expect(fixture.client.requests[18].body, <String, dynamic>{
+      expect(fixture.client.requests[20].body, <String, dynamic>{
         'TenantId': 'tenant-1',
         'RoleId': 'tr-1',
         'UserId': 'user-1',
       });
-      expect(fixture.client.requests[19].method, HttpMethod.delete);
+      expect(fixture.client.requests[21].method, HttpMethod.delete);
       expect(
-        fixture.client.requests[19].path,
+        fixture.client.requests[21].path,
         'core/acp/v1/tenants/tenant-1/RoleMemberships/rm-1',
       );
-      expect(fixture.client.requests[19].body, <String, dynamic>{
-        'RowVersion': 13,
+      expect(fixture.client.requests[21].body, <String, dynamic>{
+        'RowVersion': 14,
       });
     });
   });

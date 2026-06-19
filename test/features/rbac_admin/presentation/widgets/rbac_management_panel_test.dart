@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/rbac_admin/application/dto/rbac_admin_inputs.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_assignable_user_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_entry_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_object_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
@@ -27,7 +28,7 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
-    expect(find.text('New Global Role'), findsOneWidget);
+    expect(find.text('New Permission Object'), findsOneWidget);
     expect(
       _tabTooltipMessage(
         tester,
@@ -59,6 +60,13 @@ void main() {
     expect(
       _tabTooltipMessage(
         tester,
+        const Key('rbac-management-tab-global-role-memberships-info'),
+      ),
+      'Users assigned to global roles outside tenant scope.',
+    );
+    expect(
+      _tabTooltipMessage(
+        tester,
         const Key('rbac-management-tab-tenant-roles-info'),
       ),
       'Roles available only within the selected tenant.',
@@ -79,16 +87,14 @@ void main() {
     );
 
     await tester.tap(
-      find.byKey(const Key('rbac-management-tab-permission-objects')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('New Permission Object'), findsOneWidget);
-
-    await tester.tap(
       find.byKey(const Key('rbac-management-tab-permission-types')),
     );
     await tester.pumpAndSettle();
     expect(find.text('New Permission Type'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('rbac-management-tab-global-roles')));
+    await tester.pumpAndSettle();
+    expect(find.text('New Global Role'), findsOneWidget);
 
     await tester.tap(
       find.byKey(const Key('rbac-management-tab-global-grants')),
@@ -96,21 +102,27 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('New Global Grant'), findsOneWidget);
 
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-global-role-memberships')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('New Global Role Membership'), findsOneWidget);
+
     await tester.tap(find.byKey(const Key('rbac-management-tab-tenant-roles')));
     await tester.pumpAndSettle();
     expect(find.text('New Tenant Role'), findsOneWidget);
-
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-role-memberships')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('New Role Membership'), findsOneWidget);
 
     await tester.tap(
       find.byKey(const Key('rbac-management-tab-tenant-grants')),
     );
     await tester.pumpAndSettle();
     expect(find.text('New Tenant Grant'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-role-memberships')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('New Tenant Role Membership'), findsOneWidget);
   });
 
   testWidgets('RbacManagementPanel filters active table rows', (
@@ -120,6 +132,8 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const Key('rbac-management-tab-global-roles')));
+    await tester.pumpAndSettle();
     expect(find.text('Administrator'), findsOneWidget);
     expect(find.text('Auditor'), findsOneWidget);
 
@@ -183,6 +197,8 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const Key('rbac-management-tab-global-roles')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('rbac-global-role-create-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Create Global Role'));
@@ -493,7 +509,107 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('RbacManagementPanel manages role memberships', (
+  testWidgets('RbacManagementPanel manages global role memberships', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeRbacAdminRepository();
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-global-role-memberships')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Global Role Membership'), findsOneWidget);
+    expect(find.text('alice@example.com'), findsOneWidget);
+    expect(find.text('Administrator  |  acp:administrator'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('rbac-global-role-membership-create-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Create Global Role Membership'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Select a user.'), findsOneWidget);
+    expect(find.text('Select a global role.'), findsOneWidget);
+    expect(repository.createGlobalRoleMembershipInputs, isEmpty);
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-global-role-membership-user-search-field')),
+      'alice-login',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('rbac-global-role-membership-user-option-user-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('rbac-global-role-membership-selected-user')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-global-role-membership-role-search-field')),
+      'admin',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('rbac-global-role-membership-role-option-gr-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('rbac-global-role-membership-selected-role')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Create Global Role Membership'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('This user already has this role.'), findsOneWidget);
+    expect(repository.createGlobalRoleMembershipInputs, isEmpty);
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-global-role-membership-user-search-field')),
+      'bob',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('rbac-global-role-membership-user-option-user-2')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Create Global Role Membership'),
+    );
+    await tester.pumpAndSettle();
+    expect(repository.createGlobalRoleMembershipInputs, hasLength(1));
+    expect(repository.createGlobalRoleMembershipInputs.single.roleId, 'gr-1');
+    expect(repository.createGlobalRoleMembershipInputs.single.userId, 'user-2');
+    expect(find.byType(Dialog), findsNothing);
+
+    await tester.tap(find.byTooltip('Delete global role membership').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(repository.deleteGlobalRoleMembershipInputs, isEmpty);
+
+    await tester.tap(find.byTooltip('Delete global role membership').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(repository.deleteGlobalRoleMembershipInputs, hasLength(1));
+    expect(
+      repository.deleteGlobalRoleMembershipInputs.single.membershipId,
+      'grm-1',
+    );
+    expect(repository.deleteGlobalRoleMembershipInputs.single.rowVersion, 8);
+  });
+
+  testWidgets('RbacManagementPanel manages tenant role memberships', (
     WidgetTester tester,
   ) async {
     final repository = _FakeRbacAdminRepository();
@@ -505,7 +621,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('New Role Membership'), findsOneWidget);
+    expect(find.text('New Tenant Role Membership'), findsOneWidget);
     expect(
       find.text(
         'Users may need to sign out and back in for route and session claims to refresh.',
@@ -520,7 +636,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.tap(
-      find.widgetWithText(FilledButton, 'Create Role Membership'),
+      find.widgetWithText(FilledButton, 'Create Tenant Role Membership'),
     );
     await tester.pumpAndSettle();
     expect(find.text('Select a user.'), findsOneWidget);
@@ -564,7 +680,7 @@ void main() {
     );
 
     await tester.tap(
-      find.widgetWithText(FilledButton, 'Create Role Membership'),
+      find.widgetWithText(FilledButton, 'Create Tenant Role Membership'),
     );
     await tester.pumpAndSettle();
     expect(find.text('This user already has this role.'), findsOneWidget);
@@ -589,7 +705,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(
-      find.widgetWithText(FilledButton, 'Create Role Membership'),
+      find.widgetWithText(FilledButton, 'Create Tenant Role Membership'),
     );
     await tester.pumpAndSettle();
     expect(repository.createTenantRoleMembershipInputs, hasLength(1));
@@ -601,13 +717,13 @@ void main() {
     expect(repository.createTenantRoleMembershipInputs.single.userId, 'user-2');
     expect(find.byType(Dialog), findsNothing);
 
-    await tester.tap(find.byTooltip('Delete role membership').first);
+    await tester.tap(find.byTooltip('Delete tenant role membership').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Cancel'));
     await tester.pumpAndSettle();
     expect(repository.deleteTenantRoleMembershipInputs, isEmpty);
 
-    await tester.tap(find.byTooltip('Delete role membership').first);
+    await tester.tap(find.byTooltip('Delete tenant role membership').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
@@ -638,7 +754,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(
-      find.text('Select a tenant to manage role memberships.'),
+      find.text('Select a tenant to manage tenant role memberships.'),
       findsOneWidget,
     );
 
@@ -821,6 +937,51 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
           seedData: false,
         ),
       ],
+      _globalRoleMemberships = <RbacRoleMembershipEntity>[
+        RbacRoleMembershipEntity(
+          id: 'grm-1',
+          tenantId: null,
+          roleId: 'gr-1',
+          userId: 'user-1',
+          roleDisplayName: 'Administrator',
+          roleKey: 'acp:administrator',
+          roleNamespace: 'acp',
+          roleName: 'administrator',
+          userDisplayName: 'alice@example.com',
+          userEmail: 'alice@example.com',
+          rowVersion: 8,
+          dateCreated: DateTime.utc(2024, 1, 1),
+          dateLastModified: DateTime.utc(2024, 1, 1),
+          deleted: false,
+          seedData: false,
+        ),
+      ],
+      _globalUsers = const <RbacAssignableUserEntity>[
+        RbacAssignableUserEntity(
+          id: 'user-1',
+          username: 'alice-login',
+          displayName: 'alice@example.com',
+          email: 'alice@example.com',
+          deleted: false,
+          seedData: false,
+        ),
+        RbacAssignableUserEntity(
+          id: 'user-2',
+          username: 'bob-login',
+          displayName: 'bob@example.com',
+          email: 'bob@example.com',
+          deleted: false,
+          seedData: false,
+        ),
+        RbacAssignableUserEntity(
+          id: 'user-3',
+          username: 'carol-login',
+          displayName: 'carol@example.com',
+          email: 'carol@example.com',
+          deleted: true,
+          seedData: false,
+        ),
+      ],
       _tenantEntries = <RbacPermissionEntryEntity>[
         RbacPermissionEntryEntity(
           id: 'tpe-1',
@@ -897,6 +1058,8 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   final List<RbacPermissionObjectEntity> _permissionObjects;
   final List<RbacPermissionTypeEntity> _permissionTypes;
   final List<RbacPermissionEntryEntity> _globalEntries;
+  final List<RbacRoleMembershipEntity> _globalRoleMemberships;
+  final List<RbacAssignableUserEntity> _globalUsers;
   final List<RbacPermissionEntryEntity> _tenantEntries;
   final List<RbacRoleMembershipEntity> _tenantRoleMemberships;
   final List<RbacTenantMemberEntity> _tenantMembers;
@@ -1021,6 +1184,10 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   updateTenantPermissionEntryInputs = <RbacUpdateTenantPermissionEntryInput>[];
   final List<RbacDeleteTenantPermissionEntryInput>
   deleteTenantPermissionEntryInputs = <RbacDeleteTenantPermissionEntryInput>[];
+  final List<RbacCreateGlobalRoleMembershipInput>
+  createGlobalRoleMembershipInputs = <RbacCreateGlobalRoleMembershipInput>[];
+  final List<RbacDeleteGlobalRoleMembershipInput>
+  deleteGlobalRoleMembershipInputs = <RbacDeleteGlobalRoleMembershipInput>[];
   final List<RbacCreateRoleMembershipInput> createTenantRoleMembershipInputs =
       <RbacCreateRoleMembershipInput>[];
   final List<RbacDeleteRoleMembershipInput> deleteTenantRoleMembershipInputs =
@@ -1037,6 +1204,14 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   @override
   Future<Result<void>> createGlobalRole(RbacCreateGlobalRoleInput input) async {
     createGlobalRoleInputs.add(input);
+    return _mutationResult();
+  }
+
+  @override
+  Future<Result<void>> createGlobalRoleMembership(
+    RbacCreateGlobalRoleMembershipInput input,
+  ) async {
+    createGlobalRoleMembershipInputs.add(input);
     return _mutationResult();
   }
 
@@ -1080,6 +1255,14 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
     RbacDeleteGlobalPermissionEntryInput input,
   ) async {
     deleteGlobalPermissionEntryInputs.add(input);
+    return _mutationResult();
+  }
+
+  @override
+  Future<Result<void>> deleteGlobalRoleMembership(
+    RbacDeleteGlobalRoleMembershipInput input,
+  ) async {
+    deleteGlobalRoleMembershipInputs.add(input);
     return _mutationResult();
   }
 
@@ -1133,6 +1316,22 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   @override
   Future<Result<List<RbacRoleEntity>>> fetchGlobalRoles({int top = 200}) async {
     return Result<List<RbacRoleEntity>>.success(_globalRoles);
+  }
+
+  @override
+  Future<Result<List<RbacRoleMembershipEntity>>> fetchGlobalRoleMemberships({
+    int top = 200,
+  }) async {
+    return Result<List<RbacRoleMembershipEntity>>.success(
+      _globalRoleMemberships,
+    );
+  }
+
+  @override
+  Future<Result<List<RbacAssignableUserEntity>>> fetchGlobalUsers({
+    int top = 200,
+  }) async {
+    return Result<List<RbacAssignableUserEntity>>.success(_globalUsers);
   }
 
   @override

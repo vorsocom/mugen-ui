@@ -18,7 +18,7 @@ class RbacRoleMembershipEntity {
   });
 
   final String id;
-  final String tenantId;
+  final String? tenantId;
   final String roleId;
   final String userId;
   final String roleDisplayName;

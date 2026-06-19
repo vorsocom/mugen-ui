@@ -162,65 +162,50 @@ void main() {
     expect(repository.registerInputs, hasLength(2));
   });
 
-  testWidgets(
-    'edit details, reset password, and edit roles submit expected inputs',
-    (WidgetTester tester) async {
-      final repository = _FakeUserAdminRepository();
+  testWidgets('edit details and reset password submit expected inputs', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeUserAdminRepository();
 
-      await _pumpPanel(tester, repository);
-      await tester.pumpAndSettle();
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Edit Roles'), findsNothing);
 
-      await tester.tap(find.byTooltip('Edit Details').first);
-      await tester.pumpAndSettle();
-      expect(find.text('Edit User Details'), findsOneWidget);
-      await _fillEditUserForm(
-        tester,
-        firstName: 'AliceUpdated',
-        lastName: 'ExampleUpdated',
-        email: 'alice.updated@example.com',
-      );
-      await tester.tap(find.text('Save Changes'));
-      await tester.pumpAndSettle();
-      expect(repository.updateInputs, hasLength(1));
-      expect(repository.updateInputs.single.firstName, 'AliceUpdated');
+    await tester.tap(find.byTooltip('Edit Details').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Edit User Details'), findsOneWidget);
+    await _fillEditUserForm(
+      tester,
+      firstName: 'AliceUpdated',
+      lastName: 'ExampleUpdated',
+      email: 'alice.updated@example.com',
+    );
+    await tester.tap(find.text('Save Changes'));
+    await tester.pumpAndSettle();
+    expect(repository.updateInputs, hasLength(1));
+    expect(repository.updateInputs.single.firstName, 'AliceUpdated');
 
-      await tester.tap(find.byTooltip('Reset Password').first);
-      await tester.pumpAndSettle();
-      await _fillResetPasswordForm(
-        tester,
-        newPassword: 'password-1',
-        confirmPassword: 'password-2',
-      );
-      await tester.tap(find.text('Reset Password'));
-      await tester.pumpAndSettle();
-      expect(find.text('Passwords must match.'), findsOneWidget);
+    await tester.tap(find.byTooltip('Reset Password').first);
+    await tester.pumpAndSettle();
+    await _fillResetPasswordForm(
+      tester,
+      newPassword: 'password-1',
+      confirmPassword: 'password-2',
+    );
+    await tester.tap(find.text('Reset Password'));
+    await tester.pumpAndSettle();
+    expect(find.text('Passwords must match.'), findsOneWidget);
 
-      await _fillResetPasswordForm(
-        tester,
-        newPassword: 'password-1',
-        confirmPassword: 'password-1',
-      );
-      await tester.tap(find.text('Reset Password'));
-      await tester.pumpAndSettle();
-      expect(repository.resetPasswordInputs, hasLength(1));
-      expect(repository.resetPasswordInputs.single.userId, 'u-1');
-
-      await tester.tap(find.byTooltip('Edit Roles').first);
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Edit User Roles - alice'), findsOneWidget);
-      final roleTable = tester.widget<DataTable>(find.byType(DataTable).last);
-      expect(roleTable.columns[0].columnWidth, isA<FlexColumnWidth>());
-      expect(roleTable.columns[1].columnWidth, isA<FixedColumnWidth>());
-      final checkboxes = find.byType(Checkbox);
-      expect(checkboxes, findsWidgets);
-      await tester.tap(checkboxes.first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Save Roles'));
-      await tester.pumpAndSettle();
-      expect(repository.editRolesInputs, hasLength(1));
-      expect(repository.editRolesInputs.single.userId, 'u-1');
-    },
-  );
+    await _fillResetPasswordForm(
+      tester,
+      newPassword: 'password-1',
+      confirmPassword: 'password-1',
+    );
+    await tester.tap(find.text('Reset Password'));
+    await tester.pumpAndSettle();
+    expect(repository.resetPasswordInputs, hasLength(1));
+    expect(repository.resetPasswordInputs.single.userId, 'u-1');
+  });
 
   testWidgets('enable/disable account actions honor confirmation flow', (
     WidgetTester tester,
@@ -404,22 +389,6 @@ void main() {
       await tester.tap(find.text('Reset Password'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Reset User Password -'), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byTooltip('Edit Roles').at(1));
-      await tester.pumpAndSettle();
-      final checkboxes = find.byType(Checkbox);
-      await tester.tap(checkboxes.first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Save Roles'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Edit User Roles -'), findsOneWidget);
-      expect(repository.editRolesInputs, hasLength(1));
-      expect(
-        repository.editRolesInputs.single.roles,
-        contains('com.vorsocomputing.mugen.acp:administrator'),
-      );
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 

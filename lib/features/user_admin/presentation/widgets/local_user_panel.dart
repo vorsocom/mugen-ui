@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mugen_ui/app/providers.dart';
-import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_reset_password_admin_input.dart';
@@ -17,7 +16,6 @@ import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const double _localUserActionsColumnWidth = 244;
-const double _localUserRoleStatusColumnWidth = 96;
 
 class LocalUserPanel extends ConsumerStatefulWidget {
   const LocalUserPanel({super.key}); // coverage:ignore-line
@@ -64,22 +62,6 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
     await showDialog<void>(
       context: context,
       builder: (_) => Dialog(child: _ResetPasswordAdminForm(user: user)),
-    );
-  }
-
-  Future<void> _showEditRolesDialog(UserEntity user) async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) => Dialog(
-        insetPadding: const EdgeInsets.all(24),
-        backgroundColor: AppUiPalette.surfaceMuted,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppUiPalette.border),
-        ),
-        child: _EditRolesForm(user: user),
-      ),
     );
   }
 
@@ -337,13 +319,6 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
                                         onPressed: () =>
                                             _showEditUserDialog(user),
                                         tooltip: 'Edit Details',
-                                      ),
-                                      const SizedBox(width: 4),
-                                      _LocalUserActionIcon(
-                                        icon: Icons.work_outline_outlined,
-                                        onPressed: () =>
-                                            _showEditRolesDialog(user),
-                                        tooltip: 'Edit Roles',
                                       ),
                                       const SizedBox(width: 4),
                                       _LocalUserActionIcon(
@@ -1433,173 +1408,5 @@ class _ResetPasswordAdminFormState
     }
 
     return null;
-  }
-}
-
-class _EditRolesForm extends ConsumerStatefulWidget {
-  const _EditRolesForm({required this.user});
-
-  final UserEntity user;
-
-  @override
-  ConsumerState<_EditRolesForm> createState() => _EditRolesFormState();
-}
-
-class _EditRolesFormState extends ConsumerState<_EditRolesForm> {
-  late Set<String> _selectedRoleNames;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final roles = ref.read(userAdminControllerProvider).roles;
-    _selectedRoleNames = <String>{};
-    for (final role in roles) {
-      if (widget.user.roles.contains(role.id)) {
-        _selectedRoleNames.add(role.name);
-      }
-    }
-  }
-
-  Future<void> _submit() async {
-    setState(() {
-      _saving = true;
-    });
-
-    final success = await ref
-        .read(userAdminControllerProvider.notifier)
-        .editUserRoles(
-          EditUserRolesInput(
-            userId: widget.user.id,
-            roles: _selectedRoleNames.toList(growable: false),
-          ),
-        );
-
-    setState(() {
-      _saving = false;
-    });
-
-    if (!mounted) {
-      return;
-    }
-
-    final snackBar = ref.read(snackBarDispatcherProvider);
-    final navigator = ref.read(appNavigatorProvider);
-
-    if (success) {
-      snackBar.show(navigator, 'User roles update successful.');
-      Navigator.of(context).pop();
-      return;
-    }
-
-    snackBar.show(navigator, 'User roles update failed. Please try again.');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(userAdminControllerProvider);
-    final theme = Theme.of(context);
-
-    return SizedBox(
-      width: 620,
-      child: AppFormPanel(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Edit User Roles - ${widget.user.userName}',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (state.isLoadingRoles) ...[
-              const LinearProgressIndicator(),
-              const SizedBox(height: 8),
-            ],
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 420),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppUiPalette.surface,
-                  border: Border.all(color: AppUiPalette.border),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: SingleChildScrollView(
-                    child: DataTable(
-                      headingRowColor: WidgetStatePropertyAll<Color?>(
-                        AppUiPalette.surfaceMuted,
-                      ),
-                      columns: const [
-                        DataColumn(
-                          columnWidth: FlexColumnWidth(),
-                          label: _UserTableHeaderText('Role'),
-                        ),
-                        DataColumn(
-                          columnWidth: FixedColumnWidth(
-                            _localUserRoleStatusColumnWidth,
-                          ),
-                          label: _UserTableHeaderText('Status'),
-                        ),
-                      ],
-                      rows: [
-                        for (final role in state.roles)
-                          DataRow(
-                            cells: [
-                              DataCell(_UserTableText(role.displayName)),
-                              DataCell(
-                                Checkbox(
-                                  value: _selectedRoleNames.contains(role.name),
-                                  onChanged: state.isLoadingRoles
-                                      ? null
-                                      : (value) {
-                                          setState(() {
-                                            if (value == true) {
-                                              _selectedRoleNames.add(role.name);
-                                            } else {
-                                              _selectedRoleNames.remove(
-                                                role.name,
-                                              );
-                                            }
-                                          });
-                                        },
-                                ),
-                              ),
-                            ],
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: _saving ? null : () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _saving || state.isLoadingRoles ? null : _submit,
-                  child: _saving
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Save Roles'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

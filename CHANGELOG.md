@@ -9,8 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added Global Role Memberships management under Roles & Permissions with
+  searchable user and global-role selectors.
+
 ### Changed
 
+- Renamed the Roles & Permissions Role Memberships tab to Tenant Role
+  Memberships.
+- Reordered Roles & Permissions tabs to group permission catalogs, global RBAC,
+  and tenant RBAC workflows.
 - Changed global and tenant grant creation to use searchable role,
   permission-object, and permission-type pickers.
 - Changed Platform Configuration tenant selectors and enum-like form fields to
@@ -19,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Deprecated
 
 ### Removed
+
+- Removed the LocalUsers table Edit Roles action in favor of dedicated global
+  and tenant role-membership management.
 
 ### Fixed
 

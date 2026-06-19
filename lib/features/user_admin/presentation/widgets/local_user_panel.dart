@@ -16,6 +16,9 @@ import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const double _localUserActionsColumnWidth = 244;
+const double _userSessionsDialogMaxWidth = 760;
+const double _userSessionsDialogMaxHeight = 760;
+const double _userSessionsDialogInset = 24;
 
 class LocalUserPanel extends ConsumerStatefulWidget {
   const LocalUserPanel({super.key}); // coverage:ignore-line
@@ -68,16 +71,34 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
   Future<void> _showSessionsDialog(UserEntity user) async {
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        insetPadding: const EdgeInsets.all(24),
-        backgroundColor: AppUiPalette.surfaceMuted,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppUiPalette.border),
-        ),
-        child: _UserSessionsDialog(user: user),
-      ),
+      builder: (dialogContext) {
+        final mediaSize = MediaQuery.sizeOf(dialogContext);
+        final maxWidth = math.min(
+          _userSessionsDialogMaxWidth,
+          math.max(0.0, mediaSize.width - (_userSessionsDialogInset * 2)),
+        );
+        final maxHeight = math.min(
+          _userSessionsDialogMaxHeight,
+          math.max(0.0, mediaSize.height - (_userSessionsDialogInset * 2)),
+        );
+
+        return Dialog(
+          insetPadding: const EdgeInsets.all(_userSessionsDialogInset),
+          backgroundColor: AppUiPalette.surfaceMuted,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: AppUiPalette.border),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: maxWidth,
+              maxHeight: maxHeight,
+            ),
+            child: _UserSessionsDialog(user: user),
+          ),
+        );
+      },
     );
   }
 
@@ -792,9 +813,10 @@ class _UserSessionsDialogState extends ConsumerState<_UserSessionsDialog> {
     final theme = Theme.of(context);
 
     return SizedBox(
-      width: 760,
+      width: _userSessionsDialogMaxWidth,
       child: AppFormPanel(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(

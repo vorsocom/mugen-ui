@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Capped the LocalUsers sessions dialog height against the viewport so long
+  session lists remain scrollable on shorter screens.
+
 ### Security
 
 ## [0.9.1] - 2026-06-18

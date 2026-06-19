@@ -17,6 +17,7 @@ void main() {
       const AppConfigurationOverride(
         appName: 'Custom Name',
         browserTitle: 'Custom Browser Title',
+        faviconHref: 'assets/branding/custom-favicon.svg',
         activeRoles: <AppRoleConfig>[
           AppRoleConfig(name: 'custom:role', displayName: 'Custom'),
         ],
@@ -46,6 +47,8 @@ void main() {
     expect(merged.appName, 'Custom Name');
     expect(defaults.browserTitle, isNull);
     expect(merged.browserTitle, 'Custom Browser Title');
+    expect(defaults.faviconHref, isNull);
+    expect(merged.faviconHref, 'assets/branding/custom-favicon.svg');
     expect(merged.appVersion, defaults.appVersion);
     expect(merged.activeRoles.single.name, 'custom:role');
     expect(merged.api.baseUrl, defaults.api.baseUrl);
@@ -169,6 +172,7 @@ void main() {
     );
     expect(runtimeOverride.appName, isNull);
     expect(runtimeOverride.browserTitle, isNull);
+    expect(runtimeOverride.faviconHref, isNull);
     expect(apiOverride.baseUrl, isNull);
   });
 

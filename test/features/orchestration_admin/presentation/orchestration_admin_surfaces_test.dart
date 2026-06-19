@@ -139,6 +139,33 @@ void main() {
       );
       expect(channelProfileField.reference?.entitySet, 'ChannelProfiles');
       expect(channelProfileField.reference?.scopeMode, AcpScopeMode.required);
+
+      final intakeDescriptor = orchestrationAdminResources.firstWhere(
+        (resource) => resource.entitySet == 'IntakeRules',
+      );
+      final matchKindField = intakeDescriptor.createFields.firstWhere(
+        (field) => field.key == 'MatchKind',
+      );
+      expect(matchKindField.options, <String>['intent', 'keyword', 'menu']);
+      expect(matchKindField.required, isTrue);
+      expect(
+        intakeDescriptor.updateFields
+            .firstWhere((field) => field.key == 'ChannelProfileId')
+            .reference
+            ?.entitySet,
+        'ChannelProfiles',
+      );
+
+      final blocklistDescriptor = orchestrationAdminResources.firstWhere(
+        (resource) => resource.entitySet == 'BlocklistEntries',
+      );
+      expect(
+        blocklistDescriptor.collectionActions.first.fields
+            .firstWhere((field) => field.key == 'ChannelProfileId')
+            .reference
+            ?.entitySet,
+        'ChannelProfiles',
+      );
     },
   );
 
@@ -165,7 +192,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('acp-admin-tenant-selector')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Tenant One (tenant-one)').last);
+    await tester.tap(find.byKey(const Key('acp-admin-tenant-option-tenant-1')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('acp-admin-create-button')));

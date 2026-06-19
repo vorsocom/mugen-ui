@@ -307,6 +307,150 @@ void main() {
     expect(repository.deleteTenantPermissionEntryInputs, hasLength(1));
   });
 
+  testWidgets('RbacManagementPanel creates grants with searchable fields', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeRbacAdminRepository()..addSearchFixturesForTest();
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-global-grants')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('rbac-global-grant-create-button')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Global Grant'));
+    await tester.pumpAndSettle();
+    expect(find.text('Select a role.'), findsOneWidget);
+    expect(find.text('Select a permission object.'), findsOneWidget);
+    expect(find.text('Select a permission type.'), findsOneWidget);
+    expect(repository.createGlobalPermissionEntryInputs, isEmpty);
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-global-grant-role-search-field')),
+      'auditor',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('rbac-global-grant-role-option-gr-2')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('rbac-global-grant-role-option-gr-1')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const Key('rbac-global-grant-role-option-gr-2')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('rbac-global-grant-selected-role')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-global-grant-permission-object-search-field')),
+      'user',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('rbac-global-grant-permission-object-option-po-2')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-global-grant-permission-type-search-field')),
+      'read',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('rbac-global-grant-permission-type-option-pt-2')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Global Grant'));
+    await tester.pumpAndSettle();
+    expect(repository.createGlobalPermissionEntryInputs, hasLength(1));
+    expect(
+      repository.createGlobalPermissionEntryInputs.single.globalRoleId,
+      'gr-2',
+    );
+    expect(
+      repository.createGlobalPermissionEntryInputs.single.permissionObjectId,
+      'po-2',
+    );
+    expect(
+      repository.createGlobalPermissionEntryInputs.single.permissionTypeId,
+      'pt-2',
+    );
+    expect(
+      repository.createGlobalPermissionEntryInputs.single.permitted,
+      isTrue,
+    );
+    expect(find.byType(Dialog), findsNothing);
+
+    await tester.tap(
+      find.byKey(const Key('rbac-management-tab-tenant-grants')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('rbac-tenant-grant-create-button')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-tenant-grant-role-search-field')),
+      'member',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('rbac-tenant-grant-role-option-tr-1')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-tenant-grant-permission-object-search-field')),
+      'tenant',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('rbac-tenant-grant-permission-object-option-po-1')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const Key('rbac-tenant-grant-permission-type-search-field')),
+      'manage',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('rbac-tenant-grant-permission-type-option-pt-1')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Create Tenant Grant'));
+    await tester.pumpAndSettle();
+    expect(repository.createTenantPermissionEntryInputs, hasLength(1));
+    expect(
+      repository.createTenantPermissionEntryInputs.single.tenantId,
+      'tenant-1',
+    );
+    expect(repository.createTenantPermissionEntryInputs.single.roleId, 'tr-1');
+    expect(
+      repository.createTenantPermissionEntryInputs.single.permissionObjectId,
+      'po-1',
+    );
+    expect(
+      repository.createTenantPermissionEntryInputs.single.permissionTypeId,
+      'pt-1',
+    );
+    expect(
+      repository.createTenantPermissionEntryInputs.single.permitted,
+      isTrue,
+    );
+    expect(find.byType(Dialog), findsNothing);
+  });
+
   testWidgets('RbacManagementPanel keeps long grant labels within dialogs', (
     WidgetTester tester,
   ) async {
@@ -865,6 +1009,10 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   deprecatePermissionObjectInputs = <RbacPermissionObjectLifecycleInput>[];
   final List<RbacPermissionTypeLifecycleInput> deprecatePermissionTypeInputs =
       <RbacPermissionTypeLifecycleInput>[];
+  final List<RbacCreateGlobalPermissionEntryInput>
+  createGlobalPermissionEntryInputs = <RbacCreateGlobalPermissionEntryInput>[];
+  final List<RbacCreateTenantPermissionEntryInput>
+  createTenantPermissionEntryInputs = <RbacCreateTenantPermissionEntryInput>[];
   final List<RbacUpdateGlobalPermissionEntryInput>
   updateGlobalPermissionEntryInputs = <RbacUpdateGlobalPermissionEntryInput>[];
   final List<RbacDeleteGlobalPermissionEntryInput>
@@ -882,6 +1030,7 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   Future<Result<void>> createGlobalPermissionEntry(
     RbacCreateGlobalPermissionEntryInput input,
   ) async {
+    createGlobalPermissionEntryInputs.add(input);
     return _mutationResult();
   }
 
@@ -909,6 +1058,7 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   Future<Result<void>> createTenantPermissionEntry(
     RbacCreateTenantPermissionEntryInput input,
   ) async {
+    createTenantPermissionEntryInputs.add(input);
     return _mutationResult();
   }
 

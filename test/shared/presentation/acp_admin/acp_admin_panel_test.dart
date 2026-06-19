@@ -260,7 +260,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('acp-admin-tenant-selector')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Tenant One (tenant-one)').last);
+    await tester.tap(find.byKey(const Key('acp-admin-tenant-option-tenant-1')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('acp-admin-create-button')));
     await tester.pumpAndSettle();

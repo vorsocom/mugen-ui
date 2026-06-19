@@ -21,9 +21,9 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
       _int('Version', 'Version', required: true),
       _text('Title', 'Title'),
       _multiline('Description', 'Description'),
-      _text('SchemaKind', 'Schema Kind', initialValue: 'json_schema'),
+      _schemaKind(),
       _json('SchemaJson', 'Schema JSON', required: true),
-      _text('Status', 'Status', initialValue: 'draft'),
+      _schemaStatus(initialValue: 'draft'),
       _dateTime('ActivatedAt', 'Activated At'),
       _text('ActivatedByUserId', 'Activated By User ID'),
       _text('ChecksumSha256', 'Checksum SHA-256'),
@@ -32,8 +32,8 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
     updateFields: <AcpFieldDescriptor>[
       _text('Title', 'Title'),
       _multiline('Description', 'Description'),
-      _text('SchemaKind', 'Schema Kind'),
-      _text('Status', 'Status'),
+      _schemaKind(),
+      _schemaStatus(),
       _dateTime('ActivatedAt', 'Activated At'),
       _text('ActivatedByUserId', 'Activated By User ID'),
       _text('ChecksumSha256', 'Checksum SHA-256'),
@@ -198,7 +198,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
       _text('Scope', 'Scope', required: true),
       _text('IdempotencyKey', 'Idempotency Key', required: true),
       _text('RequestHash', 'Request Hash'),
-      _text('Status', 'Status', initialValue: 'in_progress'),
+      _dedupStatus(initialValue: 'in_progress'),
       _text('ResultRef', 'Result Ref'),
       _int('ResponseCode', 'Response Code'),
       _json('ResponsePayload', 'Response Payload'),
@@ -290,9 +290,9 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
           _text('SubjectId', 'Subject ID'),
           _text('StorageUri', 'Storage URI', required: true),
           _text('ContentHash', 'Content Hash', required: true),
-          _text('HashAlg', 'Hash Algorithm', initialValue: 'sha256'),
+          _hashAlgorithm('HashAlg', 'Hash Algorithm'),
           _int('ContentLength', 'Content Length'),
-          _text('Immutability', 'Immutability', initialValue: 'immutable'),
+          _immutability(),
           _dateTime('RetentionUntil', 'Retention Until'),
           _dateTime('RedactionDueAt', 'Redaction Due At'),
           _json('Meta', 'Meta'),
@@ -308,11 +308,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
         successMessage: 'Hash verification completed.',
         fields: <AcpFieldDescriptor>[
           _text('ObservedHash', 'Observed Hash', required: true),
-          _text(
-            'ObservedHashAlg',
-            'Observed Hash Algorithm',
-            initialValue: 'sha256',
-          ),
+          _hashAlgorithm('ObservedHashAlg', 'Observed Hash Algorithm'),
         ],
       ),
       AcpActionDescriptor(
@@ -462,17 +458,78 @@ AcpColumnDescriptor _column(String key, String label) {
   return AcpColumnDescriptor(key: key, label: label);
 }
 
+const List<String> _schemaKindOptions = <String>['json_schema'];
+const List<String> _schemaStatusOptions = <String>[
+  'draft',
+  'active',
+  'inactive',
+];
+const List<String> _dedupStatusOptions = <String>[
+  'in_progress',
+  'succeeded',
+  'failed',
+];
+const List<String> _hashAlgorithmOptions = <String>['sha256'];
+const List<String> _immutabilityOptions = <String>['immutable'];
+
 AcpFieldDescriptor _text(
   String key,
   String label, {
   bool required = false,
   Object? initialValue,
+  List<String> options = const <String>[],
 }) {
   return AcpFieldDescriptor(
     key: key,
     label: label,
     required: required,
     initialValue: initialValue,
+    options: options,
+  );
+}
+
+AcpFieldDescriptor _schemaKind() {
+  return _text(
+    'SchemaKind',
+    'Schema Kind',
+    initialValue: 'json_schema',
+    options: _schemaKindOptions,
+  );
+}
+
+AcpFieldDescriptor _schemaStatus({Object? initialValue}) {
+  return _text(
+    'Status',
+    'Status',
+    initialValue: initialValue,
+    options: _schemaStatusOptions,
+  );
+}
+
+AcpFieldDescriptor _dedupStatus({Object? initialValue}) {
+  return _text(
+    'Status',
+    'Status',
+    initialValue: initialValue,
+    options: _dedupStatusOptions,
+  );
+}
+
+AcpFieldDescriptor _hashAlgorithm(String key, String label) {
+  return _text(
+    key,
+    label,
+    initialValue: 'sha256',
+    options: _hashAlgorithmOptions,
+  );
+}
+
+AcpFieldDescriptor _immutability() {
+  return _text(
+    'Immutability',
+    'Immutability',
+    initialValue: 'immutable',
+    options: _immutabilityOptions,
   );
 }
 

@@ -1,4 +1,6 @@
 // coverage:ignore-file
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,9 +13,11 @@ import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_typ
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_membership_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_member_entity.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_summary_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/providers/rbac_admin_providers.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
+import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -111,35 +115,23 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Container(
-                key: const Key('rbac-management-tenant-selector'),
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey<String>(
-                    'rbac-management-tenant-selector-${state.selectedTenantId ?? 'none'}',
-                  ),
-                  isExpanded: true,
-                  initialValue: state.selectedTenantId,
-                  decoration: appFormInputDecoration(
-                    labelText: 'Tenant',
-                    hintText: 'Select tenant',
-                  ),
-                  items: state.tenants
-                      .map(
-                        (tenant) => DropdownMenuItem<String>(
-                          value: tenant.id,
-                          child: Text('${tenant.name} (${tenant.slug})'),
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: state.tenants.isEmpty
-                      ? null
-                      : (value) {
-                          if (value == null) {
-                            return;
-                          }
-                          controller.selectTenant(value);
-                        },
-                ),
+              child: AppSearchableSelectField<RbacTenantSummaryEntity>(
+                fieldKey: const Key('rbac-management-tenant-selector'),
+                optionKeyPrefix: 'rbac-management-tenant-option',
+                labelText: 'Tenant',
+                hintText: 'Search tenants',
+                options: state.tenants,
+                selectedOptionKey: state.selectedTenantId,
+                optionKey: (tenant) => tenant.id,
+                optionTitle: (tenant) => '${tenant.name} (${tenant.slug})',
+                optionSubtitle: (tenant) => '${tenant.status}  |  ${tenant.id}',
+                optionSearchText: (tenant) =>
+                    '${tenant.name} ${tenant.slug} ${tenant.status} ${tenant.id}',
+                emptyMessage: 'No matching tenants found.',
+                enabled: state.tenants.isNotEmpty,
+                onSelected: (tenant) {
+                  unawaited(controller.selectTenant(tenant.id));
+                },
               ),
             ),
           ],
@@ -1015,9 +1007,9 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     }
 
     final formKey = GlobalKey<FormState>();
-    String? selectedRoleId = state.globalRoles.first.id;
-    String? selectedPermissionObjectId = state.permissionObjects.first.id;
-    String? selectedPermissionTypeId = state.permissionTypes.first.id;
+    RbacRoleEntity? selectedRole;
+    RbacPermissionObjectEntity? selectedPermissionObject;
+    RbacPermissionTypeEntity? selectedPermissionType;
     var permitted = true;
 
     await showDialog<void>(
@@ -1035,87 +1027,48 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     children: [
                       _buildDialogTitle('Create Global Grant'),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedRoleId,
-                        decoration: appFormInputDecoration(
-                          labelText: 'Role',
-                          helpText: acpFieldHelpText(
-                            key: 'Role',
-                            label: 'Role',
-                          ),
+                      _buildGrantRoleSearchField(
+                        searchFieldKey: const Key(
+                          'rbac-global-grant-role-search-field',
                         ),
-                        items: state.globalRoles
-                            .map(
-                              (role) => DropdownMenuItem<String>(
-                                value: role.id,
-                                child: _buildDropdownLabel(role.displayName),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedRoleId = value;
-                          });
+                        selectedKey: const Key(
+                          'rbac-global-grant-selected-role',
+                        ),
+                        optionKeyPrefix: 'rbac-global-grant-role-option',
+                        options: state.globalRoles,
+                        onSelected: (role) {
+                          selectedRole = role;
                         },
-                        validator: (value) =>
-                            value == null ? 'Field cannot be empty.' : null,
                       ),
                       const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedPermissionObjectId,
-                        decoration: appFormInputDecoration(
-                          labelText: 'Permission Object',
-                          helpText: acpFieldHelpText(
-                            key: 'PermissionObject',
-                            label: 'Permission Object',
-                          ),
+                      _buildPermissionObjectSearchField(
+                        searchFieldKey: const Key(
+                          'rbac-global-grant-permission-object-search-field',
                         ),
-                        items: state.permissionObjects
-                            .map(
-                              (permissionObject) => DropdownMenuItem<String>(
-                                value: permissionObject.id,
-                                child: _buildDropdownLabel(
-                                  permissionObject.key,
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedPermissionObjectId = value;
-                          });
+                        selectedKey: const Key(
+                          'rbac-global-grant-selected-permission-object',
+                        ),
+                        optionKeyPrefix:
+                            'rbac-global-grant-permission-object-option',
+                        options: state.permissionObjects,
+                        onSelected: (permissionObject) {
+                          selectedPermissionObject = permissionObject;
                         },
-                        validator: (value) =>
-                            value == null ? 'Field cannot be empty.' : null,
                       ),
                       const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedPermissionTypeId,
-                        decoration: appFormInputDecoration(
-                          labelText: 'Permission Type',
-                          helpText: acpFieldHelpText(
-                            key: 'PermissionType',
-                            label: 'Permission Type',
-                          ),
+                      _buildPermissionTypeSearchField(
+                        searchFieldKey: const Key(
+                          'rbac-global-grant-permission-type-search-field',
                         ),
-                        items: state.permissionTypes
-                            .map(
-                              (permissionType) => DropdownMenuItem<String>(
-                                value: permissionType.id,
-                                child: _buildDropdownLabel(permissionType.key),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedPermissionTypeId = value;
-                          });
+                        selectedKey: const Key(
+                          'rbac-global-grant-selected-permission-type',
+                        ),
+                        optionKeyPrefix:
+                            'rbac-global-grant-permission-type-option',
+                        options: state.permissionTypes,
+                        onSelected: (permissionType) {
+                          selectedPermissionType = permissionType;
                         },
-                        validator: (value) =>
-                            value == null ? 'Field cannot be empty.' : null,
                       ),
                       SwitchListTile(
                         value: permitted,
@@ -1139,10 +1092,13 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                         onSubmit: () async {
                           final isValid =
                               formKey.currentState?.validate() ?? false;
+                          final role = selectedRole;
+                          final permissionObject = selectedPermissionObject;
+                          final permissionType = selectedPermissionType;
                           if (!isValid ||
-                              selectedRoleId == null ||
-                              selectedPermissionObjectId == null ||
-                              selectedPermissionTypeId == null) {
+                              role == null ||
+                              permissionObject == null ||
+                              permissionType == null) {
                             return;
                           }
 
@@ -1150,10 +1106,9 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                               .read(rbacAdminControllerProvider.notifier)
                               .createGlobalPermissionEntry(
                                 RbacCreateGlobalPermissionEntryInput(
-                                  globalRoleId: selectedRoleId!,
-                                  permissionObjectId:
-                                      selectedPermissionObjectId!,
-                                  permissionTypeId: selectedPermissionTypeId!,
+                                  globalRoleId: role.id,
+                                  permissionObjectId: permissionObject.id,
+                                  permissionTypeId: permissionType.id,
                                   permitted: permitted,
                                 ),
                               );
@@ -1194,9 +1149,9 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     }
 
     final formKey = GlobalKey<FormState>();
-    String? selectedRoleId = state.tenantRoles.first.id;
-    String? selectedPermissionObjectId = state.permissionObjects.first.id;
-    String? selectedPermissionTypeId = state.permissionTypes.first.id;
+    RbacRoleEntity? selectedRole;
+    RbacPermissionObjectEntity? selectedPermissionObject;
+    RbacPermissionTypeEntity? selectedPermissionType;
     var permitted = true;
 
     await showDialog<void>(
@@ -1214,87 +1169,48 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     children: [
                       _buildDialogTitle('Create Tenant Grant'),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedRoleId,
-                        decoration: appFormInputDecoration(
-                          labelText: 'Role',
-                          helpText: acpFieldHelpText(
-                            key: 'Role',
-                            label: 'Role',
-                          ),
+                      _buildGrantRoleSearchField(
+                        searchFieldKey: const Key(
+                          'rbac-tenant-grant-role-search-field',
                         ),
-                        items: state.tenantRoles
-                            .map(
-                              (role) => DropdownMenuItem<String>(
-                                value: role.id,
-                                child: _buildDropdownLabel(role.displayName),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedRoleId = value;
-                          });
+                        selectedKey: const Key(
+                          'rbac-tenant-grant-selected-role',
+                        ),
+                        optionKeyPrefix: 'rbac-tenant-grant-role-option',
+                        options: state.tenantRoles,
+                        onSelected: (role) {
+                          selectedRole = role;
                         },
-                        validator: (value) =>
-                            value == null ? 'Field cannot be empty.' : null,
                       ),
                       const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedPermissionObjectId,
-                        decoration: appFormInputDecoration(
-                          labelText: 'Permission Object',
-                          helpText: acpFieldHelpText(
-                            key: 'PermissionObject',
-                            label: 'Permission Object',
-                          ),
+                      _buildPermissionObjectSearchField(
+                        searchFieldKey: const Key(
+                          'rbac-tenant-grant-permission-object-search-field',
                         ),
-                        items: state.permissionObjects
-                            .map(
-                              (permissionObject) => DropdownMenuItem<String>(
-                                value: permissionObject.id,
-                                child: _buildDropdownLabel(
-                                  permissionObject.key,
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedPermissionObjectId = value;
-                          });
+                        selectedKey: const Key(
+                          'rbac-tenant-grant-selected-permission-object',
+                        ),
+                        optionKeyPrefix:
+                            'rbac-tenant-grant-permission-object-option',
+                        options: state.permissionObjects,
+                        onSelected: (permissionObject) {
+                          selectedPermissionObject = permissionObject;
                         },
-                        validator: (value) =>
-                            value == null ? 'Field cannot be empty.' : null,
                       ),
                       const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        isExpanded: true,
-                        initialValue: selectedPermissionTypeId,
-                        decoration: appFormInputDecoration(
-                          labelText: 'Permission Type',
-                          helpText: acpFieldHelpText(
-                            key: 'PermissionType',
-                            label: 'Permission Type',
-                          ),
+                      _buildPermissionTypeSearchField(
+                        searchFieldKey: const Key(
+                          'rbac-tenant-grant-permission-type-search-field',
                         ),
-                        items: state.permissionTypes
-                            .map(
-                              (permissionType) => DropdownMenuItem<String>(
-                                value: permissionType.id,
-                                child: _buildDropdownLabel(permissionType.key),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            selectedPermissionTypeId = value;
-                          });
+                        selectedKey: const Key(
+                          'rbac-tenant-grant-selected-permission-type',
+                        ),
+                        optionKeyPrefix:
+                            'rbac-tenant-grant-permission-type-option',
+                        options: state.permissionTypes,
+                        onSelected: (permissionType) {
+                          selectedPermissionType = permissionType;
                         },
-                        validator: (value) =>
-                            value == null ? 'Field cannot be empty.' : null,
                       ),
                       SwitchListTile(
                         value: permitted,
@@ -1318,10 +1234,13 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                         onSubmit: () async {
                           final isValid =
                               formKey.currentState?.validate() ?? false;
+                          final role = selectedRole;
+                          final permissionObject = selectedPermissionObject;
+                          final permissionType = selectedPermissionType;
                           if (!isValid ||
-                              selectedRoleId == null ||
-                              selectedPermissionObjectId == null ||
-                              selectedPermissionTypeId == null) {
+                              role == null ||
+                              permissionObject == null ||
+                              permissionType == null) {
                             return;
                           }
 
@@ -1330,10 +1249,9 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                               .createTenantPermissionEntry(
                                 RbacCreateTenantPermissionEntryInput(
                                   tenantId: tenantId,
-                                  roleId: selectedRoleId!,
-                                  permissionObjectId:
-                                      selectedPermissionObjectId!,
-                                  permissionTypeId: selectedPermissionTypeId!,
+                                  roleId: role.id,
+                                  permissionObjectId: permissionObject.id,
+                                  permissionTypeId: permissionType.id,
                                   permitted: permitted,
                                 ),
                               );
@@ -1442,10 +1360,9 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                     options: activeRoles,
                     optionKey: (role) => role.id,
                     optionTitle: (role) => role.displayName,
-                    optionSubtitle: _tenantRoleSearchSubtitle,
-                    optionSearchText: _tenantRoleSearchText,
-                    selectedLabel: (role) =>
-                        '${role.displayName}  |  ${role.key}',
+                    optionSubtitle: _roleSearchSubtitle,
+                    optionSearchText: _roleSearchText,
+                    selectedLabel: _roleSelectedLabel,
                     emptyMessage: 'No matching roles found.',
                     validator: (role) {
                       if (role == null) {
@@ -1791,10 +1708,92 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     );
   }
 
-  Widget _buildDropdownLabel(String label) {
-    return Tooltip(
-      message: label,
-      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+  Widget _buildGrantRoleSearchField({
+    required Key searchFieldKey,
+    required Key selectedKey,
+    required String optionKeyPrefix,
+    required List<RbacRoleEntity> options,
+    required ValueChanged<RbacRoleEntity?> onSelected,
+  }) {
+    return _RbacEntitySearchField<RbacRoleEntity>(
+      searchFieldKey: searchFieldKey,
+      selectedKey: selectedKey,
+      optionKeyPrefix: optionKeyPrefix,
+      labelText: 'Role',
+      hintText: 'Search by role name or key',
+      helpText: acpFieldHelpText(key: 'Role', label: 'Role'),
+      suffixIcon: Icons.manage_search_outlined,
+      options: options,
+      optionKey: (role) => role.id,
+      optionTitle: (role) => role.displayName,
+      optionSubtitle: _roleSearchSubtitle,
+      optionSearchText: _roleSearchText,
+      selectedLabel: _roleSelectedLabel,
+      emptyMessage: 'No matching roles found.',
+      validator: (role) => role == null ? 'Select a role.' : null,
+      onSelected: onSelected,
+    );
+  }
+
+  Widget _buildPermissionObjectSearchField({
+    required Key searchFieldKey,
+    required Key selectedKey,
+    required String optionKeyPrefix,
+    required List<RbacPermissionObjectEntity> options,
+    required ValueChanged<RbacPermissionObjectEntity?> onSelected,
+  }) {
+    return _RbacEntitySearchField<RbacPermissionObjectEntity>(
+      searchFieldKey: searchFieldKey,
+      selectedKey: selectedKey,
+      optionKeyPrefix: optionKeyPrefix,
+      labelText: 'Permission Object',
+      hintText: 'Search by permission object',
+      helpText: acpFieldHelpText(
+        key: 'PermissionObject',
+        label: 'Permission Object',
+      ),
+      suffixIcon: Icons.category_outlined,
+      options: options,
+      optionKey: (permissionObject) => permissionObject.id,
+      optionTitle: (permissionObject) => permissionObject.key,
+      optionSubtitle: _permissionObjectSearchSubtitle,
+      optionSearchText: _permissionObjectSearchText,
+      selectedLabel: (permissionObject) => permissionObject.key,
+      emptyMessage: 'No matching permission objects found.',
+      validator: (permissionObject) =>
+          permissionObject == null ? 'Select a permission object.' : null,
+      onSelected: onSelected,
+    );
+  }
+
+  Widget _buildPermissionTypeSearchField({
+    required Key searchFieldKey,
+    required Key selectedKey,
+    required String optionKeyPrefix,
+    required List<RbacPermissionTypeEntity> options,
+    required ValueChanged<RbacPermissionTypeEntity?> onSelected,
+  }) {
+    return _RbacEntitySearchField<RbacPermissionTypeEntity>(
+      searchFieldKey: searchFieldKey,
+      selectedKey: selectedKey,
+      optionKeyPrefix: optionKeyPrefix,
+      labelText: 'Permission Type',
+      hintText: 'Search by permission type',
+      helpText: acpFieldHelpText(
+        key: 'PermissionType',
+        label: 'Permission Type',
+      ),
+      suffixIcon: Icons.rule_outlined,
+      options: options,
+      optionKey: (permissionType) => permissionType.id,
+      optionTitle: (permissionType) => permissionType.key,
+      optionSubtitle: _permissionTypeSearchSubtitle,
+      optionSearchText: _permissionTypeSearchText,
+      selectedLabel: (permissionType) => permissionType.key,
+      emptyMessage: 'No matching permission types found.',
+      validator: (permissionType) =>
+          permissionType == null ? 'Select a permission type.' : null,
+      onSelected: onSelected,
     );
   }
 
@@ -1884,17 +1883,54 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     return details.join('  |  ');
   }
 
-  String _tenantRoleSearchText(RbacRoleEntity role) {
+  String _roleSelectedLabel(RbacRoleEntity role) {
+    return '${role.displayName}  |  ${role.key}';
+  }
+
+  String _roleSearchText(RbacRoleEntity role) {
     return _joinSearchText([
       role.displayName,
       role.key,
       role.namespace,
       role.name,
+      role.id,
     ]);
   }
 
-  String _tenantRoleSearchSubtitle(RbacRoleEntity role) {
+  String _roleSearchSubtitle(RbacRoleEntity role) {
     return '${role.key}  |  ${role.id}';
+  }
+
+  String _permissionObjectSearchText(
+    RbacPermissionObjectEntity permissionObject,
+  ) {
+    return _joinSearchText([
+      permissionObject.key,
+      permissionObject.namespace,
+      permissionObject.name,
+      permissionObject.id,
+    ]);
+  }
+
+  String _permissionObjectSearchSubtitle(
+    RbacPermissionObjectEntity permissionObject,
+  ) {
+    return '${permissionObject.status}  |  ${permissionObject.id}';
+  }
+
+  String _permissionTypeSearchText(RbacPermissionTypeEntity permissionType) {
+    return _joinSearchText([
+      permissionType.key,
+      permissionType.namespace,
+      permissionType.name,
+      permissionType.id,
+    ]);
+  }
+
+  String _permissionTypeSearchSubtitle(
+    RbacPermissionTypeEntity permissionType,
+  ) {
+    return '${permissionType.status}  |  ${permissionType.id}';
   }
 
   String _joinSearchText(List<String> values) {

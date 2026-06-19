@@ -8,11 +8,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/audit_admin/application/dto/audit_admin_inputs.dart';
 import 'package:mugen_ui/features/audit_admin/domain/entities/audit_event_entity.dart';
+import 'package:mugen_ui/features/audit_admin/domain/entities/audit_tenant_option_entity.dart';
 import 'package:mugen_ui/features/audit_admin/presentation/providers/audit_admin_providers.dart';
+import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const double _formDialogPanelWidth = 560;
+const List<String> _auditLifecyclePhases = <String>[
+  'seal_backlog',
+  'redact_due',
+  'tombstone_expired',
+  'purge_due',
+];
 
 class AuditManagementPanel extends ConsumerStatefulWidget {
   const AuditManagementPanel({super.key}); // coverage:ignore-line
@@ -130,28 +138,23 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
         if (state.scopeMode == AuditAdminScopeMode.tenant)
           SizedBox(
             width: 320,
-            child: DropdownButtonFormField<String>(
-              key: const Key('audit-management-tenant-selector'),
-              initialValue: state.selectedTenantId,
-              isExpanded: true,
-              decoration: appFormInputDecoration(labelText: 'Tenant'),
-              items: state.tenants
-                  .map(
-                    (tenant) => DropdownMenuItem<String>(
-                      value: tenant.id,
-                      child: Text(tenant.label),
-                    ),
-                  )
-                  .toList(growable: false),
-              onChanged: state.tenants.isEmpty
-                  ? null
-                  : (value) async {
-                      if (value == null) {
-                        return;
-                      }
-
-                      await controller.selectTenant(value);
-                    },
+            child: AppSearchableSelectField<AuditTenantOptionEntity>(
+              fieldKey: const Key('audit-management-tenant-selector'),
+              optionKeyPrefix: 'audit-management-tenant-option',
+              labelText: 'Tenant',
+              hintText: 'Search tenants',
+              options: state.tenants,
+              selectedOptionKey: state.selectedTenantId,
+              optionKey: (tenant) => tenant.id,
+              optionTitle: (tenant) => tenant.label,
+              optionSubtitle: (tenant) => '${tenant.status}  |  ${tenant.id}',
+              optionSearchText: (tenant) =>
+                  '${tenant.name} ${tenant.slug} ${tenant.status} ${tenant.id}',
+              emptyMessage: 'No matching tenants found.',
+              enabled: state.tenants.isNotEmpty,
+              onSelected: (tenant) {
+                unawaited(controller.selectTenant(tenant.id));
+              },
             ),
           ),
         SizedBox(
@@ -396,7 +399,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
   Future<void> _showRunLifecycleDialog() async {
     final batchSizeController = TextEditingController();
     final maxBatchesController = TextEditingController();
-    final phasesController = TextEditingController();
+    final selectedPhases = <String>{};
     final nowOverrideController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     var dryRun = true;
@@ -452,13 +455,17 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                   validator: _optionalPositiveIntValidator,
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: phasesController,
-                  decoration: appFormInputDecoration(
-                    labelText: 'Phases (optional)',
-                    hintText:
-                        'seal_backlog,redact_due,tombstone_expired,purge_due',
-                  ),
+                _AuditLifecyclePhaseSelector(
+                  selectedPhases: selectedPhases,
+                  onChanged: (phase, selected) {
+                    setStateDialog(() {
+                      if (selected) {
+                        selectedPhases.add(phase);
+                      } else {
+                        selectedPhases.remove(phase);
+                      }
+                    });
+                  },
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -502,7 +509,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                   return;
                 }
 
-                final phases = _parsePhases(phasesController.text);
+                final phases = selectedPhases.toList(growable: false);
                 final success = await ref
                     .read(auditAdminControllerProvider.notifier)
                     .runLifecycle(
@@ -1267,6 +1274,49 @@ class _JsonBlock extends StatelessWidget {
   }
 }
 
+class _AuditLifecyclePhaseSelector extends StatelessWidget {
+  const _AuditLifecyclePhaseSelector({
+    required this.selectedPhases,
+    required this.onChanged,
+  });
+
+  final Set<String> selectedPhases;
+  final void Function(String phase, bool selected) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppUiPalette.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Phases (optional)',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          for (final phase in _auditLifecyclePhases)
+            CheckboxListTile(
+              key: Key('audit-run-lifecycle-phase-$phase'),
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              value: selectedPhases.contains(phase),
+              title: Text(phase),
+              onChanged: (value) => onChanged(phase, value ?? false),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ActionDialog extends StatelessWidget {
   const _ActionDialog({
     required this.title,
@@ -1387,17 +1437,4 @@ int? _parseOptionalInt(String raw) {
   }
 
   return int.tryParse(trimmed);
-}
-
-List<String> _parsePhases(String raw) {
-  final normalized = raw.trim();
-  if (normalized.isEmpty) {
-    return const <String>[];
-  }
-
-  return normalized
-      .split(',')
-      .map((phase) => phase.trim())
-      .where((phase) => phase.isNotEmpty)
-      .toList(growable: false);
 }

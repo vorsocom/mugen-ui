@@ -274,7 +274,10 @@ class WebChatRepositoryImpl implements ChatRepository {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return Result<ChatMediaDownloadEntity>.failure(
-        ApiFailure(response.statusCode, _extractApiMessage(response.body)),
+        ApiFailure(
+          response.statusCode,
+          _extractApiMessage(response.body, statusCode: response.statusCode),
+        ),
       );
     }
 
@@ -338,7 +341,10 @@ class WebChatRepositoryImpl implements ChatRepository {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       return Result<_MultipartResponsePayload>.failure(
-        ApiFailure(response.statusCode, _extractApiMessage(response.body)),
+        ApiFailure(
+          response.statusCode,
+          _extractApiMessage(response.body, statusCode: response.statusCode),
+        ),
       );
     }
 
@@ -479,7 +485,10 @@ class WebChatRepositoryImpl implements ChatRepository {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final payload = await response.stream.bytesToString();
       return Result<http.StreamedResponse>.failure(
-        ApiFailure(response.statusCode, _extractApiMessage(payload)),
+        ApiFailure(
+          response.statusCode,
+          _extractApiMessage(payload, statusCode: response.statusCode),
+        ),
       );
     }
 
@@ -677,13 +686,14 @@ class WebChatRepositoryImpl implements ChatRepository {
     }
   }
 
-  String _extractApiMessage(String body) {
-    if (body.trim().isEmpty) {
+  String _extractApiMessage(String body, {required int statusCode}) {
+    final normalizedBody = body.trim();
+    if (normalizedBody.isEmpty) {
       return 'API error.';
     }
 
     try {
-      final decoded = jsonDecode(body);
+      final decoded = jsonDecode(normalizedBody);
       if (decoded is Map<String, dynamic>) {
         final candidates = <Object?>[
           decoded['message'],
@@ -699,10 +709,88 @@ class WebChatRepositoryImpl implements ChatRepository {
         }
       }
     } catch (_) {
-      // Surface raw body when not JSON.
+      // Fall through to readable HTML extraction or the raw body.
     }
 
-    return body.trim();
+    final htmlMessage = _extractHtmlMessage(
+      normalizedBody,
+      statusCode: statusCode,
+    );
+    if (htmlMessage != null) {
+      return htmlMessage;
+    }
+
+    return normalizedBody;
+  }
+
+  String? _extractHtmlMessage(String body, {required int statusCode}) {
+    final lowerBody = body.toLowerCase();
+    final looksLikeHtml =
+        lowerBody.contains('<!doctype html') ||
+        lowerBody.contains('<html') ||
+        RegExp(r'<[a-z][^>]*>', caseSensitive: false).hasMatch(body);
+    if (!looksLikeHtml) {
+      return null;
+    }
+
+    final title = _firstHtmlElementText(body, 'title');
+    final heading = _firstHtmlElementText(body, 'h1');
+    final paragraphs =
+        RegExp(r'<p[^>]*>(.*?)</p>', caseSensitive: false, dotAll: true)
+            .allMatches(body)
+            .map((match) => _normalizeHtmlText(match.group(1) ?? ''))
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false);
+
+    final prefix = title ?? heading ?? '$statusCode HTTP error';
+    final details = <String>[
+      if (heading != null &&
+          !prefix.toLowerCase().contains(heading.toLowerCase()))
+        heading,
+      ...paragraphs,
+    ];
+
+    if (details.isNotEmpty) {
+      return '$prefix: ${details.join(' ')}';
+    }
+    return prefix;
+  }
+
+  String? _firstHtmlElementText(String body, String tagName) {
+    final match = RegExp(
+      '<$tagName[^>]*>(.*?)</$tagName>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(body);
+    if (match == null) {
+      return null;
+    }
+
+    final normalized = _normalizeHtmlText(match.group(1) ?? '');
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  String _normalizeHtmlText(String value) {
+    return _decodeHtmlEntities(
+      value.replaceAll(RegExp(r'<[^>]+>'), ' '),
+    ).replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  String _decodeHtmlEntities(String value) {
+    return value
+        .replaceAllMapped(RegExp(r'&#(x?[0-9A-Fa-f]+);'), (match) {
+          final raw = match.group(1)!;
+          final radix = raw.toLowerCase().startsWith('x') ? 16 : 10;
+          final digits = radix == 16 ? raw.substring(1) : raw;
+          final codePoint = int.parse(digits, radix: radix);
+          return String.fromCharCode(codePoint);
+        })
+        .replaceAll('&quot;', '"')
+        .replaceAll('&apos;', "'")
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&nbsp;', ' ');
   }
 
   String? _extractFilenameFromContentDisposition(String? headerValue) {

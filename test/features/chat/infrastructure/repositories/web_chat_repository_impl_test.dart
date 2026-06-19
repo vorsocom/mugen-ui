@@ -608,6 +608,111 @@ data: "content":"hello"}}
     expect(failure.message, 'raw backend error');
   });
 
+  test('sendText extracts readable messages from HTML API failures', () async {
+    final cookieStore = createCookieStore();
+    cookieStore.setCookie(
+      'auth',
+      jsonEncode(<String, dynamic>{
+        'access_token': 'token-html-fail',
+        'refresh_token': 'refresh-html-fail',
+        'user_id': 'u1',
+      }),
+      60,
+      '/',
+    );
+    final client =
+        _QueueHttpClient(<http.StreamedResponse Function(http.BaseRequest)>[
+          (_) => _streamedResponse(
+            statusCode: 403,
+            body: '''
+<!doctype html>
+<html lang=en>
+<title>403 Forbidden</title>
+<h1>Forbidden</h1>
+<p>You don&#39;t have the permission to access the requested resource.</p>
+''',
+          ),
+        ]);
+    final repository = WebChatRepositoryImpl(
+      appConfig: AppConfig.defaults(),
+      cookieStore: cookieStore,
+      httpClient: client,
+    );
+
+    final result = await repository.sendText(
+      conversationId: 'conv-html-fail',
+      clientMessageId: 'client-html-fail',
+      text: 'hello',
+    );
+
+    expect(result.isFailure, isTrue);
+    expect(result.failure, isA<ApiFailure>());
+    final failure = result.failure as ApiFailure;
+    expect(failure.statusCode, 403);
+    expect(
+      failure.message,
+      "403 Forbidden: You don't have the permission to access the requested resource.",
+    );
+  });
+
+  test('sendText normalizes alternate HTML API failure shapes', () async {
+    final cookieStore = createCookieStore();
+    cookieStore.setCookie(
+      'auth',
+      jsonEncode(<String, dynamic>{
+        'access_token': 'token-html-shapes',
+        'refresh_token': 'refresh-html-shapes',
+        'user_id': 'u1',
+      }),
+      60,
+      '/',
+    );
+    final client = _QueueHttpClient(<
+      http.StreamedResponse Function(http.BaseRequest)
+    >[
+      (_) => _streamedResponse(
+        statusCode: 403,
+        body: '''
+<html>
+<title>Access denied</title>
+<h1>Missing grant</h1>
+<p>Request blocked.</p>
+''',
+      ),
+      (_) => _streamedResponse(
+        statusCode: 502,
+        body: '<section><p>Gateway returned &quot;blocked&quot;.</p></section>',
+      ),
+    ]);
+    final repository = WebChatRepositoryImpl(
+      appConfig: AppConfig.defaults(),
+      cookieStore: cookieStore,
+      httpClient: client,
+    );
+
+    final titledResult = await repository.sendText(
+      conversationId: 'conv-html-title',
+      clientMessageId: 'client-html-title',
+      text: 'hello',
+    );
+    final fallbackResult = await repository.sendText(
+      conversationId: 'conv-html-fallback',
+      clientMessageId: 'client-html-fallback',
+      text: 'hello again',
+    );
+
+    expect(titledResult.isFailure, isTrue);
+    expect(
+      (titledResult.failure as ApiFailure).message,
+      'Access denied: Missing grant Request blocked.',
+    );
+    expect(fallbackResult.isFailure, isTrue);
+    expect(
+      (fallbackResult.failure as ApiFailure).message,
+      '502 HTTP error: Gateway returned "blocked".',
+    );
+  });
+
   test(
     'sendText returns API failure after a second 401 even after refresh',
     () async {

@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reset AI Assist transient state when the authenticated user changes so stale
+  errors and in-flight responses do not leak across logins.
 - Rendered AI Assist backend errors in a red alert above the composer and
   normalized HTML API error pages into readable messages.
 - Capped the LocalUsers sessions dialog height against the viewport so long

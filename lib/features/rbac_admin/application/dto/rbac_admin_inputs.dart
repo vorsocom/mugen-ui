@@ -192,6 +192,16 @@ class RbacCreateRoleMembershipInput {
   final String userId;
 }
 
+class RbacCreateGlobalRoleMembershipInput {
+  const RbacCreateGlobalRoleMembershipInput({
+    required this.roleId,
+    required this.userId,
+  });
+
+  final String roleId;
+  final String userId;
+}
+
 class RbacDeleteRoleMembershipInput {
   const RbacDeleteRoleMembershipInput({
     required this.tenantId,
@@ -200,6 +210,16 @@ class RbacDeleteRoleMembershipInput {
   });
 
   final String tenantId;
+  final String membershipId;
+  final int rowVersion;
+}
+
+class RbacDeleteGlobalRoleMembershipInput {
+  const RbacDeleteGlobalRoleMembershipInput({
+    required this.membershipId,
+    required this.rowVersion,
+  });
+
   final String membershipId;
   final int rowVersion;
 }

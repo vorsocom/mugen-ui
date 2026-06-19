@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/rbac_admin/application/dto/rbac_admin_inputs.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_assignable_user_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_entry_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_object_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
@@ -153,16 +154,6 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
           spacing: 8,
           children: [
             _RbacTabChip(
-              chipKey: const Key('rbac-management-tab-global-roles'),
-              label: 'Global Roles',
-              tooltip:
-                  'Platform-wide roles that can be granted outside a tenant.',
-              tooltipKey: const Key('rbac-management-tab-global-roles-info'),
-              selected: state.activeTab == RbacAdminTab.globalRoles,
-              onSelected: (_) =>
-                  controller.setActiveTab(RbacAdminTab.globalRoles),
-            ),
-            _RbacTabChip(
               chipKey: const Key('rbac-management-tab-permission-objects'),
               label: 'Permission Objects',
               tooltip:
@@ -187,6 +178,16 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                   controller.setActiveTab(RbacAdminTab.permissionTypes),
             ),
             _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-global-roles'),
+              label: 'Global Roles',
+              tooltip:
+                  'Platform-wide roles that can be granted outside a tenant.',
+              tooltipKey: const Key('rbac-management-tab-global-roles-info'),
+              selected: state.activeTab == RbacAdminTab.globalRoles,
+              onSelected: (_) =>
+                  controller.setActiveTab(RbacAdminTab.globalRoles),
+            ),
+            _RbacTabChip(
               chipKey: const Key('rbac-management-tab-global-grants'),
               label: 'Global Grants',
               tooltip:
@@ -195,6 +196,17 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
               selected: state.activeTab == RbacAdminTab.globalGrants,
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.globalGrants),
+            ),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-global-role-memberships'),
+              label: 'Global Role Memberships',
+              tooltip: 'Users assigned to global roles outside tenant scope.',
+              tooltipKey: const Key(
+                'rbac-management-tab-global-role-memberships-info',
+              ),
+              selected: state.activeTab == RbacAdminTab.globalRoleMemberships,
+              onSelected: (_) =>
+                  controller.setActiveTab(RbacAdminTab.globalRoleMemberships),
             ),
             _RbacTabChip(
               chipKey: const Key('rbac-management-tab-tenant-roles'),
@@ -206,17 +218,6 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                   controller.setActiveTab(RbacAdminTab.tenantRoles),
             ),
             _RbacTabChip(
-              chipKey: const Key('rbac-management-tab-role-memberships'),
-              label: 'Role Memberships',
-              tooltip: 'Users assigned to tenant roles in the selected tenant.',
-              tooltipKey: const Key(
-                'rbac-management-tab-role-memberships-info',
-              ),
-              selected: state.activeTab == RbacAdminTab.roleMemberships,
-              onSelected: (_) =>
-                  controller.setActiveTab(RbacAdminTab.roleMemberships),
-            ),
-            _RbacTabChip(
               chipKey: const Key('rbac-management-tab-tenant-grants'),
               label: 'Tenant Grants',
               tooltip:
@@ -226,6 +227,17 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
               onSelected: (_) =>
                   controller.setActiveTab(RbacAdminTab.tenantGrants),
             ),
+            _RbacTabChip(
+              chipKey: const Key('rbac-management-tab-role-memberships'),
+              label: 'Tenant Role Memberships',
+              tooltip: 'Users assigned to tenant roles in the selected tenant.',
+              tooltipKey: const Key(
+                'rbac-management-tab-role-memberships-info',
+              ),
+              selected: state.activeTab == RbacAdminTab.tenantRoleMemberships,
+              onSelected: (_) =>
+                  controller.setActiveTab(RbacAdminTab.tenantRoleMemberships),
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -233,15 +245,18 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
           child: AppFormPanel(
             margin: EdgeInsets.zero,
             child: switch (state.activeTab) {
-              RbacAdminTab.globalRoles => _buildGlobalRolesTab(state),
               RbacAdminTab.permissionObjects => _buildPermissionObjectsTab(
                 state,
               ),
               RbacAdminTab.permissionTypes => _buildPermissionTypesTab(state),
+              RbacAdminTab.globalRoles => _buildGlobalRolesTab(state),
               RbacAdminTab.globalGrants => _buildGlobalGrantsTab(state),
+              RbacAdminTab.globalRoleMemberships =>
+                _buildGlobalRoleMembershipsTab(state),
               RbacAdminTab.tenantRoles => _buildTenantRolesTab(state),
-              RbacAdminTab.roleMemberships => _buildRoleMembershipsTab(state),
               RbacAdminTab.tenantGrants => _buildTenantGrantsTab(state),
+              RbacAdminTab.tenantRoleMemberships =>
+                _buildTenantRoleMembershipsTab(state),
             },
           ),
         ),
@@ -518,11 +533,60 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     );
   }
 
-  Widget _buildRoleMembershipsTab(RbacAdminState state) {
+  Widget _buildGlobalRoleMembershipsTab(RbacAdminState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(bottom: 8),
+          child: Text(
+            'Users may need to sign out and back in for route and session claims to refresh.',
+            style: TextStyle(color: AppUiPalette.textSecondary),
+          ),
+        ),
+        Expanded(
+          child: _RbacListSection(
+            key: const ValueKey<String>('rbac-global-role-memberships-section'),
+            createButtonKey: const Key(
+              'rbac-global-role-membership-create-button',
+            ),
+            createLabel: 'New Global Role Membership',
+            searchFieldKey: const Key(
+              'rbac-global-role-memberships-search-field',
+            ),
+            searchHint: 'Search global role memberships',
+            onCreate: _showCreateGlobalRoleMembershipDialog,
+            emptyMessage: 'No global role memberships found.',
+            items: state.globalRoleMemberships
+                .map(
+                  (membership) => _RbacSearchItem(
+                    searchText: _roleMembershipSearchText(membership),
+                    child: ListTile(
+                      title: Text(membership.userDisplayName),
+                      subtitle: Text(
+                        '${membership.roleDisplayName}  |  ${membership.roleKey}',
+                      ),
+                      trailing: _ActionIcon(
+                        icon: Icons.delete_outline,
+                        tooltip: 'Delete global role membership',
+                        onPressed: () =>
+                            _deleteGlobalRoleMembership(membership: membership),
+                      ),
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTenantRoleMembershipsTab(RbacAdminState state) {
     final tenantId = state.selectedTenantId;
     if (tenantId == null || tenantId.isEmpty) {
       return const Center(
-        child: Text('Select a tenant to manage role memberships.'),
+        child: Text('Select a tenant to manage tenant role memberships.'),
       );
     }
 
@@ -540,11 +604,11 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
           child: _RbacListSection(
             key: const ValueKey<String>('rbac-role-memberships-section'),
             createButtonKey: const Key('rbac-role-membership-create-button'),
-            createLabel: 'New Role Membership',
+            createLabel: 'New Tenant Role Membership',
             searchFieldKey: const Key('rbac-role-memberships-search-field'),
-            searchHint: 'Search role memberships',
-            onCreate: () => _showCreateRoleMembershipDialog(tenantId),
-            emptyMessage: 'No role memberships found.',
+            searchHint: 'Search tenant role memberships',
+            onCreate: () => _showCreateTenantRoleMembershipDialog(tenantId),
+            emptyMessage: 'No tenant role memberships found.',
             items: state.tenantRoleMemberships
                 .map(
                   (membership) => _RbacSearchItem(
@@ -556,8 +620,8 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                       ),
                       trailing: _ActionIcon(
                         icon: Icons.delete_outline,
-                        tooltip: 'Delete role membership',
-                        onPressed: () => _deleteRoleMembership(
+                        tooltip: 'Delete tenant role membership',
+                        onPressed: () => _deleteTenantRoleMembership(
                           tenantId: tenantId,
                           membership: membership,
                         ),
@@ -1277,7 +1341,151 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     );
   }
 
-  Future<void> _showCreateRoleMembershipDialog(String tenantId) async {
+  Future<void> _showCreateGlobalRoleMembershipDialog() async {
+    final state = ref.read(rbacAdminControllerProvider);
+    final activeRoles = state.globalRoles
+        .where((role) => !role.deleted && _isAssignableStatus(role.status))
+        .toList(growable: false);
+    final activeUsers = state.globalUsers
+        .where((user) => !user.deleted)
+        .toList(growable: false);
+    if (activeRoles.isEmpty || activeUsers.isEmpty) {
+      _showMutationResult(
+        successMessage: '',
+        failureMessage: 'Active global roles and users are required.',
+        success: false,
+      );
+      return;
+    }
+
+    final formKey = GlobalKey<FormState>();
+    RbacRoleEntity? selectedRole;
+    RbacAssignableUserEntity? selectedUser;
+
+    await showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        child: SizedBox(
+          width: _formDialogPanelWidth,
+          child: AppFormPanel(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildDialogTitle('Create Global Role Membership'),
+                  const SizedBox(height: 12),
+                  _RbacEntitySearchField<RbacAssignableUserEntity>(
+                    searchFieldKey: const Key(
+                      'rbac-global-role-membership-user-search-field',
+                    ),
+                    selectedKey: const Key(
+                      'rbac-global-role-membership-selected-user',
+                    ),
+                    optionKeyPrefix: 'rbac-global-role-membership-user-option',
+                    labelText: 'User',
+                    hintText: 'Search by name or email',
+                    helpText: acpFieldHelpText(key: 'UserId', label: 'User'),
+                    suffixIcon: Icons.person_search_outlined,
+                    options: activeUsers,
+                    optionKey: (user) => user.id,
+                    optionTitle: (user) => user.displayName,
+                    optionSubtitle: _globalUserSearchSubtitle,
+                    optionSearchText: _globalUserSearchText,
+                    selectedLabel: _globalUserOptionLabel,
+                    emptyMessage: 'No matching users found.',
+                    validator: (user) {
+                      if (user == null) {
+                        return 'Select a user.';
+                      }
+
+                      return null;
+                    },
+                    onSelected: (user) {
+                      selectedUser = user;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _RbacEntitySearchField<RbacRoleEntity>(
+                    searchFieldKey: const Key(
+                      'rbac-global-role-membership-role-search-field',
+                    ),
+                    selectedKey: const Key(
+                      'rbac-global-role-membership-selected-role',
+                    ),
+                    optionKeyPrefix: 'rbac-global-role-membership-role-option',
+                    labelText: 'Global Role',
+                    hintText: 'Search by role name or key',
+                    helpText: acpFieldHelpText(
+                      key: 'GlobalRoleId',
+                      label: 'Global Role',
+                    ),
+                    suffixIcon: Icons.manage_search_outlined,
+                    options: activeRoles,
+                    optionKey: (role) => role.id,
+                    optionTitle: (role) => role.displayName,
+                    optionSubtitle: _roleSearchSubtitle,
+                    optionSearchText: _roleSearchText,
+                    selectedLabel: _roleSelectedLabel,
+                    emptyMessage: 'No matching global roles found.',
+                    validator: (role) {
+                      if (role == null) {
+                        return 'Select a global role.';
+                      }
+                      if (_hasRoleMembershipDuplicate(
+                        state.globalRoleMemberships,
+                        roleId: role.id,
+                        userId: selectedUser?.id,
+                      )) {
+                        return 'This user already has this role.';
+                      }
+
+                      return null;
+                    },
+                    onSelected: (role) {
+                      selectedRole = role;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  _DialogActions(
+                    submitLabel: 'Create Global Role Membership',
+                    onSubmit: () async {
+                      final isValid = formKey.currentState?.validate() ?? false;
+                      if (!isValid ||
+                          selectedRole == null ||
+                          selectedUser == null) {
+                        return;
+                      }
+
+                      final success = await ref
+                          .read(rbacAdminControllerProvider.notifier)
+                          .createGlobalRoleMembership(
+                            RbacCreateGlobalRoleMembershipInput(
+                              roleId: selectedRole!.id,
+                              userId: selectedUser!.id,
+                            ),
+                          );
+                      _showMutationResult(
+                        successMessage: 'Global role membership created.',
+                        failureMessage: 'Global role membership create failed.',
+                        success: success,
+                      );
+
+                      if (success && mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showCreateTenantRoleMembershipDialog(String tenantId) async {
     final state = ref.read(rbacAdminControllerProvider);
     final activeRoles = state.tenantRoles
         .where((role) => !role.deleted && _isAssignableStatus(role.status))
@@ -1312,7 +1520,7 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildDialogTitle('Create Role Membership'),
+                  _buildDialogTitle('Create Tenant Role Membership'),
                   const SizedBox(height: 12),
                   _RbacEntitySearchField<RbacTenantMemberEntity>(
                     searchFieldKey: const Key(
@@ -1369,7 +1577,7 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                         return 'Select a role.';
                       }
                       if (_hasRoleMembershipDuplicate(
-                        state,
+                        state.tenantRoleMemberships,
                         roleId: role.id,
                         userId: selectedMember?.userId,
                       )) {
@@ -1384,7 +1592,7 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                   ),
                   const SizedBox(height: 14),
                   _DialogActions(
-                    submitLabel: 'Create Role Membership',
+                    submitLabel: 'Create Tenant Role Membership',
                     onSubmit: () async {
                       final isValid = formKey.currentState?.validate() ?? false;
                       if (!isValid ||
@@ -1403,8 +1611,8 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                             ),
                           );
                       _showMutationResult(
-                        successMessage: 'Role membership created.',
-                        failureMessage: 'Role membership create failed.',
+                        successMessage: 'Tenant role membership created.',
+                        failureMessage: 'Tenant role membership create failed.',
                         success: success,
                       );
 
@@ -1658,14 +1866,43 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     );
   }
 
-  Future<void> _deleteRoleMembership({
+  Future<void> _deleteGlobalRoleMembership({
+    required RbacRoleMembershipEntity membership,
+  }) async {
+    final confirmed = await showAppConfirmationDialog(
+      context: context,
+      title: 'Confirmation Required',
+      message: 'Delete this global role membership?',
+      confirmLabel: 'Delete',
+    );
+    if (confirmed != true) {
+      return;
+    }
+
+    final success = await ref
+        .read(rbacAdminControllerProvider.notifier)
+        .deleteGlobalRoleMembership(
+          RbacDeleteGlobalRoleMembershipInput(
+            membershipId: membership.id,
+            rowVersion: membership.rowVersion,
+          ),
+        );
+
+    _showMutationResult(
+      successMessage: 'Global role membership deleted.',
+      failureMessage: 'Global role membership delete failed.',
+      success: success,
+    );
+  }
+
+  Future<void> _deleteTenantRoleMembership({
     required String tenantId,
     required RbacRoleMembershipEntity membership,
   }) async {
     final confirmed = await showAppConfirmationDialog(
       context: context,
       title: 'Confirmation Required',
-      message: 'Delete this role membership?',
+      message: 'Delete this tenant role membership?',
       confirmLabel: 'Delete',
     );
     if (confirmed != true) {
@@ -1683,8 +1920,8 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
         );
 
     _showMutationResult(
-      successMessage: 'Role membership deleted.',
-      failureMessage: 'Role membership delete failed.',
+      successMessage: 'Tenant role membership deleted.',
+      failureMessage: 'Tenant role membership delete failed.',
       success: success,
     );
   }
@@ -1837,7 +2074,7 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
   }
 
   bool _hasRoleMembershipDuplicate(
-    RbacAdminState state, {
+    List<RbacRoleMembershipEntity> memberships, {
     required String? roleId,
     required String? userId,
   }) {
@@ -1845,12 +2082,42 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
       return false;
     }
 
-    return state.tenantRoleMemberships.any(
+    return memberships.any(
       (membership) =>
           membership.roleId == roleId &&
           membership.userId == userId &&
           !membership.deleted,
     );
+  }
+
+  String _globalUserOptionLabel(RbacAssignableUserEntity user) {
+    if (user.email.isEmpty || user.email == user.displayName) {
+      return user.displayName;
+    }
+
+    return '${user.displayName} (${user.email})';
+  }
+
+  String _globalUserSearchText(RbacAssignableUserEntity user) {
+    return _joinSearchText([
+      user.displayName,
+      user.username,
+      user.email,
+      user.id,
+    ]);
+  }
+
+  String _globalUserSearchSubtitle(RbacAssignableUserEntity user) {
+    final details = <String>[
+      user.username,
+      user.email,
+      user.id,
+    ].where((value) => value.trim().isNotEmpty).toList(growable: false);
+    if (details.isEmpty) {
+      return user.id;
+    }
+
+    return details.join('  |  ');
   }
 
   String _tenantMemberOptionLabel(RbacTenantMemberEntity member) {

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/rbac_admin/application/dto/rbac_admin_inputs.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_assignable_user_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_entry_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_object_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
@@ -17,13 +18,14 @@ import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 
 enum RbacAdminTab {
-  globalRoles,
   permissionObjects,
   permissionTypes,
+  globalRoles,
   globalGrants,
+  globalRoleMemberships,
   tenantRoles,
-  roleMemberships,
   tenantGrants,
+  tenantRoleMemberships,
 }
 
 class RbacAdminState {
@@ -35,7 +37,9 @@ class RbacAdminState {
     required this.permissionTypes,
     required this.globalPermissionEntries,
     required this.tenantPermissionEntries,
+    required this.globalRoleMemberships,
     required this.tenantRoleMemberships,
+    required this.globalUsers,
     required this.tenantMembers,
     required this.activeTab,
     required this.isLoadingGlobal,
@@ -52,7 +56,9 @@ class RbacAdminState {
   final List<RbacPermissionTypeEntity> permissionTypes;
   final List<RbacPermissionEntryEntity> globalPermissionEntries;
   final List<RbacPermissionEntryEntity> tenantPermissionEntries;
+  final List<RbacRoleMembershipEntity> globalRoleMemberships;
   final List<RbacRoleMembershipEntity> tenantRoleMemberships;
+  final List<RbacAssignableUserEntity> globalUsers;
   final List<RbacTenantMemberEntity> tenantMembers;
   final RbacAdminTab activeTab;
   final bool isLoadingGlobal;
@@ -83,7 +89,9 @@ class RbacAdminState {
     List<RbacPermissionTypeEntity>? permissionTypes,
     List<RbacPermissionEntryEntity>? globalPermissionEntries,
     List<RbacPermissionEntryEntity>? tenantPermissionEntries,
+    List<RbacRoleMembershipEntity>? globalRoleMemberships,
     List<RbacRoleMembershipEntity>? tenantRoleMemberships,
+    List<RbacAssignableUserEntity>? globalUsers,
     List<RbacTenantMemberEntity>? tenantMembers,
     RbacAdminTab? activeTab,
     bool? isLoadingGlobal,
@@ -104,8 +112,11 @@ class RbacAdminState {
           globalPermissionEntries ?? this.globalPermissionEntries,
       tenantPermissionEntries:
           tenantPermissionEntries ?? this.tenantPermissionEntries,
+      globalRoleMemberships:
+          globalRoleMemberships ?? this.globalRoleMemberships,
       tenantRoleMemberships:
           tenantRoleMemberships ?? this.tenantRoleMemberships,
+      globalUsers: globalUsers ?? this.globalUsers,
       tenantMembers: tenantMembers ?? this.tenantMembers,
       activeTab: activeTab ?? this.activeTab,
       isLoadingGlobal: isLoadingGlobal ?? this.isLoadingGlobal,
@@ -144,9 +155,11 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
           permissionTypes: <RbacPermissionTypeEntity>[],
           globalPermissionEntries: <RbacPermissionEntryEntity>[],
           tenantPermissionEntries: <RbacPermissionEntryEntity>[],
+          globalRoleMemberships: <RbacRoleMembershipEntity>[],
           tenantRoleMemberships: <RbacRoleMembershipEntity>[],
+          globalUsers: <RbacAssignableUserEntity>[],
           tenantMembers: <RbacTenantMemberEntity>[],
-          activeTab: RbacAdminTab.globalRoles,
+          activeTab: RbacAdminTab.permissionObjects,
           isLoadingGlobal: false,
           isLoadingTenantScoped: false,
           isMutating: false,
@@ -164,6 +177,9 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
     final permissionObjectsResult = await repository.fetchPermissionObjects();
     final permissionTypesResult = await repository.fetchPermissionTypes();
     final globalEntriesResult = await repository.fetchGlobalPermissionEntries();
+    final globalRoleMembershipsResult = await repository
+        .fetchGlobalRoleMemberships();
+    final globalUsersResult = await repository.fetchGlobalUsers();
 
     final tenants = tenantsResult.data ?? state.tenants;
     final selectedTenantId = _resolveSelectedTenantId(
@@ -179,6 +195,9 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
       permissionTypes: permissionTypesResult.data ?? state.permissionTypes,
       globalPermissionEntries:
           globalEntriesResult.data ?? state.globalPermissionEntries,
+      globalRoleMemberships:
+          globalRoleMembershipsResult.data ?? state.globalRoleMemberships,
+      globalUsers: globalUsersResult.data ?? state.globalUsers,
       selectedTenantId: selectedTenantId,
       isLoadingGlobal: false,
       clearError: true,
@@ -189,7 +208,9 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
         globalRolesResult.failure ??
         permissionObjectsResult.failure ??
         permissionTypesResult.failure ??
-        globalEntriesResult.failure;
+        globalEntriesResult.failure ??
+        globalRoleMembershipsResult.failure ??
+        globalUsersResult.failure;
 
     if (selectedTenantId == null) {
       state = state.copyWith(
@@ -448,6 +469,34 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
     );
   }
 
+  Future<bool> createGlobalRoleMembership(
+    RbacCreateGlobalRoleMembershipInput input,
+  ) async {
+    return _runMutation(
+      () => ref
+          .read(rbacAdminRepositoryProvider)
+          .createGlobalRoleMembership(input),
+      conflictMessage:
+          'Global role memberships changed on the server. Reloading list.',
+      reloadOnSuccess: _reloadGlobalRoleMemberships,
+      reloadOnConflict: _reloadGlobalRoleMemberships,
+    );
+  }
+
+  Future<bool> deleteGlobalRoleMembership(
+    RbacDeleteGlobalRoleMembershipInput input,
+  ) async {
+    return _runMutation(
+      () => ref
+          .read(rbacAdminRepositoryProvider)
+          .deleteGlobalRoleMembership(input),
+      conflictMessage:
+          'Global role memberships changed on the server. Reloading list.',
+      reloadOnSuccess: _reloadGlobalRoleMemberships,
+      reloadOnConflict: _reloadGlobalRoleMemberships,
+    );
+  }
+
   Future<bool> createTenantPermissionEntry(
     RbacCreateTenantPermissionEntryInput input,
   ) async {
@@ -495,7 +544,7 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
           .read(rbacAdminRepositoryProvider)
           .createTenantRoleMembership(input),
       conflictMessage:
-          'Role memberships changed on the server. Reloading list.',
+          'Tenant role memberships changed on the server. Reloading list.',
       reloadOnSuccess: () => _reloadTenantRoleMemberships(input.tenantId),
       reloadOnConflict: () => _reloadTenantRoleMemberships(input.tenantId),
     );
@@ -509,7 +558,7 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
           .read(rbacAdminRepositoryProvider)
           .deleteTenantRoleMembership(input),
       conflictMessage:
-          'Role memberships changed on the server. Reloading list.',
+          'Tenant role memberships changed on the server. Reloading list.',
       reloadOnSuccess: () => _reloadTenantRoleMemberships(input.tenantId),
       reloadOnConflict: () => _reloadTenantRoleMemberships(input.tenantId),
     );
@@ -578,6 +627,24 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
     );
   }
 
+  Future<void> _reloadGlobalRoleMemberships() async {
+    final response = await ref
+        .read(rbacAdminRepositoryProvider)
+        .fetchGlobalRoleMemberships();
+    if (response.isFailure) {
+      _applyFailure(
+        response.failure!,
+        fallback: 'Could not load global role memberships.',
+      );
+      return;
+    }
+
+    state = state.copyWith(
+      globalRoleMemberships: response.data!,
+      clearError: true,
+    );
+  }
+
   Future<void> _reloadTenantRoleMemberships(String tenantId) async {
     final response = await ref
         .read(rbacAdminRepositoryProvider)
@@ -585,7 +652,7 @@ class RbacAdminController extends StateNotifier<RbacAdminState> {
     if (response.isFailure) {
       _applyFailure(
         response.failure!,
-        fallback: 'Could not load role memberships.',
+        fallback: 'Could not load tenant role memberships.',
       );
       return;
     }

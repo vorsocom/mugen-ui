@@ -176,6 +176,27 @@ void main() {
       );
     },
   );
+
+  test('UserAdminController edit roles success reloads users', () async {
+    final repository = _FakeUserAdminRepository();
+    final container = ProviderContainer(
+      overrides: <Override>[
+        authControllerProvider.overrideWith(() => _TestAuthController()),
+        userAdminRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(userAdminControllerProvider.notifier);
+    final fetchesBefore = repository.fetchUsersCallCount;
+    final input = EditUserRolesInput(userId: 'u1', roles: <String>['role:a']);
+
+    final ok = await notifier.editUserRoles(input);
+
+    expect(ok, isTrue);
+    expect(repository.editRolesInputs, <EditUserRolesInput>[input]);
+    expect(repository.fetchUsersCallCount, greaterThan(fetchesBefore));
+  });
 }
 
 class _TestAuthController extends AuthController {
@@ -230,6 +251,8 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   Result<List<UserSessionEntity>> fetchSessionsResult =
       const Result<List<UserSessionEntity>>.success(<UserSessionEntity>[]);
   Result<void> revokeSessionResult = const Result<void>.success(null);
+  int fetchUsersCallCount = 0;
+  final List<EditUserRolesInput> editRolesInputs = <EditUserRolesInput>[];
 
   @override
   Future<Result<void>> disableUserAccount(ToggleUserAccountInput input) async {
@@ -243,6 +266,7 @@ class _FakeUserAdminRepository implements UserAdminRepository {
 
   @override
   Future<Result<void>> editUserRoles(EditUserRolesInput input) async {
+    editRolesInputs.add(input);
     return editRolesResult;
   }
 
@@ -265,6 +289,7 @@ class _FakeUserAdminRepository implements UserAdminRepository {
 
   @override
   Future<Result<PageResult<UserEntity>>> fetchUsers(UserListQuery query) async {
+    fetchUsersCallCount += 1;
     return fetchUsersResult;
   }
 

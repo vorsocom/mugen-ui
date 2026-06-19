@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Rendered AI Assist backend errors in a red alert above the composer and
+  normalized HTML API error pages into readable messages.
 - Capped the LocalUsers sessions dialog height against the viewport so long
   session lists remain scrollable on shorter screens.
 

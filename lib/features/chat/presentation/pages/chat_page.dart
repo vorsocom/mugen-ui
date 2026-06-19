@@ -163,12 +163,11 @@ class _ChatPageState extends ConsumerState<ChatPage> {
     final composerText = _composerController.text;
     final composerError = controller.composerValidationError(composerText);
     final trimmedComposerText = composerText.trim();
+    final pageError = state.errorMessage?.trim();
     final inlineComposerError =
-        (state.errorMessage != null && state.errorMessage!.trim().isNotEmpty)
-        ? state.errorMessage! // coverage:ignore-line
-        : ((state.attachments.isNotEmpty || trimmedComposerText.isNotEmpty)
-              ? composerError
-              : null);
+        (state.attachments.isNotEmpty || trimmedComposerText.isNotEmpty)
+        ? composerError
+        : null;
     final canSubmit = !state.isSending && composerError == null;
     final canClearTranscript = state.messages.isNotEmpty;
     final latestAssistantMessage = _latestAssistantMessage(state.messages);
@@ -362,6 +361,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (pageError != null && pageError.isNotEmpty) ...[
+                          AppErrorAlert(message: pageError),
+                          const SizedBox(height: 10),
+                        ],
                         Container(
                           padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
                           decoration: BoxDecoration(

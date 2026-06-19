@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'package:mugen_ui/app/browser_chrome.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/extension/app_definition.dart';
@@ -34,6 +35,10 @@ final Provider<AuthSessionRefreshBus> authSessionRefreshBusProvider =
       ref.onDispose(bus.close);
       return bus;
     });
+
+final Provider<BrowserChrome> browserChromeProvider = Provider<BrowserChrome>(
+  (ref) => createBrowserChrome(),
+);
 
 @Riverpod(keepAlive: true)
 AppConfig appConfig(Ref ref) {

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logging/logging.dart';
+import 'package:mugen_ui/app/browser_chrome.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/app/providers.dart';
@@ -20,6 +21,7 @@ void main() {
     addTearDown(container.dispose);
 
     expect(container.read(appDefinitionProvider), isA<MugenUiAppDefinition>());
+    expect(container.read(browserChromeProvider), isA<BrowserChrome>());
     expect(container.read(appConfigProvider), isA<AppConfig>());
     expect(
       container.read(shellRouteDefinitionsProvider),

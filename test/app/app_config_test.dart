@@ -16,6 +16,7 @@ void main() {
     final merged = defaults.merge(
       const AppConfigurationOverride(
         appName: 'Custom Name',
+        browserTitle: 'Custom Browser Title',
         activeRoles: <AppRoleConfig>[
           AppRoleConfig(name: 'custom:role', displayName: 'Custom'),
         ],
@@ -43,6 +44,8 @@ void main() {
     );
 
     expect(merged.appName, 'Custom Name');
+    expect(defaults.browserTitle, isNull);
+    expect(merged.browserTitle, 'Custom Browser Title');
     expect(merged.appVersion, defaults.appVersion);
     expect(merged.activeRoles.single.name, 'custom:role');
     expect(merged.api.baseUrl, defaults.api.baseUrl);
@@ -165,6 +168,7 @@ void main() {
       defaults.api.endpoints.rbacGlobalRoleMembership,
     );
     expect(runtimeOverride.appName, isNull);
+    expect(runtimeOverride.browserTitle, isNull);
     expect(apiOverride.baseUrl, isNull);
   });
 

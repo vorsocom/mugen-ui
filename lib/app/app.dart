@@ -31,7 +31,7 @@ class MugenApp extends ConsumerWidget {
         );
 
     return MaterialApp(
-      title: config.appName,
+      title: config.browserTitle ?? config.appName,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,

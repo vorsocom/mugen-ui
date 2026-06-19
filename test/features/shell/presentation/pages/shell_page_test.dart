@@ -53,6 +53,58 @@ const List<String> _authenticatedWebAccessRoles = <String>[
 ];
 
 void main() {
+  testWidgets(
+    'expanded drawer title renders app name when browser title differs',
+    (tester) async {
+      final config = AppConfig.defaults().merge(
+        const AppConfigurationOverride(
+          appName: 'Redcell',
+          browserTitle: 'Redcell Wargaming Console',
+        ),
+      );
+      final definition = _buildShellTestDefinition(
+        config: config,
+        defaultShellRouteId: _reportsRoute,
+        shellRoutes: const <ShellRouteDefinition>[
+          ShellRouteDefinition(
+            id: _reportsRoute,
+            title: 'Reports',
+            icon: Icons.dashboard_outlined,
+            builder: _buildReportsPage,
+          ),
+        ],
+      );
+      final shellController = _TestShellController(
+        initialState: const ShellState(
+          isDrawerCollapsed: false,
+          showSettings: false,
+          activeRoute: _reportsRoute,
+        ),
+      );
+      final authController = _TestAuthController(
+        initialState: const AuthControllerState(
+          isLoading: false,
+          session: null,
+        ),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            appDefinitionProvider.overrideWith((ref) => definition),
+            shellControllerProvider.overrideWith(() => shellController),
+            authControllerProvider.overrideWith(() => authController),
+          ],
+          child: const MaterialApp(home: ShellPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Redcell'), findsOneWidget);
+      expect(find.text('Redcell Wargaming Console'), findsNothing);
+    },
+  );
+
   testWidgets('user bar title follows active SPA route', (tester) async {
     final definition = _buildShellTestDefinition(
       defaultShellRouteId: _reportsRoute,

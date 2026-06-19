@@ -47,6 +47,7 @@ class ApiEndpointsConfig {
     required this.rbacPermissionTypeActionReactivate,
     required this.rbacGlobalPermissionEntry,
     required this.rbacTenantPermissionEntry,
+    required this.rbacGlobalRoleMembership,
     required this.rbacTenantRoleMembership,
     required this.auditEvent,
     required this.auditEventTenant,
@@ -95,6 +96,7 @@ class ApiEndpointsConfig {
   final String rbacPermissionTypeActionReactivate;
   final String rbacGlobalPermissionEntry;
   final String rbacTenantPermissionEntry;
+  final String rbacGlobalRoleMembership;
   final String rbacTenantRoleMembership;
   final String auditEvent;
   final String auditEventTenant;
@@ -176,6 +178,8 @@ class ApiEndpointsConfig {
           override.rbacGlobalPermissionEntry ?? rbacGlobalPermissionEntry,
       rbacTenantPermissionEntry:
           override.rbacTenantPermissionEntry ?? rbacTenantPermissionEntry,
+      rbacGlobalRoleMembership:
+          override.rbacGlobalRoleMembership ?? rbacGlobalRoleMembership,
       rbacTenantRoleMembership:
           override.rbacTenantRoleMembership ?? rbacTenantRoleMembership,
       auditEvent: override.auditEvent ?? auditEvent,
@@ -229,6 +233,7 @@ class ApiEndpointsOverride {
     this.rbacPermissionTypeActionReactivate,
     this.rbacGlobalPermissionEntry,
     this.rbacTenantPermissionEntry,
+    this.rbacGlobalRoleMembership,
     this.rbacTenantRoleMembership,
     this.auditEvent,
     this.auditEventTenant,
@@ -277,6 +282,7 @@ class ApiEndpointsOverride {
   final String? rbacPermissionTypeActionReactivate;
   final String? rbacGlobalPermissionEntry;
   final String? rbacTenantPermissionEntry;
+  final String? rbacGlobalRoleMembership;
   final String? rbacTenantRoleMembership;
   final String? auditEvent;
   final String? auditEventTenant;
@@ -403,6 +409,7 @@ class AppConfig {
           rbacGlobalPermissionEntry: 'core/acp/v1/GlobalPermissionEntries',
           rbacTenantPermissionEntry:
               'core/acp/v1/tenants/{tenant_id}/PermissionEntries',
+          rbacGlobalRoleMembership: 'core/acp/v1/GlobalRoleMemberships',
           rbacTenantRoleMembership:
               'core/acp/v1/tenants/{tenant_id}/RoleMemberships',
           auditEvent: 'core/acp/v1/AuditEvents',

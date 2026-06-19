@@ -61,6 +61,18 @@ void main() {
       controller.descriptors[2].collectionActions.single.fields[2].options,
       <String>['local', 'managed'],
     );
+    expect(
+      controller.descriptors.first.createFields
+          .firstWhere((field) => field.key == 'PlatformKey')
+          .options,
+      <String>['line', 'matrix', 'signal', 'telegram', 'wechat', 'whatsapp'],
+    );
+    expect(
+      controller.descriptors[1].createFields
+          .firstWhere((field) => field.key == 'Category')
+          .options,
+      <String>['messaging.platform_defaults', 'ops_connector.defaults'],
+    );
   });
 
   testWidgets('RuntimeControlPanel renders description and resource tabs', (
@@ -120,10 +132,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('acp-admin-create-button')));
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('acp-dynamic-field-PlatformKey')),
-        'matrix',
-      );
+      await _selectDynamicDropdownOption(tester, 'PlatformKey', 'matrix');
       await tester.enterText(
         find.byKey(const Key('acp-dynamic-field-ProfileKey')),
         'primary',
@@ -184,8 +193,9 @@ void main() {
       expect(find.text('Display Name is required.'), findsNothing);
       expect(repository.createCalls, isEmpty);
 
-      await tester.enterText(
-        find.byKey(const Key('acp-dynamic-field-Category')),
+      await _selectDynamicDropdownOption(
+        tester,
+        'Category',
         'messaging.platform_defaults',
       );
       await tester.enterText(
@@ -366,6 +376,20 @@ Finder _jsonEditorTextField(String fieldKey) {
     of: find.byKey(Key('acp-json-editor-text-$fieldKey')),
     matching: find.byType(TextField),
   );
+}
+
+Future<void> _selectDynamicDropdownOption(
+  WidgetTester tester,
+  String fieldKey,
+  String option,
+) async {
+  await tester.tap(find.byKey(Key('acp-dynamic-field-$fieldKey')));
+  await tester.pumpAndSettle();
+  await tester.tap(
+    find.byKey(Key('acp-dynamic-field-$fieldKey-option-$option')),
+    warnIfMissed: false,
+  );
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpRuntimeControlPanel(

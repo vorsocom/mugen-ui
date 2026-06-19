@@ -24,6 +24,7 @@ import 'package:mugen_ui/shared/application/query_models.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
   testWidgets(
@@ -162,65 +163,50 @@ void main() {
     expect(repository.registerInputs, hasLength(2));
   });
 
-  testWidgets(
-    'edit details, reset password, and edit roles submit expected inputs',
-    (WidgetTester tester) async {
-      final repository = _FakeUserAdminRepository();
+  testWidgets('edit details and reset password submit expected inputs', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeUserAdminRepository();
 
-      await _pumpPanel(tester, repository);
-      await tester.pumpAndSettle();
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Edit Roles'), findsNothing);
 
-      await tester.tap(find.byTooltip('Edit Details').first);
-      await tester.pumpAndSettle();
-      expect(find.text('Edit User Details'), findsOneWidget);
-      await _fillEditUserForm(
-        tester,
-        firstName: 'AliceUpdated',
-        lastName: 'ExampleUpdated',
-        email: 'alice.updated@example.com',
-      );
-      await tester.tap(find.text('Save Changes'));
-      await tester.pumpAndSettle();
-      expect(repository.updateInputs, hasLength(1));
-      expect(repository.updateInputs.single.firstName, 'AliceUpdated');
+    await tester.tap(find.byTooltip('Edit Details').first);
+    await tester.pumpAndSettle();
+    expect(find.text('Edit User Details'), findsOneWidget);
+    await _fillEditUserForm(
+      tester,
+      firstName: 'AliceUpdated',
+      lastName: 'ExampleUpdated',
+      email: 'alice.updated@example.com',
+    );
+    await tester.tap(find.text('Save Changes'));
+    await tester.pumpAndSettle();
+    expect(repository.updateInputs, hasLength(1));
+    expect(repository.updateInputs.single.firstName, 'AliceUpdated');
 
-      await tester.tap(find.byTooltip('Reset Password').first);
-      await tester.pumpAndSettle();
-      await _fillResetPasswordForm(
-        tester,
-        newPassword: 'password-1',
-        confirmPassword: 'password-2',
-      );
-      await tester.tap(find.text('Reset Password'));
-      await tester.pumpAndSettle();
-      expect(find.text('Passwords must match.'), findsOneWidget);
+    await tester.tap(find.byTooltip('Reset Password').first);
+    await tester.pumpAndSettle();
+    await _fillResetPasswordForm(
+      tester,
+      newPassword: 'password-1',
+      confirmPassword: 'password-2',
+    );
+    await tester.tap(find.text('Reset Password'));
+    await tester.pumpAndSettle();
+    expect(find.text('Passwords must match.'), findsOneWidget);
 
-      await _fillResetPasswordForm(
-        tester,
-        newPassword: 'password-1',
-        confirmPassword: 'password-1',
-      );
-      await tester.tap(find.text('Reset Password'));
-      await tester.pumpAndSettle();
-      expect(repository.resetPasswordInputs, hasLength(1));
-      expect(repository.resetPasswordInputs.single.userId, 'u-1');
-
-      await tester.tap(find.byTooltip('Edit Roles').first);
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Edit User Roles - alice'), findsOneWidget);
-      final roleTable = tester.widget<DataTable>(find.byType(DataTable).last);
-      expect(roleTable.columns[0].columnWidth, isA<FlexColumnWidth>());
-      expect(roleTable.columns[1].columnWidth, isA<FixedColumnWidth>());
-      final checkboxes = find.byType(Checkbox);
-      expect(checkboxes, findsWidgets);
-      await tester.tap(checkboxes.first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Save Roles'));
-      await tester.pumpAndSettle();
-      expect(repository.editRolesInputs, hasLength(1));
-      expect(repository.editRolesInputs.single.userId, 'u-1');
-    },
-  );
+    await _fillResetPasswordForm(
+      tester,
+      newPassword: 'password-1',
+      confirmPassword: 'password-1',
+    );
+    await tester.tap(find.text('Reset Password'));
+    await tester.pumpAndSettle();
+    expect(repository.resetPasswordInputs, hasLength(1));
+    expect(repository.resetPasswordInputs.single.userId, 'u-1');
+  });
 
   testWidgets('enable/disable account actions honor confirmation flow', (
     WidgetTester tester,
@@ -300,6 +286,23 @@ void main() {
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Sessions - alice'), findsNothing);
+  });
+
+  testWidgets('sessions dialog caps height on shorter viewports', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeUserAdminRepository()..sessionCount = 24;
+
+    await _pumpPanel(tester, repository, surfaceSize: const Size(900, 520));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Sessions').first);
+    await tester.pumpAndSettle();
+
+    final panelSize = tester.getSize(find.byType(AppFormPanel).last);
+    expect(panelSize.height, lessThanOrEqualTo(520 - 48));
+    expect(panelSize.height, lessThanOrEqualTo(760));
+    expect(find.byType(ListView), findsOneWidget);
   });
 
   testWidgets('sessions dialog shows loading error when fetch fails', (
@@ -407,22 +410,6 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Edit Roles').at(1));
-      await tester.pumpAndSettle();
-      final checkboxes = find.byType(Checkbox);
-      await tester.tap(checkboxes.first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Save Roles'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('Edit User Roles -'), findsOneWidget);
-      expect(repository.editRolesInputs, hasLength(1));
-      expect(
-        repository.editRolesInputs.single.roles,
-        contains('com.vorsocomputing.mugen.acp:administrator'),
-      );
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-
       await tester.tap(find.byTooltip('Disable Account').first);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Continue'));
@@ -454,9 +441,10 @@ void main() {
 
 Future<void> _pumpPanel(
   WidgetTester tester,
-  _FakeUserAdminRepository repository,
-) async {
-  await tester.binding.setSurfaceSize(const Size(1600, 1200));
+  _FakeUserAdminRepository repository, {
+  Size surfaceSize = const Size(1600, 1200),
+}) async {
+  await tester.binding.setSurfaceSize(surfaceSize);
   addTearDown(() async {
     await tester.binding.setSurfaceSize(null);
   });
@@ -643,6 +631,7 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   bool fetchSessionsShouldSucceed = true;
   bool emptySessions = false;
   bool revokeSessionShouldSucceed = true;
+  int sessionCount = 2;
   Duration? fetchUsersDelay;
 
   final List<UserListQuery> fetchUsersQueries = <UserListQuery>[];
@@ -705,24 +694,20 @@ class _FakeUserAdminRepository implements UserAdminRepository {
         <UserSessionEntity>[],
       );
     }
-    return Result<List<UserSessionEntity>>.success(<UserSessionEntity>[
-      UserSessionEntity(
-        id: 'session-$userId-1',
-        userId: userId,
-        tokenJti: 'token-$userId-1',
-        expiresAt: DateTime.utc(2030, 1, 2),
-        dateCreated: DateTime.utc(2030, 1, 1),
-        dateLastModified: DateTime.utc(2030, 1, 1),
-      ),
-      UserSessionEntity(
-        id: 'session-$userId-2',
-        userId: userId,
-        tokenJti: 'token-$userId-2',
-        expiresAt: DateTime.utc(2030, 1, 3),
-        dateCreated: DateTime.utc(2030, 1, 2),
-        dateLastModified: DateTime.utc(2030, 1, 2),
-      ),
-    ]);
+    return Result<List<UserSessionEntity>>.success(
+      List<UserSessionEntity>.generate(sessionCount, (index) {
+        final sessionNumber = index + 1;
+        final createdAt = DateTime.utc(2030, 1, 1).add(Duration(days: index));
+        return UserSessionEntity(
+          id: 'session-$userId-$sessionNumber',
+          userId: userId,
+          tokenJti: 'token-$userId-$sessionNumber',
+          expiresAt: createdAt.add(const Duration(days: 1)),
+          dateCreated: createdAt,
+          dateLastModified: createdAt,
+        );
+      }),
+    );
   }
 
   @override

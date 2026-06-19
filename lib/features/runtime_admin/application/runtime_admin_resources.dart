@@ -18,7 +18,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       _column('IsActive', 'Active'),
     ],
     createFields: <AcpFieldDescriptor>[
-      _text('PlatformKey', 'Platform Key', required: true),
+      _platformKey(required: true),
       _text('ProfileKey', 'Profile Key', required: true),
       _text('DisplayName', 'Display Name'),
       _bool('IsActive', 'Is Active', initialValue: true),
@@ -61,7 +61,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       ),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('PlatformKey', 'Platform Key'),
+      _platformKey(),
       _text('ProfileKey', 'Profile Key'),
       _text('DisplayName', 'Display Name'),
       _bool('IsActive', 'Is Active'),
@@ -99,7 +99,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       _column('UpdatedAt', 'Updated'),
     ],
     createFields: <AcpFieldDescriptor>[
-      _text('Category', 'Category', required: true),
+      _runtimeCategory(required: true),
       _text('ProfileKey', 'Profile Key', required: true),
       _text('DisplayName', 'Display Name'),
       _bool('IsActive', 'Is Active', initialValue: true),
@@ -107,7 +107,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       _json('Attributes', 'Attributes'),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('Category', 'Category'),
+      _runtimeCategory(),
       _text('ProfileKey', 'Profile Key'),
       _text('DisplayName', 'Display Name'),
       _bool('IsActive', 'Is Active'),
@@ -210,6 +210,20 @@ AcpColumnDescriptor _column(String key, String label, {int flex = 1}) {
   return AcpColumnDescriptor(key: key, label: label, flex: flex);
 }
 
+const List<String> _messagingPlatformOptions = <String>[
+  'line',
+  'matrix',
+  'signal',
+  'telegram',
+  'wechat',
+  'whatsapp',
+];
+
+const List<String> _runtimeCategoryOptions = <String>[
+  'messaging.platform_defaults',
+  'ops_connector.defaults',
+];
+
 AcpFieldDescriptor _text(
   String key,
   String label, {
@@ -229,6 +243,24 @@ AcpFieldDescriptor _text(
     obscureText: obscureText,
     initialValue: initialValue,
     options: options,
+  );
+}
+
+AcpFieldDescriptor _platformKey({bool required = false}) {
+  return _text(
+    'PlatformKey',
+    'Platform Key',
+    required: required,
+    options: _messagingPlatformOptions,
+  );
+}
+
+AcpFieldDescriptor _runtimeCategory({bool required = false}) {
+  return _text(
+    'Category',
+    'Category',
+    required: required,
+    options: _runtimeCategoryOptions,
   );
 }
 

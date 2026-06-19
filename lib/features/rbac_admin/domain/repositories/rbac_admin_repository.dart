@@ -1,4 +1,5 @@
 import 'package:mugen_ui/features/rbac_admin/application/dto/rbac_admin_inputs.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_assignable_user_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_entry_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_object_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
@@ -12,6 +13,9 @@ abstract class RbacAdminRepository {
   Future<Result<List<RbacTenantSummaryEntity>>> fetchTenants({int top = 200});
 
   Future<Result<List<RbacRoleEntity>>> fetchGlobalRoles({int top = 200});
+  Future<Result<List<RbacAssignableUserEntity>>> fetchGlobalUsers({
+    int top = 200,
+  });
   Future<Result<void>> createGlobalRole(RbacCreateGlobalRoleInput input);
   Future<Result<void>> updateGlobalRole(RbacUpdateGlobalRoleInput input);
 
@@ -81,10 +85,19 @@ abstract class RbacAdminRepository {
     required String tenantId,
     int top = 200,
   });
+  Future<Result<List<RbacRoleMembershipEntity>>> fetchGlobalRoleMemberships({
+    int top = 200,
+  });
   Future<Result<List<RbacTenantMemberEntity>>> fetchTenantMembers({
     required String tenantId,
     int top = 200,
   });
+  Future<Result<void>> createGlobalRoleMembership(
+    RbacCreateGlobalRoleMembershipInput input,
+  );
+  Future<Result<void>> deleteGlobalRoleMembership(
+    RbacDeleteGlobalRoleMembershipInput input,
+  );
   Future<Result<void>> createTenantRoleMembership(
     RbacCreateRoleMembershipInput input,
   );

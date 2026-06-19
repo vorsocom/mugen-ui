@@ -67,6 +67,129 @@ void main() {
     },
   );
 
+  test(
+    'controller resets chat state when the authenticated user changes',
+    () async {
+      final storage = _InMemoryChatLocalStorage();
+      storage.setItem(
+        'mugen_ui.chat.single.user-2.v1',
+        jsonEncode(<String, dynamic>{
+          'conversation_id': 'conv-user-2',
+          'last_event_id': '42',
+          'messages': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 'u2-message',
+              'role': 'assistant',
+              'type': 'text',
+              'status': 'delivered',
+              'created_at': DateTime.utc(2026, 1, 1).toIso8601String(),
+              'text': 'restored for user 2',
+            },
+          ],
+        }),
+      );
+      final authRepository = _FakeAuthRepository(
+        const AuthSession(
+          accessToken: 'token-1',
+          refreshToken: 'refresh-1',
+          userId: 'user-1',
+          roles: <String>[],
+        ),
+      );
+      authRepository.nextLoginSession = const AuthSession(
+        accessToken: 'token-2',
+        refreshToken: 'refresh-2',
+        userId: 'user-2',
+        roles: <String>[],
+      );
+      final repository = _FakeChatRepository();
+      final container = _buildContainer(
+        repository: repository,
+        storage: storage,
+        authRepository: authRepository,
+      );
+      addTearDown(container.dispose);
+
+      container.read(chatControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.failure(UnauthorizedFailure()),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(chatControllerProvider).errorMessage,
+        'Unauthorized request.',
+      );
+
+      final loggedIn = await container
+          .read(authControllerProvider.notifier)
+          .login(username: 'next', password: 'password');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(loggedIn, isTrue);
+      final state = container.read(chatControllerProvider);
+      expect(state.conversationId, 'conv-user-2');
+      expect(state.lastEventId, '42');
+      expect(state.messages.single.text, 'restored for user 2');
+      expect(state.errorMessage, isNull);
+      expect(repository.streamCalls.last.conversationId, 'conv-user-2');
+      expect(repository.streamCalls.last.lastEventId, '42');
+    },
+  );
+
+  test(
+    'late send failures do not write into a newer authenticated user',
+    () async {
+      final authRepository = _FakeAuthRepository(
+        const AuthSession(
+          accessToken: 'token-1',
+          refreshToken: 'refresh-1',
+          userId: 'user-1',
+          roles: <String>[],
+        ),
+      );
+      authRepository.nextLoginSession = const AuthSession(
+        accessToken: 'token-2',
+        refreshToken: 'refresh-2',
+        userId: 'user-2',
+        roles: <String>[],
+      );
+      final repository = _FakeChatRepository();
+      repository.pendingSendTextCompleter =
+          Completer<Result<ChatSendAcceptedEntity>>();
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+        authRepository: authRepository,
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(chatControllerProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      final send = notifier.sendMessage('hello');
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(chatControllerProvider).isSending, isTrue);
+
+      final loggedIn = await container
+          .read(authControllerProvider.notifier)
+          .login(username: 'next', password: 'password');
+      await Future<void>.delayed(Duration.zero);
+      repository.pendingSendTextCompleter!.complete(
+        const Result<ChatSendAcceptedEntity>.failure(
+          NetworkFailure('late failure'),
+        ),
+      );
+      final sent = await send;
+
+      expect(loggedIn, isTrue);
+      expect(sent, isFalse);
+      final state = container.read(chatControllerProvider);
+      expect(state.messages, isEmpty);
+      expect(state.errorMessage, isNull);
+      expect(state.isSending, isFalse);
+    },
+  );
+
   test('controller trims restored snapshot to retained message cap', () async {
     final storage = _InMemoryChatLocalStorage();
     storage.setItem(
@@ -2609,19 +2732,21 @@ PlatformFile _platformFile(String name, {Uint8List? bytes}) {
 ProviderContainer _buildContainer({
   required _FakeChatRepository repository,
   required ChatLocalStorage storage,
+  _FakeAuthRepository? authRepository,
   ChatFilePicker? filePicker,
   MediaObjectUrlPlatform? mediaPlatform,
 }) {
   final overrides = <Override>[
     authRepositoryProvider.overrideWithValue(
-      _FakeAuthRepository(
-        const AuthSession(
-          accessToken: 'token',
-          refreshToken: 'refresh',
-          userId: 'user-1',
-          roles: <String>[],
-        ),
-      ),
+      authRepository ??
+          _FakeAuthRepository(
+            const AuthSession(
+              accessToken: 'token',
+              refreshToken: 'refresh',
+              userId: 'user-1',
+              roles: <String>[],
+            ),
+          ),
     ),
     chatRepositoryProvider.overrideWithValue(repository),
     chatLocalStorageProvider.overrideWithValue(storage),
@@ -2917,7 +3042,8 @@ class _FakePlatformFilePicker extends FilePicker {
 class _FakeAuthRepository implements AuthRepository {
   _FakeAuthRepository(this._session);
 
-  final AuthSession? _session;
+  AuthSession? _session;
+  AuthSession? nextLoginSession;
 
   @override
   Result<AuthSession?> currentSession() {
@@ -2937,9 +3063,16 @@ class _FakeAuthRepository implements AuthRepository {
     required String username,
     required String password,
   }) async {
-    return const Result<AuthSession>.failure(
-      ValidationFailure('Not implemented'),
-    );
+    final session =
+        nextLoginSession ??
+        AuthSession(
+          accessToken: 'token-$username',
+          refreshToken: 'refresh-$username',
+          userId: username,
+          roles: const <String>[],
+        );
+    _session = session;
+    return Result<AuthSession>.success(session);
   }
 
   @override

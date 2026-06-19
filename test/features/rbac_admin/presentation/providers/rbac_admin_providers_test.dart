@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/rbac_admin/application/dto/rbac_admin_inputs.dart';
+import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_assignable_user_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_entry_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_object_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_permission_type_entity.dart';
@@ -43,6 +44,8 @@ void main() {
     expect(state.permissionObjects, hasLength(1));
     expect(state.permissionTypes, hasLength(1));
     expect(state.globalPermissionEntries, hasLength(1));
+    expect(state.globalRoleMemberships, hasLength(1));
+    expect(state.globalUsers, hasLength(2));
     expect(state.selectedTenantId, 'tenant-1');
     expect(state.tenantRoles, hasLength(1));
     expect(state.tenantPermissionEntries, hasLength(1));
@@ -103,6 +106,22 @@ void main() {
     expect(createTenantGrantOk, isTrue);
     expect(repository.createTenantPermissionEntryInputs, hasLength(1));
 
+    final globalRoleMembershipFetchesBeforeCreate =
+        repository.fetchGlobalRoleMembershipsCallCount;
+    final createGlobalRoleMembershipOk = await notifier
+        .createGlobalRoleMembership(
+          const RbacCreateGlobalRoleMembershipInput(
+            roleId: 'gr-1',
+            userId: 'user-2',
+          ),
+        );
+    expect(createGlobalRoleMembershipOk, isTrue);
+    expect(repository.createGlobalRoleMembershipInputs, hasLength(1));
+    expect(
+      repository.fetchGlobalRoleMembershipsCallCount,
+      greaterThan(globalRoleMembershipFetchesBeforeCreate),
+    );
+
     final roleMembershipFetchesBeforeCreate =
         repository.fetchTenantRoleMembershipsCallCount;
     final createRoleMembershipOk = await notifier.createTenantRoleMembership(
@@ -153,7 +172,7 @@ void main() {
     );
     expect(
       container.read(rbacAdminControllerProvider).errorMessage,
-      'Role memberships changed on the server. Reloading list.',
+      'Tenant role memberships changed on the server. Reloading list.',
     );
 
     repository.mutationResult = const Result<void>.failure(
@@ -336,6 +355,43 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
           seedData: false,
         ),
       ],
+      _globalRoleMemberships = <RbacRoleMembershipEntity>[
+        RbacRoleMembershipEntity(
+          id: 'grm-1',
+          tenantId: null,
+          roleId: 'gr-1',
+          userId: 'user-1',
+          roleDisplayName: 'Administrator',
+          roleKey: 'acp:administrator',
+          roleNamespace: 'acp',
+          roleName: 'administrator',
+          userDisplayName: 'alice@example.com',
+          userEmail: 'alice@example.com',
+          rowVersion: 1,
+          dateCreated: DateTime.utc(2024, 1, 1),
+          dateLastModified: DateTime.utc(2024, 1, 1),
+          deleted: false,
+          seedData: false,
+        ),
+      ],
+      _globalUsers = const <RbacAssignableUserEntity>[
+        RbacAssignableUserEntity(
+          id: 'user-1',
+          username: 'alice-login',
+          displayName: 'alice@example.com',
+          email: 'alice@example.com',
+          deleted: false,
+          seedData: false,
+        ),
+        RbacAssignableUserEntity(
+          id: 'user-2',
+          username: 'bob-login',
+          displayName: 'bob@example.com',
+          email: 'bob@example.com',
+          deleted: false,
+          seedData: false,
+        ),
+      ],
       _tenantEntries = <RbacPermissionEntryEntity>[
         RbacPermissionEntryEntity(
           id: 'tpe-1',
@@ -392,6 +448,8 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   final List<RbacPermissionObjectEntity> _permissionObjects;
   final List<RbacPermissionTypeEntity> _permissionTypes;
   final List<RbacPermissionEntryEntity> _globalEntries;
+  final List<RbacRoleMembershipEntity> _globalRoleMemberships;
+  final List<RbacAssignableUserEntity> _globalUsers;
   final List<RbacPermissionEntryEntity> _tenantEntries;
   final List<RbacRoleMembershipEntity> _tenantRoleMemberships;
   final List<RbacTenantMemberEntity> _tenantMembers;
@@ -418,6 +476,14 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
       const Result<List<RbacPermissionEntryEntity>>.success(
         <RbacPermissionEntryEntity>[],
       );
+  Result<List<RbacRoleMembershipEntity>> fetchGlobalRoleMembershipsResult =
+      const Result<List<RbacRoleMembershipEntity>>.success(
+        <RbacRoleMembershipEntity>[],
+      );
+  Result<List<RbacAssignableUserEntity>> fetchGlobalUsersResult =
+      const Result<List<RbacAssignableUserEntity>>.success(
+        <RbacAssignableUserEntity>[],
+      );
   Result<List<RbacPermissionEntryEntity>> fetchTenantEntriesResult =
       const Result<List<RbacPermissionEntryEntity>>.success(
         <RbacPermissionEntryEntity>[],
@@ -435,6 +501,7 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
 
   int fetchTenantRolesCallCount = 0;
   int fetchTenantEntriesCallCount = 0;
+  int fetchGlobalRoleMembershipsCallCount = 0;
   int fetchTenantRoleMembershipsCallCount = 0;
   int fetchTenantMembersCallCount = 0;
   String? lastTenantRoleTenantId;
@@ -448,8 +515,12 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   createTenantPermissionEntryInputs = <RbacCreateTenantPermissionEntryInput>[];
   final List<RbacCreateRoleMembershipInput> createTenantRoleMembershipInputs =
       <RbacCreateRoleMembershipInput>[];
+  final List<RbacCreateGlobalRoleMembershipInput>
+  createGlobalRoleMembershipInputs = <RbacCreateGlobalRoleMembershipInput>[];
   final List<RbacDeleteRoleMembershipInput> deleteTenantRoleMembershipInputs =
       <RbacDeleteRoleMembershipInput>[];
+  final List<RbacDeleteGlobalRoleMembershipInput>
+  deleteGlobalRoleMembershipInputs = <RbacDeleteGlobalRoleMembershipInput>[];
 
   @override
   Future<Result<void>> createGlobalPermissionEntry(
@@ -461,6 +532,14 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   @override
   Future<Result<void>> createGlobalRole(RbacCreateGlobalRoleInput input) async {
     createGlobalRoleInputs.add(input);
+    return mutationResult;
+  }
+
+  @override
+  Future<Result<void>> createGlobalRoleMembership(
+    RbacCreateGlobalRoleMembershipInput input,
+  ) async {
+    createGlobalRoleMembershipInputs.add(input);
     return mutationResult;
   }
 
@@ -503,6 +582,14 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
   Future<Result<void>> deleteGlobalPermissionEntry(
     RbacDeleteGlobalPermissionEntryInput input,
   ) async {
+    return mutationResult;
+  }
+
+  @override
+  Future<Result<void>> deleteGlobalRoleMembership(
+    RbacDeleteGlobalRoleMembershipInput input,
+  ) async {
+    deleteGlobalRoleMembershipInputs.add(input);
     return mutationResult;
   }
 
@@ -562,6 +649,33 @@ class _FakeRbacAdminRepository implements RbacAdminRepository {
     }
 
     return fetchGlobalRolesResult;
+  }
+
+  @override
+  Future<Result<List<RbacRoleMembershipEntity>>> fetchGlobalRoleMemberships({
+    int top = 200,
+  }) async {
+    fetchGlobalRoleMembershipsCallCount += 1;
+    if (fetchGlobalRoleMembershipsResult.isSuccess &&
+        fetchGlobalRoleMembershipsResult.data!.isEmpty) {
+      return Result<List<RbacRoleMembershipEntity>>.success(
+        _globalRoleMemberships,
+      );
+    }
+
+    return fetchGlobalRoleMembershipsResult;
+  }
+
+  @override
+  Future<Result<List<RbacAssignableUserEntity>>> fetchGlobalUsers({
+    int top = 200,
+  }) async {
+    if (fetchGlobalUsersResult.isSuccess &&
+        fetchGlobalUsersResult.data!.isEmpty) {
+      return Result<List<RbacAssignableUserEntity>>.success(_globalUsers);
+    }
+
+    return fetchGlobalUsersResult;
   }
 
   @override

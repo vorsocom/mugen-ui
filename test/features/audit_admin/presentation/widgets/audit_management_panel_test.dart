@@ -71,6 +71,10 @@ void main() {
       const Key('audit-run-lifecycle-dry-run-switch'),
     );
     expect(dryRunFinder, findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('audit-run-lifecycle-phase-seal_backlog')),
+    );
+    await tester.pumpAndSettle();
 
     await tester.tap(dryRunFinder);
     await tester.pumpAndSettle();
@@ -95,6 +99,9 @@ void main() {
 
     expect(repository.runLifecycleInputs, hasLength(1));
     expect(repository.runLifecycleInputs.single.dryRun, isFalse);
+    expect(repository.runLifecycleInputs.single.phases, <String>[
+      'seal_backlog',
+    ]);
   });
 
   testWidgets('row action sends reason and row version after confirmation', (

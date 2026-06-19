@@ -20,7 +20,7 @@ contextAdminResources = <AcpResourceDescriptor>[
     createFields: <AcpFieldDescriptor>[
       _text('Name', 'Name', required: true),
       _multiline('Description', 'Description'),
-      _text('Platform', 'Platform'),
+      _platform(),
       _text('ChannelKey', 'Channel Key'),
       _text('ServiceRouteKey', 'Service Route Key'),
       _text('ClientProfileKey', 'Client Profile Key'),
@@ -32,7 +32,7 @@ contextAdminResources = <AcpResourceDescriptor>[
     ],
     updateFields: <AcpFieldDescriptor>[
       _multiline('Description', 'Description'),
-      _text('Platform', 'Platform'),
+      _platform(),
       _text('ChannelKey', 'Channel Key'),
       _text('ServiceRouteKey', 'Service Route Key'),
       _text('ClientProfileKey', 'Client Profile Key'),
@@ -107,7 +107,7 @@ contextAdminResources = <AcpResourceDescriptor>[
     createFields: <AcpFieldDescriptor>[
       _text('BindingKey', 'Binding Key', required: true),
       _text('ContributorKey', 'Contributor Key', required: true),
-      _text('Platform', 'Platform'),
+      _platform(),
       _text('ChannelKey', 'Channel Key'),
       _text('ServiceRouteKey', 'Service Route Key'),
       _int('Priority', 'Priority', initialValue: 0),
@@ -115,7 +115,7 @@ contextAdminResources = <AcpResourceDescriptor>[
       _json('Attributes', 'Attributes'),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('Platform', 'Platform'),
+      _platform(),
       _text('ChannelKey', 'Channel Key'),
       _text('ServiceRouteKey', 'Service Route Key'),
       _int('Priority', 'Priority'),
@@ -150,7 +150,7 @@ contextAdminResources = <AcpResourceDescriptor>[
     createFields: <AcpFieldDescriptor>[
       _text('SourceKind', 'Source Kind', required: true),
       _text('SourceKey', 'Source Key', required: true),
-      _text('Platform', 'Platform'),
+      _platform(),
       _text('ChannelKey', 'Channel Key'),
       _text('ServiceRouteKey', 'Service Route Key'),
       _text('Locale', 'Locale'),
@@ -159,7 +159,7 @@ contextAdminResources = <AcpResourceDescriptor>[
       _json('Attributes', 'Attributes'),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('Platform', 'Platform'),
+      _platform(),
       _text('ChannelKey', 'Channel Key'),
       _text('ServiceRouteKey', 'Service Route Key'),
       _text('Locale', 'Locale'),
@@ -217,8 +217,31 @@ AcpColumnDescriptor _column(String key, String label) {
   return AcpColumnDescriptor(key: key, label: label);
 }
 
-AcpFieldDescriptor _text(String key, String label, {bool required = false}) {
-  return AcpFieldDescriptor(key: key, label: label, required: required);
+const List<String> _platformOptions = <String>[
+  'line',
+  'matrix',
+  'signal',
+  'telegram',
+  'wechat',
+  'whatsapp',
+];
+
+AcpFieldDescriptor _text(
+  String key,
+  String label, {
+  bool required = false,
+  List<String> options = const <String>[],
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    required: required,
+    options: options,
+  );
+}
+
+AcpFieldDescriptor _platform() {
+  return _text('Platform', 'Platform', options: _platformOptions);
 }
 
 AcpFieldDescriptor _multiline(

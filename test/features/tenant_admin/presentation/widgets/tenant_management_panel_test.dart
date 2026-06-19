@@ -208,13 +208,19 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Invite Member'));
     await tester.pumpAndSettle();
-    await _fillDialogFields(
-      tester,
-      values: <String>['member@example.com', 'member'],
+    expect(
+      find.byKey(const Key('tenant-invitation-role-dropdown')),
+      findsOneWidget,
     );
+    await tester.tap(find.byKey(const Key('tenant-invitation-role-dropdown')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Admin').last);
+    await tester.pumpAndSettle();
+    await _fillDialogFields(tester, values: <String>['member@example.com']);
     await tester.tap(find.widgetWithText(FilledButton, 'Create Invitation'));
     await tester.pumpAndSettle();
     expect(repository.createInvitationInputs, hasLength(1));
+    expect(repository.createInvitationInputs.single.roleInTenant, 'admin');
 
     final resendButtons = tester.widgetList<IconButton>(
       find.ancestor(
@@ -412,7 +418,9 @@ void main() {
         find.byKey(const Key('tenant-management-tenant-selector')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Tenant 2 (tenant-2) - Inactive').last);
+      await tester.tap(
+        find.byKey(const Key('tenant-management-tenant-option-t-2')),
+      );
       await tester.pump();
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
       await tester.pumpAndSettle();
@@ -527,9 +535,19 @@ Future<void> _searchAndSelectMembershipUser(
 }
 
 Future<void> _selectTenant(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(const Key('tenant-management-tenant-selector')));
+  final selector = find.byKey(const Key('tenant-management-tenant-selector'));
+  await tester.tap(selector);
   await tester.pumpAndSettle();
-  await tester.tap(find.text(label).last);
+  final slugMatch = RegExp(r'tenant-(\d+)').firstMatch(label);
+  if (slugMatch != null) {
+    await tester.enterText(selector, 'tenant ${slugMatch[1]}');
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(Key('tenant-management-tenant-option-t-${slugMatch[1]}')),
+    );
+  } else {
+    await tester.tap(find.text(label).last);
+  }
   await tester.pumpAndSettle();
 }
 

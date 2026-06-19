@@ -334,8 +334,10 @@ class ChatController extends _$ChatController {
   final Set<String> _recentNonUserSignatures = <String>{};
   final ListQueue<String> _recentNonUserSignatureOrder = ListQueue<String>();
   bool _disposeRegistered = false;
+  bool _authListenerRegistered = false;
   bool _eventLoopRunning = false;
   bool _disposed = false;
+  int _sessionGeneration = 0;
   String _snapshotStorageKey = '';
   String _snapshotUserId = '';
 
@@ -345,13 +347,9 @@ class ChatController extends _$ChatController {
     final userId = _activeUserId();
     _snapshotUserId = userId;
     _snapshotStorageKey = _buildStorageKey(userId);
+    _registerAuthListener();
 
     final snapshot = _readSnapshot();
-    final conversationId = (snapshot?.conversationId.trim().isNotEmpty ?? false)
-        ? snapshot!.conversationId
-        : _newConversationId();
-
-    final messages = _trimToRetainedMessageCap(snapshot?.messages ?? const []);
     _cachedMediaPlatform ??= ref.read(mediaObjectUrlPlatformProvider);
     if (!_disposeRegistered) {
       ref.onDispose(_disposeResources);
@@ -360,21 +358,15 @@ class ChatController extends _$ChatController {
 
     Future<void>.microtask(_startEventLoop);
 
-    return ChatControllerState(
-      conversationId: conversationId,
-      lastEventId: snapshot?.lastEventId,
-      messages: messages,
-      mediaResources: const <String, ChatMediaResourceState>{},
-      attachments: const <ChatAttachmentDraft>[],
-      compositionMode: ChatCompositionMode.messageWithAttachments,
-      isConnected: false,
-      isConnecting: false,
-      isSending: false,
-    );
+    return _buildInitialState(snapshot);
   }
 
   Future<void> attachFromPicker() async {
+    final generation = _sessionGeneration;
     final selected = await ref.read(chatFilePickerProvider).pickFiles();
+    if (_isStaleSession(generation)) {
+      return;
+    }
     if (selected.isEmpty) {
       return;
     }
@@ -482,6 +474,7 @@ class ChatController extends _$ChatController {
   }
 
   Future<bool> sendMessage(String rawText) async {
+    final generation = _sessionGeneration;
     ensureStreaming();
 
     final text = rawText.trim();
@@ -591,6 +584,10 @@ class ChatController extends _$ChatController {
             ),
           );
 
+    if (_isStaleSession(generation)) {
+      return false;
+    }
+
     if (result.isFailure) {
       state = state.copyWith(
         isSending: false,
@@ -627,6 +624,7 @@ class ChatController extends _$ChatController {
   }
 
   Future<void> ensureMediaLoaded(String messageId) async {
+    final generation = _sessionGeneration;
     final message = _findMessage(messageId);
     if (message == null ||
         message.role != ChatMessageRole.assistant ||
@@ -657,6 +655,10 @@ class ChatController extends _$ChatController {
           suggestedFilename: message.media!.filename,
           suggestedMimeType: message.media!.mimeType,
         );
+
+    if (_isStaleSession(generation)) {
+      return;
+    }
 
     if (result.isFailure) {
       state = state.copyWith(
@@ -768,73 +770,76 @@ class ChatController extends _$ChatController {
   }
 
   Future<void> _runEventLoop() async {
-    var attempt = 0;
-    while (!_disposed) {
-      state = state.copyWith(isConnecting: true, isConnected: false);
+    final generation = _sessionGeneration;
+    try {
+      var attempt = 0;
+      while (!_isStaleSession(generation)) {
+        state = state.copyWith(isConnecting: true, isConnected: false);
 
-      var keepRunning = true;
-      var hasEvents = false;
+        var keepRunning = true;
+        var hasEvents = false;
 
-      await for (final eventResult
-          in ref
-              .read(chatApplicationServiceProvider)
-              .streamEvents(
-                conversationId: state.conversationId,
-                lastEventId: state.lastEventId,
-              )) {
-        if (_disposed) {
-          return;
-        }
-
-        if (eventResult.isFailure) {
-          final failure = eventResult.failure;
-          if (failure is SessionExpiredFailure ||
-              failure is UnauthorizedFailure) {
-            state = state.copyWith(
-              isConnected: false,
-              isConnecting: false,
-              errorMessage: failure?.message ?? 'Session expired.',
-            );
-            _eventLoopRunning = false;
+        await for (final eventResult
+            in ref
+                .read(chatApplicationServiceProvider)
+                .streamEvents(
+                  conversationId: state.conversationId,
+                  lastEventId: state.lastEventId,
+                )) {
+          if (_isStaleSession(generation)) {
             return;
           }
 
-          if (failure is ApiFailure && failure.statusCode == 404) {
-            // Conversation becomes available only after first message is sent.
-          } else {
-            state = state.copyWith(errorMessage: failure?.message);
+          if (eventResult.isFailure) {
+            final failure = eventResult.failure;
+            if (failure is SessionExpiredFailure ||
+                failure is UnauthorizedFailure) {
+              state = state.copyWith(
+                isConnected: false,
+                isConnecting: false,
+                errorMessage: failure?.message ?? 'Session expired.',
+              );
+              return;
+            }
+
+            if (failure is ApiFailure && failure.statusCode == 404) {
+              // Conversation becomes available only after first message is sent.
+            } else {
+              state = state.copyWith(errorMessage: failure?.message);
+            }
+            keepRunning = true;
+            break;
           }
-          keepRunning = true;
-          break;
+
+          hasEvents = true;
+          attempt = 0;
+          state = state.copyWith(
+            isConnecting: false,
+            isConnected: true,
+            clearErrorMessage: true,
+          );
+          _handleServerEvent(eventResult.data!);
         }
 
-        hasEvents = true;
-        attempt = 0;
-        state = state.copyWith(
-          isConnecting: false,
-          isConnected: true,
-          clearErrorMessage: true,
-        );
-        _handleServerEvent(eventResult.data!);
+        if (_isStaleSession(generation)) {
+          return;
+        }
+
+        state = state.copyWith(isConnected: false, isConnecting: false);
+
+        if (!keepRunning) {
+          return;
+        }
+
+        attempt = hasEvents ? 1 : attempt + 1;
+        final delay = Duration(seconds: _backoffSeconds(attempt));
+        await Future<void>.delayed(delay);
       }
-
-      if (_disposed) {
-        return;
+    } finally {
+      if (generation == _sessionGeneration) {
+        _eventLoopRunning = false;
       }
-
-      state = state.copyWith(isConnected: false, isConnecting: false);
-
-      if (!keepRunning) {
-        _eventLoopRunning = false; // coverage:ignore-line
-        return;
-      }
-
-      attempt = hasEvents ? 1 : attempt + 1;
-      final delay = Duration(seconds: _backoffSeconds(attempt));
-      await Future<void>.delayed(delay);
     }
-
-    _eventLoopRunning = false; // coverage:ignore-line
   }
 
   void _handleServerEvent(ChatSseEventEntity event) {
@@ -1481,6 +1486,61 @@ class ChatController extends _$ChatController {
     return userId;
   }
 
+  void _registerAuthListener() {
+    if (_authListenerRegistered) {
+      return;
+    }
+    _authListenerRegistered = true;
+    ref.listen<AuthControllerState>(authControllerProvider, (_, next) {
+      final userId = next.session?.userId.trim();
+      final nextUserId = userId == null || userId.isEmpty
+          ? 'anonymous'
+          : userId;
+      if (nextUserId == _snapshotUserId) {
+        return;
+      }
+      _switchActiveUser(nextUserId);
+    });
+  }
+
+  void _switchActiveUser(String userId) {
+    if (_disposed) {
+      return;
+    }
+
+    _sessionGeneration += 1;
+    _eventLoopRunning = false;
+    _snapshotDebounceTimer?.cancel();
+    _snapshotDebounceTimer = null;
+    _resetEphemeralRuntimeState();
+    _revokeCurrentMediaObjectUrls();
+    _snapshotUserId = userId;
+    _snapshotStorageKey = _buildStorageKey(userId);
+    state = _buildInitialState(_readSnapshot());
+    Future<void>.microtask(_startEventLoop);
+  }
+
+  ChatControllerState _buildInitialState(ChatSnapshot? snapshot) {
+    final conversationId = (snapshot?.conversationId.trim().isNotEmpty ?? false)
+        ? snapshot!.conversationId
+        : _newConversationId();
+    return ChatControllerState(
+      conversationId: conversationId,
+      lastEventId: snapshot?.lastEventId,
+      messages: _trimToRetainedMessageCap(snapshot?.messages ?? const []),
+      mediaResources: const <String, ChatMediaResourceState>{},
+      attachments: const <ChatAttachmentDraft>[],
+      compositionMode: ChatCompositionMode.messageWithAttachments,
+      isConnected: false,
+      isConnecting: false,
+      isSending: false,
+    );
+  }
+
+  bool _isStaleSession(int generation) {
+    return _disposed || generation != _sessionGeneration;
+  }
+
   String _buildStorageKey(String userId) {
     final normalized = userId.replaceAll(RegExp(r'[^a-zA-Z0-9_\-\.]'), '_');
     return 'mugen_ui.chat.single.$normalized.v$_snapshotVersion';
@@ -1810,6 +1870,10 @@ class ChatController extends _$ChatController {
     _recentNonUserSignatures.clear();
     _recentNonUserSignatureOrder.clear();
 
+    _revokeCurrentMediaObjectUrls();
+  }
+
+  void _revokeCurrentMediaObjectUrls() {
     final urls = state.mediaResources.values
         .map((resource) => resource.objectUrl)
         .whereType<String>()

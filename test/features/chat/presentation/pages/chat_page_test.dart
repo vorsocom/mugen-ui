@@ -9,6 +9,7 @@ import 'package:mugen_ui/features/chat/domain/entities/chat_media_entity.dart';
 import 'package:mugen_ui/features/chat/domain/entities/chat_message_entity.dart';
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
 import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 const Key _composerAttachButtonKey = Key('chat-composer-attach-button');
 const Key _composerSendButtonKey = Key('chat-composer-send-button');
@@ -94,6 +95,42 @@ void main() {
 
     sendButton = tester.widget<IconButton>(find.byKey(_composerSendButtonKey));
     expect(sendButton.onPressed, isNotNull);
+  });
+
+  testWidgets('chat errors render as an alert above the composer', (
+    tester,
+  ) async {
+    const errorMessage =
+        "403 Forbidden: You don't have the permission to access the requested resource.";
+    final controller = _TestChatController(
+      initialState: const ChatControllerState(
+        conversationId: 'conv-test',
+        messages: <ChatMessageEntity>[],
+        mediaResources: <String, ChatMediaResourceState>{},
+        attachments: <ChatAttachmentDraft>[],
+        compositionMode: ChatCompositionMode.messageWithAttachments,
+        isConnected: true,
+        isConnecting: false,
+        isSending: false,
+        errorMessage: errorMessage,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          chatControllerProvider.overrideWith(() => controller),
+        ],
+        child: const MaterialApp(home: Scaffold(body: ChatPage())),
+      ),
+    );
+
+    expect(find.byType(AppErrorAlert), findsOneWidget);
+    expect(find.text(errorMessage), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.byType(AppErrorAlert)).dy,
+      lessThan(tester.getTopLeft(find.byKey(_composerInputFieldKey)).dy),
+    );
   });
 
   testWidgets('attachment can be selected and sent with text', (tester) async {

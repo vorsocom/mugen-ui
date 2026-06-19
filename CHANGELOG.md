@@ -19,6 +19,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.10.0] - 2026-06-19
+
+### Added
+
+- Added Global Role Memberships management under Roles & Permissions with
+  searchable user and global-role selectors.
+
+### Changed
+
+- Renamed the Roles & Permissions Role Memberships tab to Tenant Role
+  Memberships.
+- Reordered Roles & Permissions tabs to group permission catalogs, global RBAC,
+  and tenant RBAC workflows.
+- Changed global and tenant grant creation to use searchable role,
+  permission-object, and permission-type pickers.
+- Changed Platform Configuration tenant selectors and enum-like form fields to
+  use searchable selectors and constrained dropdowns.
+
+### Deprecated
+
+### Removed
+
+- Removed the LocalUsers table Edit Roles action in favor of dedicated global
+  and tenant role-membership management.
+
+### Fixed
+
+- Reset AI Assist transient state when the authenticated user changes so stale
+  errors and in-flight responses do not leak across logins.
+- Rendered AI Assist backend errors in a red alert above the composer and
+  normalized HTML API error pages into readable messages.
+- Capped the LocalUsers sessions dialog height against the viewport so long
+  session lists remain scrollable on shorter screens.
+
+### Security
+
 ## [0.9.1] - 2026-06-18
 
 ### Added

@@ -16,6 +16,7 @@ import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
+import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -415,24 +416,21 @@ class _TenantSelector extends StatelessWidget {
       children: [
         SizedBox(
           width: 420,
-          child: DropdownButtonFormField<String>(
-            key: const Key('tenant-management-tenant-selector'),
-            initialValue: selectedTenantId,
-            isExpanded: true,
-            decoration: appFormInputDecoration(labelText: 'Tenant'),
-            items: tenants
-                .map(
-                  (tenant) => DropdownMenuItem<String>(
-                    value: tenant.id,
-                    child: Text(_tenantSelectorLabel(tenant)),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: (value) {
-              if (value == null) {
-                return;
-              }
-              unawaited(onSelected(value));
+          child: AppSearchableSelectField<TenantEntity>(
+            fieldKey: const Key('tenant-management-tenant-selector'),
+            optionKeyPrefix: 'tenant-management-tenant-option',
+            labelText: 'Tenant',
+            hintText: 'Search tenants',
+            options: tenants,
+            selectedOptionKey: selectedTenantId,
+            optionKey: (tenant) => tenant.id,
+            optionTitle: _tenantSelectorLabel,
+            optionSubtitle: (tenant) => '${tenant.status}  |  ${tenant.id}',
+            optionSearchText: (tenant) =>
+                '${tenant.name} ${tenant.slug} ${tenant.status} ${tenant.id}',
+            emptyMessage: 'No matching tenants found.',
+            onSelected: (tenant) {
+              unawaited(onSelected(tenant.id));
             },
           ),
         ),
@@ -1083,7 +1081,7 @@ Future<void> _showInvitationDialog(
   required TenantEntity tenant,
 }) async {
   final emailController = TextEditingController();
-  final roleController = TextEditingController(text: 'member');
+  var selectedRole = _defaultTenantMembershipRole;
   final formKey = GlobalKey<FormState>();
   final controller = ref.read(tenantAdminControllerProvider.notifier);
   final navigator = ref.read(appNavigatorProvider);
@@ -1091,96 +1089,118 @@ Future<void> _showInvitationDialog(
 
   await showDialog<void>(
     context: context,
-    builder: (_) => Dialog(
-      child: SizedBox(
-        width: _formDialogPanelWidth,
-        child: AppFormPanel(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Create Invitation',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: emailController,
-                  decoration: appFormInputDecoration(
-                    labelText: 'Email',
-                    helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Field cannot be empty.';
-                    }
-
-                    if (!value.contains('@')) {
-                      return 'Email address must be valid';
-                    }
-
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: roleController,
-                  decoration: appFormInputDecoration(
-                    labelText: 'Role In Tenant',
-                    helpText: acpFieldHelpText(
-                      key: 'RoleInTenant',
-                      label: 'Role In Tenant',
+    builder: (_) => StatefulBuilder(
+      builder: (context, setDialogState) => Dialog(
+        child: SizedBox(
+          width: _formDialogPanelWidth,
+          child: AppFormPanel(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Create Invitation',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Field cannot be empty.';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: emailController,
+                    decoration: appFormInputDecoration(
+                      labelText: 'Email',
+                      helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
                     ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: () async {
-                        final isValid =
-                            formKey.currentState?.validate() ?? false;
-                        if (!isValid) {
-                          return;
-                        }
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Field cannot be empty.';
+                      }
 
-                        final success = await controller.createInvitation(
-                          CreateTenantInvitationInput(
-                            tenantId: tenant.id,
-                            email: emailController.text.trim(),
-                            roleInTenant: roleController.text.trim(),
+                      if (!value.contains('@')) {
+                        return 'Email address must be valid';
+                      }
+
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    key: const Key('tenant-invitation-role-dropdown'),
+                    initialValue: selectedRole,
+                    isExpanded: true,
+                    decoration: appFormInputDecoration(
+                      labelText: 'Role In Tenant',
+                      helpText: acpFieldHelpText(
+                        key: 'RoleInTenant',
+                        label: 'Role In Tenant',
+                      ),
+                    ),
+                    items: _tenantMembershipRoleOptions
+                        .map(
+                          (option) => DropdownMenuItem<String>(
+                            value: option.value,
+                            child: Text(option.label),
                           ),
-                        );
-                        snackBar.show(
-                          navigator,
-                          success
-                              ? 'Invitation created.'
-                              : 'Invitation creation failed.',
-                        );
-                        if (success && context.mounted) {
-                          Navigator.of(context).pop();
-                        }
-                      },
-                      child: const Text('Create Invitation'),
-                    ),
-                  ],
-                ),
-              ],
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      if (value == null) {
+                        return;
+                      }
+
+                      setDialogState(() {
+                        selectedRole = value;
+                      });
+                    },
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Field cannot be empty.';
+                      }
+
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () async {
+                          final isValid =
+                              formKey.currentState?.validate() ?? false;
+                          if (!isValid) {
+                            return;
+                          }
+
+                          final success = await controller.createInvitation(
+                            CreateTenantInvitationInput(
+                              tenantId: tenant.id,
+                              email: emailController.text.trim(),
+                              roleInTenant: selectedRole,
+                            ),
+                          );
+                          snackBar.show(
+                            navigator,
+                            success
+                                ? 'Invitation created.'
+                                : 'Invitation creation failed.',
+                          );
+                          if (success && context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                        child: const Text('Create Invitation'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

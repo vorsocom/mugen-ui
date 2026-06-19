@@ -15,6 +15,7 @@ import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_json_codec.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_field.dart';
+import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -344,27 +345,23 @@ class _ToolbarRowState<T extends AcpAdminController>
         if (showTenantSelector)
           SizedBox(
             width: 320,
-            child: DropdownButtonFormField<String>(
-              key: const Key('acp-admin-tenant-selector'),
-              initialValue: state.selectedTenantId,
-              isExpanded: true,
-              decoration: appFormInputDecoration(labelText: 'Tenant'),
-              items: state.tenants
-                  .map(
-                    (tenant) => DropdownMenuItem<String>(
-                      value: tenant.id,
-                      child: Text(tenant.label),
-                    ),
-                  )
-                  .toList(growable: false),
-              onChanged: state.tenants.isEmpty
-                  ? null
-                  : (value) async {
-                      if (value == null) {
-                        return;
-                      }
-                      await controller.selectTenant(value);
-                    },
+            child: AppSearchableSelectField<AcpTenantOption>(
+              fieldKey: const Key('acp-admin-tenant-selector'),
+              optionKeyPrefix: 'acp-admin-tenant-option',
+              labelText: 'Tenant',
+              hintText: 'Search tenants',
+              options: state.tenants,
+              selectedOptionKey: state.selectedTenantId,
+              optionKey: (tenant) => tenant.id,
+              optionTitle: (tenant) => tenant.label,
+              optionSubtitle: (tenant) => tenant.id,
+              optionSearchText: (tenant) =>
+                  '${tenant.label} ${tenant.id} ${tenant.slug ?? ''}',
+              emptyMessage: 'No matching tenants found.',
+              enabled: state.tenants.isNotEmpty,
+              onSelected: (tenant) {
+                unawaited(controller.selectTenant(tenant.id));
+              },
             ),
           ),
         if (descriptor.searchFields.isNotEmpty)

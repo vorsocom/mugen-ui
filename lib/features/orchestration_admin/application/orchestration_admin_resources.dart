@@ -102,13 +102,13 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     ],
     createFields: <AcpFieldDescriptor>[
       _text('Name', 'Name', required: true),
-      _text('MatchKind', 'Match Kind', required: true),
+      _matchKind(required: true),
       _text('MatchValue', 'Match Value', required: true),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('ChannelProfileId', 'Channel Profile ID'),
+      _channelProfileId(),
       _text('Name', 'Name'),
-      _text('MatchKind', 'Match Kind'),
+      _matchKind(),
       _text('MatchValue', 'Match Value'),
       _text('RouteKey', 'Route Key'),
       _int('Priority', 'Priority'),
@@ -139,7 +139,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _text('RouteKey', 'Route Key', required: true),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('ChannelProfileId', 'Channel Profile ID'),
+      _channelProfileId(),
       _text('RouteKey', 'Route Key'),
       _text('TargetQueueName', 'Target Queue Name'),
       _text('OwnerUserId', 'Owner User ID'),
@@ -212,7 +212,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     ],
     createFields: <AcpFieldDescriptor>[_text('Code', 'Code', required: true)],
     updateFields: <AcpFieldDescriptor>[
-      _text('ChannelProfileId', 'Channel Profile ID'),
+      _channelProfileId(),
       _text('Code', 'Code'),
       _text('SenderScope', 'Sender Scope', initialValue: 'sender'),
       _int('WindowSeconds', 'Window Seconds', initialValue: 60),
@@ -246,7 +246,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _text('SenderKey', 'Sender Key', required: true),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('ChannelProfileId', 'Channel Profile ID'),
+      _channelProfileId(),
       _text('SenderKey', 'Sender Key'),
       _multiline('Reason', 'Reason'),
       _dateTime('ExpiresAt', 'Expires At'),
@@ -262,7 +262,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
         successMessage: 'Sender blocked.',
         fields: <AcpFieldDescriptor>[
           _text('SenderKey', 'Sender Key', required: true),
-          _text('ChannelProfileId', 'Channel Profile ID'),
+          _channelProfileId(),
           _multiline('Reason', 'Reason'),
           _dateTime('ExpiresAt', 'Expires At'),
           _json('Attributes', 'Attributes'),
@@ -276,7 +276,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
         successMessage: 'Sender unblocked.',
         fields: <AcpFieldDescriptor>[
           _text('SenderKey', 'Sender Key', required: true),
-          _text('ChannelProfileId', 'Channel Profile ID'),
+          _channelProfileId(),
           _multiline('Reason', 'Reason'),
         ],
       ),
@@ -306,7 +306,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _text('SenderKey', 'Sender Key', required: true),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('ChannelProfileId', 'Channel Profile ID'),
+      _channelProfileId(),
       _text('PolicyId', 'Policy ID'),
       _text('SenderKey', 'Sender Key'),
       _text('ExternalConversationRef', 'External Conversation Ref'),
@@ -515,12 +515,19 @@ AcpColumnDescriptor _column(String key, String label) {
   return AcpColumnDescriptor(key: key, label: label);
 }
 
+const List<String> _intakeMatchKindOptions = <String>[
+  'intent',
+  'keyword',
+  'menu',
+];
+
 AcpFieldDescriptor _text(
   String key,
   String label, {
   bool required = false,
   Object? initialValue,
   bool readOnly = false,
+  List<String> options = const <String>[],
 }) {
   return AcpFieldDescriptor(
     key: key,
@@ -528,6 +535,7 @@ AcpFieldDescriptor _text(
     required: required,
     initialValue: initialValue,
     readOnly: readOnly,
+    options: options,
   );
 }
 
@@ -600,6 +608,15 @@ AcpFieldDescriptor _identifierType({bool required = false}) {
       'account_number',
       'tenant_slug',
     ],
+  );
+}
+
+AcpFieldDescriptor _matchKind({bool required = false}) {
+  return _text(
+    'MatchKind',
+    'Match Kind',
+    required: required,
+    options: _intakeMatchKindOptions,
   );
 }
 

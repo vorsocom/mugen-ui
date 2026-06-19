@@ -92,6 +92,25 @@ void main() {
         'SourceKind',
         'SourceKey',
       ]);
+      for (final descriptor in <AcpResourceDescriptor>[
+        profileDescriptor,
+        contributorDescriptor,
+        sourceDescriptor,
+      ]) {
+        expect(
+          descriptor.createFields
+              .firstWhere((field) => field.key == 'Platform')
+              .options,
+          <String>[
+            'line',
+            'matrix',
+            'signal',
+            'telegram',
+            'wechat',
+            'whatsapp',
+          ],
+        );
+      }
     },
   );
 

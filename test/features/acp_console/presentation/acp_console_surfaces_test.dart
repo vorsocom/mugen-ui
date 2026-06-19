@@ -72,8 +72,27 @@ void main() {
   });
 
   test('ACP console create requirements match backend validation surface', () {
+    final schemaDescriptor = acpConsoleResources.firstWhere(
+      (descriptor) => descriptor.entitySet == 'Schemas',
+    );
     final dedupDescriptor = acpConsoleResources.firstWhere(
       (descriptor) => descriptor.entitySet == 'DedupRecords',
+    );
+    final evidenceDescriptor = acpConsoleResources.firstWhere(
+      (descriptor) => descriptor.entitySet == 'EvidenceBlobs',
+    );
+
+    expect(
+      schemaDescriptor.createFields
+          .firstWhere((field) => field.key == 'SchemaKind')
+          .options,
+      <String>['json_schema'],
+    );
+    expect(
+      schemaDescriptor.createFields
+          .firstWhere((field) => field.key == 'Status')
+          .options,
+      <String>['draft', 'active', 'inactive'],
     );
 
     expect(_requiredFieldKeys(dedupDescriptor.createFields), <String>[
@@ -81,6 +100,30 @@ void main() {
       'IdempotencyKey',
       'ExpiresAt',
     ]);
+    expect(
+      dedupDescriptor.createFields
+          .firstWhere((field) => field.key == 'Status')
+          .options,
+      <String>['in_progress', 'succeeded', 'failed'],
+    );
+    expect(
+      evidenceDescriptor.collectionActions.first.fields
+          .firstWhere((field) => field.key == 'HashAlg')
+          .options,
+      <String>['sha256'],
+    );
+    expect(
+      evidenceDescriptor.collectionActions.first.fields
+          .firstWhere((field) => field.key == 'Immutability')
+          .options,
+      <String>['immutable'],
+    );
+    expect(
+      evidenceDescriptor.entityActions.first.fields
+          .firstWhere((field) => field.key == 'ObservedHashAlg')
+          .options,
+      <String>['sha256'],
+    );
   });
 
   test('ACP console refreshes auth on session expiry', () async {

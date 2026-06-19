@@ -332,9 +332,13 @@ class AppConfig {
     required this.appVersion,
     required this.api,
     required this.activeRoles,
+    this.browserTitle,
+    this.faviconHref,
   });
 
   final String appName;
+  final String? browserTitle;
+  final String? faviconHref;
   final String appVersion;
   final ApiConfig api;
   final List<AppRoleConfig> activeRoles;
@@ -435,6 +439,8 @@ class AppConfig {
   AppConfig merge(AppConfigurationOverride override) {
     return AppConfig(
       appName: override.appName ?? appName,
+      browserTitle: override.browserTitle ?? browserTitle,
+      faviconHref: override.faviconHref ?? faviconHref,
       appVersion: override.appVersion ?? appVersion,
       api: api.merge(override.api),
       activeRoles: override.activeRoles ?? activeRoles,
@@ -445,12 +451,16 @@ class AppConfig {
 class AppConfigurationOverride {
   const AppConfigurationOverride({
     this.appName,
+    this.browserTitle,
+    this.faviconHref,
     this.appVersion,
     this.api,
     this.activeRoles,
   });
 
   final String? appName;
+  final String? browserTitle;
+  final String? faviconHref;
   final String? appVersion;
   final ApiConfigOverride? api;
   final List<AppRoleConfig>? activeRoles;

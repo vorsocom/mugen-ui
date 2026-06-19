@@ -13,6 +13,7 @@ class MugenApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final navigator = ref.watch(appNavigatorProvider);
+    ref.watch(browserChromeProvider).setFaviconHref(config.faviconHref);
     final colorScheme =
         ColorScheme.fromSeed(
           seedColor: AppUiPalette.accent,
@@ -31,7 +32,7 @@ class MugenApp extends ConsumerWidget {
         );
 
     return MaterialApp(
-      title: config.appName,
+      title: config.browserTitle ?? config.appName,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,

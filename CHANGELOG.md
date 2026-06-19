@@ -19,6 +19,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.11.0] - 2026-06-19
+
+### Added
+
+- Added optional browser title configuration separate from the in-app drawer
+  title.
+- Added optional favicon configuration for downstream browser branding.
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [0.10.0] - 2026-06-19
 
 ### Added

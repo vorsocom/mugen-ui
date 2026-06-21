@@ -12,6 +12,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
 jobs:
   pubspec-semver:
     if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/heads/')

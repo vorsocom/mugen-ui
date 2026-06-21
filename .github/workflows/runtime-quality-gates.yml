@@ -10,6 +10,9 @@ on:
       - develop
       - main
 
+permissions:
+  contents: read
+
 jobs:
   runtime-quality-gates:
     runs-on: ubuntu-latest

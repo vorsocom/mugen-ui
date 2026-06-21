@@ -10,6 +10,9 @@ on:
       - develop
       - main
 
+permissions:
+  contents: read
+
 jobs:
   commit-message-lint:
     runs-on: ubuntu-latest

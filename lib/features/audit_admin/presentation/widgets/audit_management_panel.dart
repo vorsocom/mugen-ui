@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:mugen_ui/app/providers.dart';
@@ -10,6 +11,7 @@ import 'package:mugen_ui/features/audit_admin/application/dto/audit_admin_inputs
 import 'package:mugen_ui/features/audit_admin/domain/entities/audit_event_entity.dart';
 import 'package:mugen_ui/features/audit_admin/domain/entities/audit_tenant_option_entity.dart';
 import 'package:mugen_ui/features/audit_admin/presentation/providers/audit_admin_providers.dart';
+import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
@@ -56,28 +58,32 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const AdminPageHeader(
+          title: 'Audit Events',
+          subtitle:
+              'Inspect immutable audit trails, verify chain integrity, and manage retention actions.',
+        ),
         _buildToolbar(context, state, controller),
-        const SizedBox(height: 8),
         _buildSetActionRow(context, state),
         if (state.isLoadingEvents || state.isLoadingTenants || state.isMutating)
           const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: LinearProgressIndicator(),
+            padding: EdgeInsets.only(bottom: 8),
+            child: LinearProgressIndicator(minHeight: 2),
           ),
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(bottom: 8),
             child: AppErrorAlert(message: state.errorMessage!),
           ),
-        const SizedBox(height: 8),
         _AuditSummaryStrip(state: state),
         const SizedBox(height: 8),
-        SizedBox(
-          height: 320,
-          child: AppFormPanel(
-            margin: EdgeInsets.zero,
+        Expanded(
+          flex: 3,
+          child: AdminSurface(
+            padding: EdgeInsets.zero,
             child: _AuditEventTable(
               state: state,
+              controller: controller,
               onSelectEvent: controller.selectEvent,
               onPlaceLegalHold: _showPlaceLegalHoldDialog,
               onReleaseLegalHold: _showReleaseLegalHoldDialog,
@@ -87,11 +93,9 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
           ),
         ),
         const SizedBox(height: 8),
-        _AuditPaginator(state: state),
-        const SizedBox(height: 8),
         Expanded(
-          child: AppFormPanel(
-            margin: EdgeInsets.zero,
+          flex: 2,
+          child: AdminSurface(
             child: _AuditEventDetail(event: state.selectedEvent),
           ),
         ),
@@ -104,10 +108,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
     AuditAdminState state,
     AuditAdminController controller,
   ) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return AdminToolbar(
       children: [
         SizedBox(
           width: 250,
@@ -115,7 +116,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
             key: const Key('audit-management-scope-selector'),
             initialValue: state.scopeMode,
             isExpanded: true,
-            decoration: appFormInputDecoration(labelText: 'Scope'),
+            decoration: const InputDecoration(labelText: 'Scope'),
             items: const [
               DropdownMenuItem(
                 value: AuditAdminScopeMode.global,
@@ -162,10 +163,9 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
           child: TextFormField(
             key: const Key('audit-management-search-field'),
             initialValue: state.searchTerm,
-            decoration: appFormInputDecoration(
-              labelText: 'Search',
+            decoration: const InputDecoration(
               hintText: 'Entity, operation, action, source',
-              suffixIcon: const Icon(Icons.search),
+              prefixIcon: Icon(Icons.search),
             ),
             onChanged: (value) {
               _searchDebounce?.cancel();
@@ -178,7 +178,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
         ),
         TextButton.icon(
           key: const Key('audit-management-refresh-button'),
-          onPressed: () => controller.refresh(),
+          onPressed: controller.refresh,
           icon: const Icon(Icons.refresh),
           label: const Text('Refresh'),
         ),
@@ -191,9 +191,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
         state.scopeMode == AuditAdminScopeMode.tenant &&
         (state.selectedTenantId == null || state.selectedTenantId!.isEmpty);
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return AdminToolbar(
       children: [
         FilledButton.icon(
           key: const Key('audit-management-run-lifecycle-button'),
@@ -783,6 +781,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
 class _AuditEventTable extends StatelessWidget {
   const _AuditEventTable({
     required this.state,
+    required this.controller,
     required this.onSelectEvent,
     required this.onPlaceLegalHold,
     required this.onReleaseLegalHold,
@@ -791,6 +790,7 @@ class _AuditEventTable extends StatelessWidget {
   });
 
   final AuditAdminState state;
+  final AuditAdminController controller;
   final ValueChanged<String> onSelectEvent;
   final ValueChanged<AuditEventEntity> onPlaceLegalHold;
   final ValueChanged<AuditEventEntity> onReleaseLegalHold;
@@ -799,143 +799,149 @@ class _AuditEventTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (state.events.isEmpty) {
-      return const Center(child: Text('No audit events found.'));
-    }
-
-    final textTheme = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppUiPalette.surfaceMuted,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppUiPalette.border),
-          ),
-          child: Row(
-            children: [
-              _headerCell('Occurred', flex: 2, textTheme: textTheme),
-              _headerCell('Operation', flex: 2, textTheme: textTheme),
-              _headerCell('Entity', flex: 2, textTheme: textTheme),
-              _headerCell('Outcome', flex: 1, textTheme: textTheme),
-              _headerCell('Tenant', flex: 2, textTheme: textTheme),
-              _headerCell('Actions', flex: 3, textTheme: textTheme),
-            ],
-          ),
+    return AdminDataGrid<AuditEventEntity>(
+      rows: state.events,
+      columns: [
+        AdminGridColumn<AuditEventEntity>(
+          key: 'occurred',
+          label: 'Occurred',
+          flex: 2,
+          cell: (_, event) => AdminCellText(_shortTimestamp(event.occurredAt)),
         ),
-        const SizedBox(height: 6),
-        Expanded(
-          child: ListView.separated(
-            itemCount: state.events.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final event = state.events[index];
-              final selected = event.id == state.selectedEventId;
-
-              return InkWell(
-                key: Key('audit-event-row-${event.id}'),
-                onTap: () => onSelectEvent(event.id),
-                child: Container(
-                  color: selected
-                      ? AppUiPalette.surfaceStrong.withValues(alpha: 0.45)
-                      : Colors.transparent,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
-                  child: Row(
-                    children: [
-                      _rowCell(_shortTimestamp(event.occurredAt), flex: 2),
-                      _rowCell(
-                        event.actionName == null || event.actionName!.isEmpty
-                            ? event.operation
-                            : '${event.operation}:${event.actionName}',
-                        flex: 2,
-                      ),
-                      _rowCell('${event.entitySet}/${event.entity}', flex: 2),
-                      _rowCell(event.outcome, flex: 1),
-                      _rowCell(event.tenantId ?? 'global', flex: 2),
-                      Expanded(
-                        flex: 3,
-                        child: Wrap(
-                          spacing: 4,
-                          runSpacing: 4,
-                          children: [
-                            IconButton(
-                              tooltip: 'Place legal hold',
-                              onPressed: event.hasLegalHold
-                                  ? null
-                                  : () => onPlaceLegalHold(event),
-                              icon: const Icon(Icons.gavel_outlined, size: 18),
-                            ),
-                            IconButton(
-                              tooltip: 'Release legal hold',
-                              onPressed: !event.hasLegalHold
-                                  ? null
-                                  : () => onReleaseLegalHold(event),
-                              icon: const Icon(
-                                Icons.lock_open_outlined,
-                                size: 18,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Redact event',
-                              onPressed: event.isRedacted
-                                  ? null
-                                  : () => onRedact(event),
-                              icon: const Icon(
-                                Icons.visibility_off_outlined,
-                                size: 18,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Tombstone event',
-                              onPressed: event.isTombstoned
-                                  ? null
-                                  : () => onTombstone(event),
-                              icon: const Icon(
-                                Icons.delete_sweep_outlined,
-                                size: 18,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
+        AdminGridColumn<AuditEventEntity>(
+          key: 'operation',
+          label: 'Operation',
+          flex: 2,
+          cell: (_, event) => AdminCellText(_operationLabel(event)),
+        ),
+        AdminGridColumn<AuditEventEntity>(
+          key: 'entity',
+          label: 'Entity',
+          flex: 2,
+          cell: (_, event) =>
+              AdminCellText('${event.entitySet}/${event.entity}', maxLines: 2),
+        ),
+        AdminGridColumn<AuditEventEntity>(
+          key: 'outcome',
+          label: 'Outcome',
+          width: 120,
+          cell: (_, event) => AdminStatusChip(label: event.outcome),
+        ),
+        AdminGridColumn<AuditEventEntity>(
+          key: 'tenant',
+          label: 'Tenant',
+          flex: 2,
+          cell: (_, event) => AdminCellText(event.tenantId ?? 'global'),
+        ),
+        AdminGridColumn<AuditEventEntity>(
+          key: 'state',
+          label: 'State',
+          flex: 2,
+          cell: (_, event) => _AuditStateChips(event: event),
         ),
       ],
-    );
-  }
-
-  Widget _headerCell(
-    String text, {
-    required int flex,
-    required TextTheme textTheme,
-  }) {
-    return Expanded(
-      flex: flex,
-      child: Text(
-        text,
-        style: textTheme.labelSmall?.copyWith(
-          color: AppUiPalette.textSecondary,
-          fontWeight: FontWeight.w700,
+      actionsWidth: 192,
+      actionsBuilder: (_, event) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            AdminIconButton(
+              icon: Icons.gavel_outlined,
+              tooltip: 'Place legal hold',
+              onPressed: event.hasLegalHold
+                  ? null
+                  : () => onPlaceLegalHold(event),
+            ),
+            AdminIconButton(
+              icon: Icons.lock_open_outlined,
+              tooltip: 'Release legal hold',
+              onPressed: !event.hasLegalHold
+                  ? null
+                  : () => onReleaseLegalHold(event),
+            ),
+            AdminIconButton(
+              icon: Icons.visibility_off_outlined,
+              tooltip: 'Redact event',
+              onPressed: event.isRedacted ? null : () => onRedact(event),
+            ),
+            AdminIconButton(
+              icon: Icons.delete_sweep_outlined,
+              tooltip: 'Tombstone event',
+              destructive: true,
+              onPressed: event.isTombstoned ? null : () => onTombstone(event),
+            ),
+          ],
+        );
+      },
+      rowKey: (event) => 'audit-event-row-${event.id}',
+      onRowSelected: (event) => onSelectEvent(event.id),
+      isRowSelected: (event) => event.id == state.selectedEventId,
+      isLoading:
+          state.isLoadingEvents || state.isLoadingTenants || state.isMutating,
+      hasActiveFilter: state.searchTerm.trim().isNotEmpty,
+      emptyState: AdminEmptyStateData(
+        title: 'No audit events yet.',
+        message:
+            'Audit events appear here after governed actions are recorded for the selected scope.',
+        secondaryAction: TextButton.icon(
+          onPressed: controller.refresh,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Refresh'),
+        ),
+      ),
+      filteredEmptyState: const AdminEmptyStateData(
+        title: 'No matching audit events.',
+        message: 'Clear the search or adjust scope filters.',
+      ),
+      minWidth: 1120,
+      footer: AdminGridFooter(
+        state: AdminPaginationState(
+          visibleCount: state.events.length,
+          totalCount: state.total,
+          page: state.page,
+          pages: state.pages,
+          pageSize: state.pageSize,
+          pageSizes: const <int>[15, 25, 50],
+          onPageSizeChanged: (value) async {
+            controller.setRowsPerPage(value);
+            await controller.loadEvents();
+          },
+          onFirstPage: state.page <= 1
+              ? null
+              : () async {
+                  controller.setPage(1);
+                  await controller.loadEvents();
+                },
+          onPreviousPage: state.page <= 1
+              ? null
+              : () async {
+                  controller.setPage(state.page - 1);
+                  await controller.loadEvents();
+                },
+          onNextPage: state.page >= state.pages
+              ? null
+              : () async {
+                  controller.setPage(state.page + 1);
+                  await controller.loadEvents();
+                },
+          onLastPage: state.page >= state.pages
+              ? null
+              : () async {
+                  controller.setPage(state.pages);
+                  await controller.loadEvents();
+                },
         ),
       ),
     );
   }
 
-  Widget _rowCell(String text, {required int flex}) {
-    return Expanded(
-      flex: flex,
-      child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
-    );
+  String _operationLabel(AuditEventEntity event) {
+    if (event.actionName == null || event.actionName!.isEmpty) {
+      return event.operation;
+    }
+
+    return '${event.operation}:${event.actionName}';
   }
 
   String _shortTimestamp(DateTime value) {
@@ -944,61 +950,29 @@ class _AuditEventTable extends StatelessWidget {
   }
 }
 
-class _AuditPaginator extends ConsumerWidget {
-  const _AuditPaginator({required this.state});
+class _AuditStateChips extends StatelessWidget {
+  const _AuditStateChips({required this.event});
 
-  final AuditAdminState state;
+  final AuditEventEntity event;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.read(auditAdminControllerProvider.notifier);
-    final hasPrev = state.page > 1;
-    final hasNext = state.page < state.pages;
+  Widget build(BuildContext context) {
+    final chips = <Widget>[
+      AdminStatusChip(
+        label: event.sealedAt == null ? 'unsealed' : 'sealed',
+        kind: event.sealedAt == null
+            ? AdminStatusKind.warning
+            : AdminStatusKind.success,
+      ),
+      if (event.hasLegalHold)
+        AdminStatusChip(label: 'legal hold', kind: AdminStatusKind.warning),
+      if (event.isRedacted)
+        AdminStatusChip(label: 'redacted', kind: AdminStatusKind.danger),
+      if (event.isTombstoned)
+        AdminStatusChip(label: 'tombstoned', kind: AdminStatusKind.danger),
+    ];
 
-    return Row(
-      children: [
-        const Text('Rows per page'),
-        const SizedBox(width: 8),
-        DropdownButton<int>(
-          value: state.pageSize,
-          onChanged: (value) async {
-            if (value == null) {
-              return;
-            }
-
-            controller.setRowsPerPage(value);
-            await controller.loadEvents();
-          },
-          items: const [
-            DropdownMenuItem<int>(value: 15, child: Text('15')),
-            DropdownMenuItem<int>(value: 25, child: Text('25')),
-            DropdownMenuItem<int>(value: 50, child: Text('50')),
-          ],
-        ),
-        const Spacer(),
-        Text('Page ${state.page} / ${state.pages}'),
-        IconButton(
-          tooltip: 'Previous page',
-          onPressed: !hasPrev
-              ? null
-              : () async {
-                  controller.setPage(state.page - 1);
-                  await controller.loadEvents();
-                },
-          icon: const Icon(Icons.chevron_left),
-        ),
-        IconButton(
-          tooltip: 'Next page',
-          onPressed: !hasNext
-              ? null
-              : () async {
-                  controller.setPage(state.page + 1);
-                  await controller.loadEvents();
-                },
-          icon: const Icon(Icons.chevron_right),
-        ),
-      ],
-    );
+    return Wrap(spacing: 4, runSpacing: 4, children: chips);
   }
 }
 
@@ -1076,8 +1050,12 @@ class _AuditEventDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (event == null) {
-      return const Center(
-        child: Text('Select an audit event to inspect details.'),
+      return const AdminEmptyState(
+        data: AdminEmptyStateData(
+          title: 'No audit event selected.',
+          message:
+              'Select an audit event to inspect integrity, retention, and payload details.',
+        ),
       );
     }
 
@@ -1087,103 +1065,193 @@ class _AuditEventDetail extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Event ${selected.id}',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'Event ${selected.id}',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                AdminStatusChip(label: selected.outcome),
+                if (selected.sealedAt != null)
+                  AdminStatusChip(
+                    label: 'sealed',
+                    kind: AdminStatusKind.success,
+                  ),
+                if (selected.hasLegalHold)
+                  AdminStatusChip(
+                    label: 'legal hold',
+                    kind: AdminStatusKind.warning,
+                  ),
+                if (selected.isRedacted)
+                  AdminStatusChip(
+                    label: 'redacted',
+                    kind: AdminStatusKind.danger,
+                  ),
+                if (selected.isTombstoned)
+                  AdminStatusChip(
+                    label: 'tombstoned',
+                    kind: AdminStatusKind.danger,
+                  ),
+              ],
             ),
-            const SizedBox(height: 10),
-            _DetailRow(label: 'Scope Key', value: selected.scopeKey),
-            _DetailRow(
-              label: 'Scope Seq',
-              value: '${selected.scopeSeq ?? '-'}',
+            const SizedBox(height: 12),
+            _DetailGrid(
+              children: [
+                _DetailRow(
+                  label: 'Event ID',
+                  value: selected.id,
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Scope Key',
+                  value: selected.scopeKey,
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Scope Seq',
+                  value: '${selected.scopeSeq ?? '-'}',
+                ),
+                _DetailRow(
+                  label: 'Tenant',
+                  value: selected.tenantId ?? 'global',
+                ),
+                _DetailRow(label: 'Actor', value: selected.actorId ?? '-'),
+                _DetailRow(
+                  label: 'Entity ID',
+                  value: selected.entityId ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Request ID',
+                  value: selected.requestId ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Correlation ID',
+                  value: selected.correlationId ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Source Plugin',
+                  value: selected.sourcePlugin,
+                ),
+              ],
             ),
-            _DetailRow(
-              label: 'Prev Hash',
-              value: selected.prevEntryHash ?? '-',
-            ),
-            _DetailRow(label: 'Entry Hash', value: selected.entryHash ?? '-'),
-            _DetailRow(label: 'Hash Alg', value: selected.hashAlg),
-            _DetailRow(label: 'Hash Key', value: selected.hashKeyId ?? '-'),
-            _DetailRow(
-              label: 'Before Hash',
-              value: selected.beforeSnapshotHash ?? '-',
-            ),
-            _DetailRow(
-              label: 'After Hash',
-              value: selected.afterSnapshotHash ?? '-',
-            ),
-            _DetailRow(
-              label: 'Sealed At',
-              value: _formatDate(selected.sealedAt),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             const Divider(height: 1),
-            const SizedBox(height: 8),
-            _DetailRow(
-              label: 'Retention Until',
-              value: _formatDate(selected.retentionUntil),
+            const SizedBox(height: 12),
+            _DetailGrid(
+              children: [
+                _DetailRow(
+                  label: 'Prev Hash',
+                  value: selected.prevEntryHash ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Entry Hash',
+                  value: selected.entryHash ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(label: 'Hash Alg', value: selected.hashAlg),
+                _DetailRow(
+                  label: 'Hash Key',
+                  value: selected.hashKeyId ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Before Hash',
+                  value: selected.beforeSnapshotHash ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'After Hash',
+                  value: selected.afterSnapshotHash ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Sealed At',
+                  value: _formatDate(selected.sealedAt),
+                ),
+              ],
             ),
-            _DetailRow(
-              label: 'Redaction Due',
-              value: _formatDate(selected.redactionDueAt),
-            ),
-            _DetailRow(
-              label: 'Redacted At',
-              value: _formatDate(selected.redactedAt),
-            ),
-            _DetailRow(
-              label: 'Redaction Reason',
-              value: selected.redactionReason ?? '-',
-            ),
-            _DetailRow(
-              label: 'Legal Hold At',
-              value: _formatDate(selected.legalHoldAt),
-            ),
-            _DetailRow(
-              label: 'Legal Hold Until',
-              value: _formatDate(selected.legalHoldUntil),
-            ),
-            _DetailRow(
-              label: 'Legal Hold By',
-              value: selected.legalHoldByUserId ?? '-',
-            ),
-            _DetailRow(
-              label: 'Legal Hold Reason',
-              value: selected.legalHoldReason ?? '-',
-            ),
-            _DetailRow(
-              label: 'Hold Released At',
-              value: _formatDate(selected.legalHoldReleasedAt),
-            ),
-            _DetailRow(
-              label: 'Hold Released By',
-              value: selected.legalHoldReleasedByUserId ?? '-',
-            ),
-            _DetailRow(
-              label: 'Hold Release Reason',
-              value: selected.legalHoldReleaseReason ?? '-',
-            ),
-            _DetailRow(
-              label: 'Tombstoned At',
-              value: _formatDate(selected.tombstonedAt),
-            ),
-            _DetailRow(
-              label: 'Tombstoned By',
-              value: selected.tombstonedByUserId ?? '-',
-            ),
-            _DetailRow(
-              label: 'Tombstone Reason',
-              value: selected.tombstoneReason ?? '-',
-            ),
-            _DetailRow(
-              label: 'Purge Due',
-              value: _formatDate(selected.purgeDueAt),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             const Divider(height: 1),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            _DetailGrid(
+              children: [
+                _DetailRow(
+                  label: 'Retention Until',
+                  value: _formatDate(selected.retentionUntil),
+                ),
+                _DetailRow(
+                  label: 'Redaction Due',
+                  value: _formatDate(selected.redactionDueAt),
+                ),
+                _DetailRow(
+                  label: 'Redacted At',
+                  value: _formatDate(selected.redactedAt),
+                ),
+                _DetailRow(
+                  label: 'Redaction Reason',
+                  value: selected.redactionReason ?? '-',
+                ),
+                _DetailRow(
+                  label: 'Legal Hold At',
+                  value: _formatDate(selected.legalHoldAt),
+                ),
+                _DetailRow(
+                  label: 'Legal Hold Until',
+                  value: _formatDate(selected.legalHoldUntil),
+                ),
+                _DetailRow(
+                  label: 'Legal Hold By',
+                  value: selected.legalHoldByUserId ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Legal Hold Reason',
+                  value: selected.legalHoldReason ?? '-',
+                ),
+                _DetailRow(
+                  label: 'Hold Released At',
+                  value: _formatDate(selected.legalHoldReleasedAt),
+                ),
+                _DetailRow(
+                  label: 'Hold Released By',
+                  value: selected.legalHoldReleasedByUserId ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Hold Release Reason',
+                  value: selected.legalHoldReleaseReason ?? '-',
+                ),
+                _DetailRow(
+                  label: 'Tombstoned At',
+                  value: _formatDate(selected.tombstonedAt),
+                ),
+                _DetailRow(
+                  label: 'Tombstoned By',
+                  value: selected.tombstonedByUserId ?? '-',
+                  copyable: true,
+                ),
+                _DetailRow(
+                  label: 'Tombstone Reason',
+                  value: selected.tombstoneReason ?? '-',
+                ),
+                _DetailRow(
+                  label: 'Purge Due',
+                  value: _formatDate(selected.purgeDueAt),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
             _JsonBlock(
               title: 'Before Snapshot',
               value: selected.beforeSnapshot,
@@ -1207,32 +1275,67 @@ class _AuditEventDetail extends StatelessWidget {
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+class _DetailGrid extends StatelessWidget {
+  const _DetailGrid({required this.children});
 
-  final String label;
-  final String value;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 170,
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppUiPalette.textSecondary,
-                fontWeight: FontWeight.w700,
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        for (final child in children) SizedBox(width: 360, child: child),
+      ],
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.copyable = false,
+  });
+
+  final String label;
+  final String value;
+  final bool copyable;
+
+  @override
+  Widget build(BuildContext context) {
+    final canCopy = copyable && value.trim().isNotEmpty && value != '-';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppUiPalette.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-          ),
-          Expanded(child: Text(value)),
-        ],
-      ),
+            if (copyable)
+              AdminIconButton(
+                icon: Icons.copy,
+                tooltip: 'Copy $label',
+                onPressed: canCopy
+                    ? () => Clipboard.setData(ClipboardData(text: value))
+                    : null,
+              ),
+          ],
+        ),
+        Tooltip(
+          message: value,
+          child: Text(value, maxLines: 2, overflow: TextOverflow.ellipsis),
+        ),
+      ],
     );
   }
 }

@@ -39,7 +39,8 @@ void main() {
       find.byKey(const Key('audit-management-run-lifecycle-button')),
       findsOneWidget,
     );
-    expect(find.byKey(const Key('audit-event-row-global-1')), findsOneWidget);
+    expect(find.text('Users/User'), findsWidgets);
+    expect(find.text('success'), findsWidgets);
     expect(find.textContaining('Event global-1'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Next page'));

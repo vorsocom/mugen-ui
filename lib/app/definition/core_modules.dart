@@ -124,7 +124,7 @@ final MugenUiModule _coreLocalUsersModule = MugenUiModule(
   shellRoutes: const <ShellRouteDefinition>[
     ShellRouteDefinition(
       id: CoreShellRouteIds.localUsers,
-      title: 'LocalUsers',
+      title: 'Local Users',
       icon: Icons.groups_outlined,
       section: 'Platform Configuration',
       requiredRoles: <String>['$acpNamespace:administrator'],

@@ -126,7 +126,7 @@ List<ShellRouteDefinition> _routeAccessRoutes() {
     ),
     ShellRouteDefinition(
       id: RouteIds.localUsers,
-      title: 'LocalUsers',
+      title: 'Local Users',
       icon: Icons.groups_outlined,
       requiredRoles: <String>['com.vorsocomputing.mugen.acp:administrator'],
       builder: _buildPlaceholderPage,

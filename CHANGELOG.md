@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed descriptor-driven admin consoles to use shared operational headers,
   resource tabs with counts, grid footers, contextual empty states, and row
   detail drawers.
+- Changed Local Users to use the shared admin header, toolbar, data grid,
+  status chips, row actions, grid footer, and contextual empty states.
 
 ### Deprecated
 

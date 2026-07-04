@@ -272,16 +272,16 @@ class AdminEmptyState extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.inbox_outlined,
-                size: 28,
+                size: 24,
                 color: AppUiPalette.textSecondary,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Text(
                 data.title,
                 textAlign: TextAlign.center,
@@ -290,7 +290,7 @@ class AdminEmptyState extends StatelessWidget {
                   color: AppUiPalette.textPrimary,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               Text(
                 data.message,
                 textAlign: TextAlign.center,
@@ -300,7 +300,7 @@ class AdminEmptyState extends StatelessWidget {
                 ),
               ),
               if (data.primaryAction != null || data.secondaryAction != null)
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
               if (data.primaryAction != null || data.secondaryAction != null)
                 Wrap(
                   spacing: 8,

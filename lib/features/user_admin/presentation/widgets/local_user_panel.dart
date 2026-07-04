@@ -12,10 +12,11 @@ import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_providers.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
+import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
-const double _localUserActionsColumnWidth = 244;
+const double _localUserActionsColumnWidth = 176;
 const double _userSessionsDialogMaxWidth = 760;
 const double _userSessionsDialogMaxHeight = 760;
 const double _userSessionsDialogInset = 24;
@@ -108,7 +109,6 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
     final controller = ref.read(userAdminControllerProvider.notifier);
     final snackBar = ref.read(snackBarDispatcherProvider);
     final navigator = ref.read(appNavigatorProvider);
-    final theme = Theme.of(context);
 
     Future<void> handleEnableUserAccount(String userId) async {
       final success = await controller.enableUser(userId);
@@ -149,564 +149,269 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
+        AdminPageHeader(
+          title: 'Local Users',
+          subtitle:
+              'Manage local accounts, credentials, sessions, and access state.',
+          primaryAction: FilledButton.icon(
+            key: const Key('local-users-new-user-button'),
+            onPressed: _showRegisterDialog,
+            icon: const Icon(Icons.person_add_outlined),
+            label: const Text('New User'),
+          ),
+        ),
+        AdminToolbar(
           children: [
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: _showRegisterDialog,
-                child: Ink(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppUiPalette.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppUiPalette.border, width: 1.0),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: AppUiPalette.surfaceStrong,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.person_add,
-                          size: 18,
-                          color: AppUiPalette.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'New User',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppUiPalette.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
+            SizedBox(
+              width: 320,
+              child: TextFormField(
+                key: const Key('local-users-search-field'),
+                initialValue: state.searchTerm,
+                decoration: const InputDecoration(
+                  hintText: 'Search users...',
+                  prefixIcon: Icon(Icons.search),
                 ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          decoration: InputDecoration(
-            hintText: 'Search users...',
-            isDense: true,
-            contentPadding: const EdgeInsets.fromLTRB(12.0, 12.0, 12.0, 12.0),
-            suffixIcon: const Icon(Icons.person_search_outlined),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10.0),
-              borderSide: const BorderSide(
-                color: AppUiPalette.border,
-                width: 1.0,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10.0),
-              borderSide: const BorderSide(
-                color: AppUiPalette.borderStrong,
-                width: 1.0,
-              ),
-            ),
-          ),
-          onChanged: (value) {
-            _searchDebounce?.cancel();
-            _searchDebounce = Timer(_searchDebounceDuration, () async {
-              final term = value.trim();
-              controller.setSearchTerm(term);
-              await controller.loadUsers();
-            });
-          },
-        ),
-        const SizedBox(height: 8),
-        if (state.isLoadingUsers)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: LinearProgressIndicator(),
-          ),
-        Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppUiPalette.surface,
-              border: Border.all(color: AppUiPalette.border, width: 1.0),
-              borderRadius: BorderRadius.circular(14.0),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14.0),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final availableWidth = constraints.maxWidth.isFinite
-                      ? constraints.maxWidth
-                      : _tableMinWidth;
-                  final tableWidth = math.max(availableWidth, _tableMinWidth);
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: tableWidth,
-                      child: SingleChildScrollView(
-                        child: DataTable(
-                          headingRowColor: WidgetStatePropertyAll<Color?>(
-                            AppUiPalette.surfaceMuted,
-                          ),
-                          headingTextStyle: theme.textTheme.bodyMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: AppUiPalette.textPrimary,
-                              ),
-                          dataTextStyle: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppUiPalette.textPrimary,
-                          ),
-                          dataRowMinHeight: 44,
-                          dataRowMaxHeight: 50,
-                          columnSpacing: 22,
-                          horizontalMargin: 16,
-                          dividerThickness: 1.0,
-                          columns: const [
-                            DataColumn(
-                              columnWidth: FlexColumnWidth(2.2),
-                              label: _UserTableHeaderText('Username'),
-                            ),
-                            DataColumn(
-                              columnWidth: FlexColumnWidth(1.4),
-                              label: _UserTableHeaderText('First Name'),
-                            ),
-                            DataColumn(
-                              columnWidth: FlexColumnWidth(1.4),
-                              label: _UserTableHeaderText('Last Name'),
-                            ),
-                            DataColumn(
-                              columnWidth: FlexColumnWidth(2),
-                              label: _UserTableHeaderText('Date Created'),
-                            ),
-                            DataColumn(
-                              columnWidth: FixedColumnWidth(
-                                _localUserActionsColumnWidth,
-                              ),
-                              label: _UserTableHeaderText('Actions'),
-                            ),
-                          ],
-                          rows: List<DataRow>.generate(state.pageSize, (index) {
-                            final rowBackground = index.isEven
-                                ? Colors.white
-                                : AppUiPalette.surface;
-                            if (state.total == 0 ||
-                                index >= state.users.length) {
-                              return DataRow(
-                                color: WidgetStatePropertyAll<Color?>(
-                                  rowBackground,
-                                ),
-                                cells: const <DataCell>[
-                                  DataCell(SizedBox.shrink()),
-                                  DataCell(SizedBox.shrink()),
-                                  DataCell(SizedBox.shrink()),
-                                  DataCell(SizedBox.shrink()),
-                                  DataCell(SizedBox.shrink()),
-                                ],
-                              );
-                            }
-
-                            final user = state.users[index];
-                            return DataRow(
-                              color: WidgetStatePropertyAll<Color?>(
-                                rowBackground,
-                              ),
-                              cells: [
-                                DataCell(_UserTableText(user.userName)),
-                                DataCell(_UserTableText(user.person.firstName)),
-                                DataCell(_UserTableText(user.person.lastName)),
-                                DataCell(
-                                  _UserTableText(
-                                    '${user.dateCreated.toUtc()}'
-                                        .split('.')
-                                        .first,
-                                  ),
-                                ),
-                                DataCell(
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      _LocalUserActionIcon(
-                                        icon: Icons.edit_outlined,
-                                        onPressed: () =>
-                                            _showEditUserDialog(user),
-                                        tooltip: 'Edit Details',
-                                      ),
-                                      const SizedBox(width: 4),
-                                      _LocalUserActionIcon(
-                                        icon: Icons.password_outlined,
-                                        onPressed: () =>
-                                            _showResetPasswordDialog(user),
-                                        tooltip: 'Reset Password',
-                                      ),
-                                      const SizedBox(width: 4),
-                                      _LocalUserActionIcon(
-                                        icon: Icons.history_toggle_off_outlined,
-                                        onPressed: () =>
-                                            _showSessionsDialog(user),
-                                        tooltip: 'Sessions',
-                                      ),
-                                      const SizedBox(width: 4),
-                                      _LocalUserActionIcon(
-                                        icon: user.isLocked
-                                            ? Icons.person_outline_outlined
-                                            : Icons.person_off_outlined,
-                                        iconColor: user.isLocked
-                                            ? Colors.green.shade700
-                                            : Colors.red.shade700,
-                                        onPressed: () async {
-                                          final confirmed =
-                                              await showAppConfirmationDialog(
-                                                context: context,
-                                                title: 'Confirmation Required',
-                                                message: user.isLocked
-                                                    ? 'Enabling this account will allow the user to log in and perform permitted actions.'
-                                                    : 'Disabling this account will prevent the user from logging in and performing any actions.',
-                                                confirmLabel: 'Continue',
-                                                icon: user.isLocked
-                                                    ? Icons
-                                                          .person_outline_outlined
-                                                    : Icons.person_off_outlined,
-                                              );
-
-                                          if (confirmed != true) {
-                                            return;
-                                          }
-
-                                          if (user.isLocked) {
-                                            await handleEnableUserAccount(
-                                              user.id,
-                                            );
-                                          } else {
-                                            await handleDisableUserAccount(
-                                              user.id,
-                                            );
-                                          }
-                                        },
-                                        tooltip: user.isLocked
-                                            ? 'Enable Account'
-                                            : 'Disable Account',
-                                      ),
-                                      const SizedBox(width: 4),
-                                      _LocalUserActionIcon(
-                                        icon: Icons.delete_outline,
-                                        iconColor: Colors.red.shade700,
-                                        onPressed: () async {
-                                          final confirmed =
-                                              await showAppConfirmationDialog(
-                                                context: context,
-                                                title: 'Confirmation Required',
-                                                message:
-                                                    'Deleting this user will immediately disable access and remove the account.',
-                                                confirmLabel: 'Delete User',
-                                                icon: Icons.delete_outline,
-                                              );
-
-                                          if (confirmed != true) {
-                                            return;
-                                          }
-
-                                          await handleDeleteUser(user.id);
-                                        },
-                                        tooltip: 'Delete User',
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            );
-                          }),
-                        ),
-                      ),
-                    ),
-                  );
+                onChanged: (value) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(_searchDebounceDuration, () async {
+                    final term = value.trim();
+                    controller.setSearchTerm(term);
+                    await controller.loadUsers();
+                  });
                 },
               ),
             ),
-          ),
+            TextButton.icon(
+              onPressed: () async {
+                await controller.loadUsers();
+                await controller.loadRoles();
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+            ),
+          ],
         ),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final availableWidth = constraints.maxWidth.isFinite
-                ? constraints.maxWidth
-                : _tableMinWidth;
-            final paginatorWidth = math.max(availableWidth, _tableMinWidth);
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: paginatorWidth,
-                child: _Paginator(
-                  rowsPerPage: state.pageSize,
-                  currentPage: state.page,
-                  pages: state.pages,
-                  count: state.total,
-                  items: state.users.length,
-                  onRowsPerPageChanged: (value) async {
-                    controller.setRowsPerPage(value);
-                    await controller.loadUsers();
+        if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AppErrorAlert(message: state.errorMessage!),
+          ),
+        Expanded(
+          child: AdminSurface(
+            padding: EdgeInsets.zero,
+            child: AdminDataGrid<UserEntity>(
+              rows: state.users,
+              columns: [
+                AdminGridColumn<UserEntity>(
+                  key: 'username',
+                  label: 'Username',
+                  flex: 2,
+                  cell: (_, user) => AdminCellText(user.userName),
+                ),
+                AdminGridColumn<UserEntity>(
+                  key: 'firstName',
+                  label: 'First Name',
+                  cell: (_, user) => AdminCellText(user.person.firstName),
+                ),
+                AdminGridColumn<UserEntity>(
+                  key: 'lastName',
+                  label: 'Last Name',
+                  cell: (_, user) => AdminCellText(user.person.lastName),
+                ),
+                AdminGridColumn<UserEntity>(
+                  key: 'dateCreated',
+                  label: 'Date Created',
+                  flex: 2,
+                  cell: (_, user) =>
+                      AdminCellText(_formatLocalUserDate(user.dateCreated)),
+                ),
+                AdminGridColumn<UserEntity>(
+                  key: 'status',
+                  label: 'Status',
+                  cell: (_, user) => AdminStatusChip(
+                    label: user.isLocked ? 'Disabled' : 'Active',
+                  ),
+                ),
+              ],
+              actionsBuilder: (context, user) => SizedBox(
+                width: _localUserActionsColumnWidth,
+                child: _LocalUserRowActions(
+                  user: user,
+                  onEditDetails: _showEditUserDialog,
+                  onResetPassword: _showResetPasswordDialog,
+                  onSessions: _showSessionsDialog,
+                  onToggleAccount: (targetUser) async {
+                    final confirmed = await showAppConfirmationDialog(
+                      context: context,
+                      title: 'Confirmation Required',
+                      message: targetUser.isLocked
+                          ? 'Enabling this account will allow the user to log in and perform permitted actions.'
+                          : 'Disabling this account will prevent the user from logging in and performing any actions.',
+                      confirmLabel: 'Continue',
+                      icon: targetUser.isLocked
+                          ? Icons.person_outline_outlined
+                          : Icons.person_off_outlined,
+                    );
+
+                    if (confirmed != true) {
+                      return;
+                    }
+
+                    if (targetUser.isLocked) {
+                      await handleEnableUserAccount(targetUser.id);
+                    } else {
+                      await handleDisableUserAccount(targetUser.id);
+                    }
                   },
-                  onFirstPagePressed: () async {
-                    controller.setPage(1);
-                    await controller.loadUsers();
-                  },
-                  onPreviousPagePressed: () async {
-                    controller.setPage(state.page - 1);
-                    await controller.loadUsers();
-                  },
-                  onLastPagePressed: () async {
-                    controller.setPage(state.pages);
-                    await controller.loadUsers();
-                  },
-                  onNextPagePressed: () async {
-                    controller.setPage(state.page + 1);
-                    await controller.loadUsers();
+                  onDelete: (targetUser) async {
+                    final confirmed = await showAppConfirmationDialog(
+                      context: context,
+                      title: 'Confirmation Required',
+                      message:
+                          'Deleting this user will immediately disable access and remove the account.',
+                      confirmLabel: 'Delete User',
+                      icon: Icons.delete_outline,
+                    );
+
+                    if (confirmed != true) {
+                      return;
+                    }
+
+                    await handleDeleteUser(targetUser.id);
                   },
                 ),
               ),
-            );
-          },
+              actionsWidth: _localUserActionsColumnWidth,
+              rowKey: (user) => user.id,
+              isLoading: state.isLoadingUsers,
+              hasActiveFilter: state.searchTerm.trim().isNotEmpty,
+              emptyState: AdminEmptyStateData(
+                title: 'No local users yet.',
+                message:
+                    'Create a local user to grant access to operators who authenticate directly with this console.',
+                primaryAction: FilledButton.icon(
+                  onPressed: _showRegisterDialog,
+                  icon: const Icon(Icons.person_add_outlined),
+                  label: const Text('New User'),
+                ),
+                secondaryAction: TextButton.icon(
+                  onPressed: controller.loadUsers,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+              ),
+              filteredEmptyState: const AdminEmptyStateData(
+                title: 'No matching users.',
+                message: 'Clear the search or adjust filters.',
+              ),
+              minWidth: _tableMinWidth,
+              footer: AdminGridFooter(
+                state: AdminPaginationState(
+                  visibleCount: state.users.length,
+                  totalCount: state.total,
+                  page: state.page,
+                  pages: state.pages,
+                  pageSize: state.pageSize,
+                  pageSizes: const <int>[15, 25, 50],
+                  onPageSizeChanged: (value) async {
+                    controller.setRowsPerPage(value);
+                    await controller.loadUsers();
+                  },
+                  onFirstPage: state.page <= 1
+                      ? null
+                      : () async {
+                          controller.setPage(1);
+                          await controller.loadUsers();
+                        },
+                  onPreviousPage: state.page <= 1
+                      ? null
+                      : () async {
+                          controller.setPage(state.page - 1);
+                          await controller.loadUsers();
+                        },
+                  onNextPage: state.page >= state.pages
+                      ? null
+                      : () async {
+                          controller.setPage(state.page + 1);
+                          await controller.loadUsers();
+                        },
+                  onLastPage: state.page >= state.pages
+                      ? null
+                      : () async {
+                          controller.setPage(state.pages);
+                          await controller.loadUsers();
+                        },
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-class _Paginator extends StatelessWidget {
-  const _Paginator({
-    required this.rowsPerPage,
-    required this.currentPage,
-    required this.pages,
-    required this.count,
-    required this.items,
-    required this.onRowsPerPageChanged,
-    required this.onFirstPagePressed,
-    required this.onPreviousPagePressed,
-    required this.onLastPagePressed,
-    required this.onNextPagePressed,
+String _formatLocalUserDate(DateTime value) {
+  return '${value.toUtc()}'.split('.').first;
+}
+
+class _LocalUserRowActions extends StatelessWidget {
+  const _LocalUserRowActions({
+    required this.user,
+    required this.onEditDetails,
+    required this.onResetPassword,
+    required this.onSessions,
+    required this.onToggleAccount,
+    required this.onDelete,
   });
 
-  final int rowsPerPage;
-  final int currentPage;
-  final int pages;
-  final int count;
-  final int items;
-  final ValueChanged<int> onRowsPerPageChanged;
-  final VoidCallback onFirstPagePressed;
-  final VoidCallback onPreviousPagePressed;
-  final VoidCallback onLastPagePressed;
-  final VoidCallback onNextPagePressed;
+  final UserEntity user;
+  final ValueChanged<UserEntity> onEditDetails;
+  final ValueChanged<UserEntity> onResetPassword;
+  final ValueChanged<UserEntity> onSessions;
+  final ValueChanged<UserEntity> onToggleAccount;
+  final ValueChanged<UserEntity> onDelete;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final resolvedPages = pages <= 0 ? 1 : pages;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppUiPalette.surface,
-          border: Border.all(color: AppUiPalette.border, width: 1.0),
-          borderRadius: BorderRadius.circular(12),
-        ),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: FittedBox(
+        alignment: Alignment.centerRight,
+        fit: BoxFit.scaleDown,
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Rows',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppUiPalette.textSecondary,
-              ),
+            AdminIconButton(
+              icon: Icons.edit_outlined,
+              tooltip: 'Edit Details',
+              onPressed: () => onEditDetails(user),
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: AppUiPalette.border, width: 1.0),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<int>(
-                  value: rowsPerPage,
-                  icon: const Icon(Icons.expand_more, size: 18),
-                  items: const [15, 25, 50]
-                      .map(
-                        (value) => DropdownMenuItem<int>(
-                          value: value,
-                          child: Text('$value'),
-                        ),
-                      )
-                      .toList(growable: false),
-                  onChanged: (value) {
-                    if (value != null) {
-                      onRowsPerPageChanged(value);
-                    }
-                  },
-                ),
-              ),
+            AdminIconButton(
+              icon: Icons.password_outlined,
+              tooltip: 'Reset Password',
+              onPressed: () => onResetPassword(user),
             ),
-            const SizedBox(width: 14),
-            Text(
-              '$items of $count',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppUiPalette.textSecondary,
-              ),
+            AdminIconButton(
+              icon: Icons.history_toggle_off_outlined,
+              tooltip: 'Sessions',
+              onPressed: () => onSessions(user),
             ),
-            const SizedBox(width: 10),
-            _PaginatorIconButton(
-              icon: Icons.first_page,
-              tooltip: 'First page',
-              onPressed: currentPage <= 1 ? null : onFirstPagePressed,
+            AdminIconButton(
+              icon: user.isLocked
+                  ? Icons.person_outline_outlined
+                  : Icons.person_off_outlined,
+              tooltip: user.isLocked ? 'Enable Account' : 'Disable Account',
+              destructive: !user.isLocked,
+              onPressed: () => onToggleAccount(user),
             ),
-            const SizedBox(width: 4),
-            _PaginatorIconButton(
-              icon: Icons.chevron_left,
-              tooltip: 'Previous page',
-              onPressed: currentPage <= 1 ? null : onPreviousPagePressed,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              '$currentPage / $resolvedPages',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: 8),
-            _PaginatorIconButton(
-              icon: Icons.chevron_right,
-              tooltip: 'Next page',
-              onPressed: currentPage >= resolvedPages
-                  ? null
-                  : onNextPagePressed,
-            ),
-            const SizedBox(width: 4),
-            _PaginatorIconButton(
-              icon: Icons.last_page,
-              tooltip: 'Last page',
-              onPressed: currentPage >= resolvedPages
-                  ? null
-                  : onLastPagePressed,
+            AdminIconButton(
+              icon: Icons.delete_outline,
+              tooltip: 'Delete User',
+              destructive: true,
+              onPressed: () => onDelete(user),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PaginatorIconButton extends StatelessWidget {
-  const _PaginatorIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final isEnabled = onPressed != null;
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: onPressed,
-          child: Ink(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: isEnabled
-                  ? AppUiPalette.surfaceStrong
-                  : AppUiPalette.surfaceMuted,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 18,
-              color: isEnabled
-                  ? AppUiPalette.textPrimary
-                  : AppUiPalette.borderStrong,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _UserTableHeaderText extends StatelessWidget {
-  const _UserTableHeaderText(this.value);
-
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(child: Text(value, overflow: TextOverflow.ellipsis));
-  }
-}
-
-class _UserTableText extends StatelessWidget {
-  const _UserTableText(this.value);
-
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis),
-    );
-  }
-}
-
-class _LocalUserActionIcon extends StatelessWidget {
-  const _LocalUserActionIcon({
-    required this.icon,
-    required this.onPressed,
-    required this.tooltip,
-    this.iconColor,
-  });
-
-  final IconData icon;
-  final VoidCallback onPressed;
-  final String tooltip;
-  final Color? iconColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: onPressed,
-          child: Ink(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: AppUiPalette.surfaceStrong,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 18,
-              color: iconColor ?? AppUiPalette.textPrimary,
-            ),
-          ),
         ),
       ),
     );

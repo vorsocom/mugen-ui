@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   detail drawers.
 - Changed Local Users to use the shared admin header, toolbar, data grid,
   status chips, row actions, grid footer, and contextual empty states.
+- Changed Tenants to use the shared admin header, toolbar, tabs, pagination
+  footer, empty states, status chips, and row action sizing.
 
 ### Deprecated
 

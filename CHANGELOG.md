@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed Audit Events to use the shared admin header, toolbar, data grid,
   pagination footer, selected-row highlighting, status chips, copyable detail
   metadata, and contextual empty states.
+- Changed the Human Handoff drawer item to show compact status chips for live
+  handoff workload and attention states.
 
 ### Deprecated
 

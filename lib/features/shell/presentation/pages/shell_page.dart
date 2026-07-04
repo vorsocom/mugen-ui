@@ -7,6 +7,7 @@ import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dart';
+import 'package:mugen_ui/features/human_handoff/presentation/providers/human_handoff_providers.dart';
 import 'package:mugen_ui/features/shell/application/shell_route_access.dart';
 import 'package:mugen_ui/features/shell/presentation/providers/shell_providers.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/route_views.dart';
@@ -20,6 +21,9 @@ const Key _shellAccountMenuTriggerKey = Key('shell-account-menu-trigger');
 const Key _shellAccountMenuPanelKey = Key('shell-account-menu-panel');
 const Key _shellAccountMenuSettingsKey = Key('shell-account-menu-settings');
 const Key _shellAccountMenuLogoutKey = Key('shell-account-menu-logout');
+const Key _humanHandoffDrawerStatusKey = Key(
+  'shell-human-handoff-status-chips',
+);
 const String _shellSettingsPanelKeyPrefix = 'shell-account-settings-panel';
 const double _shellTopBarHeight = 52;
 
@@ -884,6 +888,9 @@ Widget _buildDrawerNavItem({
   required bool isCollapsed,
 }) {
   final theme = Theme.of(context);
+  final trailing = !isCollapsed && item.id == RouteIds.humanHandoff
+      ? const _HumanHandoffDrawerStatusChips()
+      : null;
   final tile = Material(
     color: isSelected ? AppUiPalette.surfaceStrong : Colors.transparent,
     borderRadius: BorderRadius.circular(14),
@@ -918,6 +925,7 @@ Widget _buildDrawerNavItem({
                   ),
                 ),
               ),
+              if (trailing != null) ...[const SizedBox(width: 8), trailing],
             ],
           ],
         ),
@@ -929,6 +937,244 @@ Widget _buildDrawerNavItem({
     padding: const EdgeInsets.only(bottom: 6),
     child: isCollapsed ? Tooltip(message: item.title, child: tile) : tile,
   );
+}
+
+class _HumanHandoffDrawerStatusChips extends ConsumerStatefulWidget {
+  const _HumanHandoffDrawerStatusChips();
+
+  @override
+  ConsumerState<_HumanHandoffDrawerStatusChips> createState() =>
+      _HumanHandoffDrawerStatusChipsState();
+}
+
+class _HumanHandoffDrawerStatusChipsState
+    extends ConsumerState<_HumanHandoffDrawerStatusChips> {
+  bool _requestedInitialLoad = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      _requestInitialLoad(ref.read(humanHandoffControllerProvider));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(humanHandoffControllerProvider);
+    final chips = _buildHumanHandoffDrawerChips(state);
+    if (chips.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Tooltip(
+      message: _buildHumanHandoffDrawerTooltip(state),
+      child: ConstrainedBox(
+        key: _humanHandoffDrawerStatusKey,
+        constraints: const BoxConstraints(maxWidth: 116),
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 4,
+          runSpacing: 4,
+          children: chips
+              .map((chip) => _DrawerStatusChip(data: chip))
+              .toList(growable: false),
+        ),
+      ),
+    );
+  }
+
+  void _requestInitialLoad(HumanHandoffState state) {
+    if (_requestedInitialLoad ||
+        state.isLoadingTenants ||
+        state.isLoadingSessions ||
+        state.tenants.isNotEmpty ||
+        state.errorMessage != null) {
+      return;
+    }
+
+    _requestedInitialLoad = true;
+    ref.read(humanHandoffControllerProvider.notifier).loadInitialData();
+  }
+}
+
+List<_DrawerStatusChipData> _buildHumanHandoffDrawerChips(
+  HumanHandoffState state,
+) {
+  if (state.isLoadingTenants || state.isLoadingSessions) {
+    return const <_DrawerStatusChipData>[
+      _DrawerStatusChipData(label: 'Syncing', style: _DrawerStatusStyle.info),
+    ];
+  }
+
+  final errorMessage = state.errorMessage?.trim();
+  if (errorMessage != null && errorMessage.isNotEmpty) {
+    return const <_DrawerStatusChipData>[
+      _DrawerStatusChipData(label: 'Issue', style: _DrawerStatusStyle.danger),
+    ];
+  }
+
+  final selectedTenantId = state.selectedTenantId?.trim();
+  if (selectedTenantId == null || selectedTenantId.isEmpty) {
+    return const <_DrawerStatusChipData>[
+      _DrawerStatusChipData(
+        label: 'No tenant',
+        style: _DrawerStatusStyle.neutral,
+      ),
+    ];
+  }
+
+  final newCount = state.sessions
+      .where((session) => session.hasNewUserActivity)
+      .length;
+  final failedCount = state.sessions
+      .where((session) => session.hasDeliveryFailure)
+      .length;
+  final activeCountLabel = state.total > 99 ? '99+' : '${state.total}';
+  final activeChip = state.total > 0
+      ? _DrawerStatusChipData(
+          label: 'Active $activeCountLabel',
+          style: _DrawerStatusStyle.success,
+        )
+      : const _DrawerStatusChipData(
+          label: 'Clear',
+          style: _DrawerStatusStyle.neutral,
+        );
+
+  final liveErrorMessage = state.liveErrorMessage?.trim();
+  if (liveErrorMessage != null && liveErrorMessage.isNotEmpty) {
+    return <_DrawerStatusChipData>[
+      const _DrawerStatusChipData(
+        label: 'Live issue',
+        style: _DrawerStatusStyle.warning,
+      ),
+      activeChip,
+    ];
+  }
+
+  if (failedCount > 0) {
+    return <_DrawerStatusChipData>[
+      _DrawerStatusChipData(
+        label: 'Failed $failedCount',
+        style: _DrawerStatusStyle.danger,
+      ),
+      activeChip,
+    ];
+  }
+
+  if (newCount > 0) {
+    return <_DrawerStatusChipData>[
+      _DrawerStatusChipData(
+        label: 'New $newCount',
+        style: _DrawerStatusStyle.warning,
+      ),
+      activeChip,
+    ];
+  }
+
+  return <_DrawerStatusChipData>[
+    activeChip,
+    _DrawerStatusChipData(
+      label: state.isLiveListening ? 'Live' : 'Offline',
+      style: state.isLiveListening
+          ? _DrawerStatusStyle.success
+          : _DrawerStatusStyle.neutral,
+    ),
+  ];
+}
+
+String _buildHumanHandoffDrawerTooltip(HumanHandoffState state) {
+  final newCount = state.sessions
+      .where((session) => session.hasNewUserActivity)
+      .length;
+  final failedCount = state.sessions
+      .where((session) => session.hasDeliveryFailure)
+      .length;
+  final liveStatus = state.isLiveListening ? 'live' : 'offline';
+  return 'Human Handoff: ${state.total} active, $newCount new, '
+      '$failedCount failed, $liveStatus.';
+}
+
+enum _DrawerStatusStyle { success, warning, danger, neutral, info }
+
+class _DrawerStatusChipData {
+  const _DrawerStatusChipData({required this.label, required this.style});
+
+  final String label;
+  final _DrawerStatusStyle style;
+}
+
+class _DrawerStatusChip extends StatelessWidget {
+  const _DrawerStatusChip({required this.data});
+
+  final _DrawerStatusChipData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _drawerStatusColors(data.style);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: colors.background,
+        border: Border.all(color: colors.border),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        data.label,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colors.foreground,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+_DrawerStatusColors _drawerStatusColors(_DrawerStatusStyle style) {
+  return switch (style) {
+    _DrawerStatusStyle.success => _DrawerStatusColors(
+      foreground: AppUiPalette.success,
+      background: AppUiPalette.success.withValues(alpha: 0.1),
+      border: AppUiPalette.success.withValues(alpha: 0.3),
+    ),
+    _DrawerStatusStyle.warning => _DrawerStatusColors(
+      foreground: AppUiPalette.warning,
+      background: AppUiPalette.warningSoft,
+      border: AppUiPalette.warning.withValues(alpha: 0.3),
+    ),
+    _DrawerStatusStyle.danger => _DrawerStatusColors(
+      foreground: AppUiPalette.danger,
+      background: AppUiPalette.dangerSoft,
+      border: AppUiPalette.danger.withValues(alpha: 0.3),
+    ),
+    _DrawerStatusStyle.info => _DrawerStatusColors(
+      foreground: AppUiPalette.accent,
+      background: AppUiPalette.accentSoft,
+      border: AppUiPalette.borderStrong,
+    ),
+    _DrawerStatusStyle.neutral => const _DrawerStatusColors(
+      foreground: AppUiPalette.textSecondary,
+      background: AppUiPalette.surfaceMuted,
+      border: AppUiPalette.border,
+    ),
+  };
+}
+
+class _DrawerStatusColors {
+  const _DrawerStatusColors({
+    required this.foreground,
+    required this.background,
+    required this.border,
+  });
+
+  final Color foreground;
+  final Color background;
+  final Color border;
 }
 
 class _DrawerIconBadge extends StatelessWidget {

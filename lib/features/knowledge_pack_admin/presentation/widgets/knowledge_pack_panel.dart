@@ -10,6 +10,7 @@ class KnowledgePackPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return AcpAdminPanel<KnowledgePackAdminController>(
       controllerProvider: knowledgePackAdminControllerProvider,
+      title: 'Knowledge Packs',
       description:
           'Configure knowledge packs, versions, entries, revisions, approvals, and retrieval scopes.',
     );

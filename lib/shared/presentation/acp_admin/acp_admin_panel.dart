@@ -15,6 +15,7 @@ import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_json_codec.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_field.dart';
+import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
@@ -23,8 +24,6 @@ const double _acpAdminTableMinWidth = 1120;
 const double _acpAdminActionColumnMinWidth = 192;
 const double _acpAdminActionButtonWidth = 48;
 const double _acpAdminActionCellPaddingAllowance = 32;
-const double _acpAdminColumnSpacing = 20;
-const double _acpAdminTableHorizontalMargin = 16;
 const Duration _acpAdminSearchDebounce = Duration(milliseconds: 300);
 
 typedef _AcpReferenceSearch =
@@ -43,10 +42,12 @@ class AcpAdminPanel<T extends AcpAdminController>
   const AcpAdminPanel({
     required this.controllerProvider,
     super.key,
+    this.title,
     this.description,
   });
 
   final StateNotifierProvider<T, AcpAdminState> controllerProvider;
+  final String? title;
   final String? description;
 
   @override
@@ -55,6 +56,9 @@ class AcpAdminPanel<T extends AcpAdminController>
 
 class _AcpAdminPanelState<T extends AcpAdminController>
     extends ConsumerState<AcpAdminPanel<T>> {
+  AcpRow? _selectedRow;
+  String? _selectedResourceKey;
+
   @override
   void initState() {
     super.initState();
@@ -74,9 +78,18 @@ class _AcpAdminPanelState<T extends AcpAdminController>
     final controller = ref.read(widget.controllerProvider.notifier);
     final descriptor = controller.activeDescriptor;
     final resourceState = state.activeResourceState;
-    final pageDescription = widget.description?.trim();
-    final hasPageDescription =
-        pageDescription != null && pageDescription.isNotEmpty;
+    _syncSelectedRow(
+      resourceKey: state.activeResourceKey,
+      rows: resourceState.rows,
+    );
+    final pageTitle = widget.title?.trim().isNotEmpty == true
+        ? widget.title!.trim()
+        : descriptor.title;
+    final pageDescription = widget.description?.trim().isNotEmpty == true
+        ? widget.description!.trim()
+        : (descriptor.description?.trim().isNotEmpty == true
+              ? descriptor.description!.trim()
+              : 'Manage ${descriptor.title.toLowerCase()} records.');
     final showTenantSelector =
         descriptor.scopeMode == AcpScopeMode.required ||
         (descriptor.scopeMode == AcpScopeMode.optional &&
@@ -89,186 +102,168 @@ class _AcpAdminPanelState<T extends AcpAdminController>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppFormPanel(
-          margin: EdgeInsets.zero,
-          child: _ResourceSelector(
-            descriptors: controller.descriptors,
-            activeResourceKey: state.activeResourceKey,
-            onSelect: controller.selectResource,
-          ),
+        AdminPageHeader(
+          title: pageTitle,
+          subtitle: pageDescription,
+          primaryAction: descriptor.allowCreate
+              ? FilledButton.icon(
+                  key: const Key('acp-admin-create-button'),
+                  onPressed: tenantMissing
+                      ? null
+                      : () => _showCreateDialog(
+                          context: context,
+                          ref: ref,
+                          controllerProvider: widget.controllerProvider,
+                          descriptor: descriptor,
+                        ),
+                  icon: const Icon(Icons.add),
+                  label: const Text('New Row'),
+                )
+              : null,
         ),
-        if (hasPageDescription)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: _PageDescriptionNotice(description: pageDescription),
-          ),
-        SizedBox(height: hasPageDescription ? 16 : 8),
+        _ResourceSelector(
+          descriptors: controller.descriptors,
+          state: state,
+          activeResourceKey: state.activeResourceKey,
+          onSelect: controller.selectResource,
+        ),
         _ToolbarRow<T>(
           controllerProvider: widget.controllerProvider,
           descriptor: descriptor,
           resourceState: resourceState,
         ),
-        const SizedBox(height: 8),
         _ActionRow<T>(
           controllerProvider: widget.controllerProvider,
           descriptor: descriptor,
           tenantMissing: tenantMissing,
+          showCreate: false,
         ),
-        if (state.isLoadingTenants ||
-            resourceState.isLoading ||
-            state.isMutating)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: LinearProgressIndicator(),
-          ),
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(bottom: 8),
             child: AppErrorAlert(message: state.errorMessage!),
           ),
-        const SizedBox(height: 8),
         Expanded(
-          child: AppFormPanel(
-            margin: EdgeInsets.zero,
-            child: _ResourceTable<T>(
-              controllerProvider: widget.controllerProvider,
-              descriptor: descriptor,
-              resourceState: resourceState,
-            ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final showDrawer =
+                  _selectedRow != null && constraints.maxWidth >= 980;
+              final grid = AdminSurface(
+                padding: EdgeInsets.zero,
+                child: _ResourceTable<T>(
+                  controllerProvider: widget.controllerProvider,
+                  descriptor: descriptor,
+                  resourceState: resourceState,
+                  isBusy:
+                      state.isLoadingTenants ||
+                      resourceState.isLoading ||
+                      state.isMutating,
+                  selectedRow: _selectedRow,
+                  onViewRow: (row) {
+                    setState(() {
+                      _selectedRow = row;
+                      _selectedResourceKey = state.activeResourceKey;
+                    });
+                  },
+                ),
+              );
+              final drawer = _selectedRow == null
+                  ? null
+                  : _AcpRowDetailDrawer(
+                      descriptor: descriptor,
+                      row: _selectedRow!,
+                      onClose: () {
+                        setState(() {
+                          _selectedRow = null;
+                        });
+                      },
+                    );
+
+              if (_selectedRow != null && constraints.maxWidth < 980) {
+                return Stack(
+                  children: [
+                    Positioned.fill(child: grid),
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: SizedBox(
+                          width: math.min(420, constraints.maxWidth),
+                          child: drawer!,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(child: grid),
+                  if (showDrawer) ...[
+                    const SizedBox(width: 12),
+                    SizedBox(width: 420, child: drawer!),
+                  ],
+                ],
+              );
+            },
           ),
-        ),
-        const SizedBox(height: 8),
-        _ResourcePaginator<T>(
-          controllerProvider: widget.controllerProvider,
-          descriptor: descriptor,
-          resourceState: resourceState,
         ),
       ],
     );
   }
-}
 
-class _PageDescriptionNotice extends StatelessWidget {
-  const _PageDescriptionNotice({required this.description});
+  void _syncSelectedRow({
+    required String resourceKey,
+    required List<AcpRow> rows,
+  }) {
+    if (_selectedResourceKey != resourceKey) {
+      _selectedResourceKey = resourceKey;
+      _selectedRow = null;
+      return;
+    }
 
-  final String description;
+    final selectedId = _selectedRow?.id;
+    if (selectedId == null) {
+      return;
+    }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      key: const Key('acp-admin-page-description'),
-      decoration: BoxDecoration(
-        color: AppUiPalette.surfaceMuted,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppUiPalette.border),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Text(
-        description,
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(color: AppUiPalette.textPrimary),
-      ),
-    );
+    final stillVisible = rows.any((row) => row.id == selectedId);
+    if (!stillVisible) {
+      _selectedRow = null;
+    }
   }
 }
 
 class _ResourceSelector extends StatelessWidget {
   const _ResourceSelector({
     required this.descriptors,
+    required this.state,
     required this.activeResourceKey,
     required this.onSelect,
   });
 
   final List<AcpResourceDescriptor> descriptors;
+  final AcpAdminState state;
   final String activeResourceKey;
   final Future<void> Function(String key) onSelect;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: descriptors
-            .map((descriptor) {
-              final description = descriptor.description?.trim();
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _ResourceTabChip(
-                  chipKey: Key('acp-admin-tab-${descriptor.key}'),
-                  title: descriptor.title,
-                  tooltip: description,
-                  tooltipKey: Key('acp-admin-tab-info-${descriptor.key}'),
-                  selected: descriptor.key == activeResourceKey,
-                  onSelected: descriptor.key == activeResourceKey
-                      ? null
-                      : (_) => onSelect(descriptor.key),
-                ),
-              );
-            })
-            .toList(growable: false),
-      ),
-    );
-  }
-}
-
-class _ResourceTabChip extends StatelessWidget {
-  const _ResourceTabChip({
-    required this.chipKey,
-    required this.title,
-    required this.tooltip,
-    required this.tooltipKey,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final Key chipKey;
-  final String title;
-  final String? tooltip;
-  final Key tooltipKey;
-  final bool selected;
-  final ValueChanged<bool>? onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final message = tooltip?.trim();
-    final hasTooltip = message != null && message.isNotEmpty;
-
-    return Stack(
-      alignment: Alignment.centerRight,
-      children: [
-        ChoiceChip(
-          key: chipKey,
-          label: Padding(
-            padding: EdgeInsets.only(right: hasTooltip ? 24 : 0),
-            child: Text(title),
-          ),
-          selected: selected,
-          onSelected: onSelected,
-        ),
-        if (hasTooltip)
-          Positioned(
-            right: 6,
-            top: 0,
-            bottom: 0,
-            child: Center(
-              child: Tooltip(
-                key: tooltipKey,
-                message: message,
-                child: const SizedBox.square(
-                  dimension: 18,
-                  child: Center(
-                    child: Icon(
-                      Icons.info_outline,
-                      size: 16,
-                      color: AppUiPalette.textSecondary,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
+    return AdminTabs(
+      items: descriptors
+          .map((descriptor) {
+            final resourceState = state.resourceStates[descriptor.key];
+            return AdminTabItem(
+              key: Key('acp-admin-tab-${descriptor.key}'),
+              label: descriptor.title,
+              count: resourceState?.tabCount,
+              tooltip: descriptor.description,
+              selected: descriptor.key == activeResourceKey,
+              onSelected: () => onSelect(descriptor.key),
+            );
+          })
+          .toList(growable: false),
     );
   }
 }
@@ -311,10 +306,7 @@ class _ToolbarRowState<T extends AcpAdminController>
             resourceState.optionalScopeSelection ==
                 AcpOptionalScopeSelection.tenant);
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return AdminToolbar(
       children: [
         if (descriptor.scopeMode == AcpScopeMode.optional)
           SizedBox(
@@ -400,11 +392,13 @@ class _ActionRow<T extends AcpAdminController> extends ConsumerWidget {
     required this.controllerProvider,
     required this.descriptor,
     required this.tenantMissing,
+    this.showCreate = true,
   });
 
   final StateNotifierProvider<T, AcpAdminState> controllerProvider;
   final AcpResourceDescriptor descriptor;
   final bool tenantMissing;
+  final bool showCreate;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -412,15 +406,13 @@ class _ActionRow<T extends AcpAdminController> extends ConsumerWidget {
         .where((action) => action.showInToolbar)
         .toList(growable: false);
 
-    if (!descriptor.allowCreate && toolbarActions.isEmpty) {
+    if ((!descriptor.allowCreate || !showCreate) && toolbarActions.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return AdminToolbar(
       children: [
-        if (descriptor.allowCreate)
+        if (descriptor.allowCreate && showCreate)
           FilledButton.icon(
             key: const Key('acp-admin-create-button'),
             onPressed: tenantMissing
@@ -435,7 +427,7 @@ class _ActionRow<T extends AcpAdminController> extends ConsumerWidget {
             label: const Text('New Row'),
           ),
         for (final action in toolbarActions)
-          OutlinedButton.icon(
+          TextButton.icon(
             key: Key('acp-admin-collection-action-${action.name}'),
             onPressed: tenantMissing
                 ? null
@@ -459,105 +451,91 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
     required this.controllerProvider,
     required this.descriptor,
     required this.resourceState,
+    required this.isBusy,
+    required this.selectedRow,
+    required this.onViewRow,
   });
 
   final StateNotifierProvider<T, AcpAdminState> controllerProvider;
   final AcpResourceDescriptor descriptor;
   final AcpResourceState resourceState;
+  final bool isBusy;
+  final AcpRow? selectedRow;
+  final ValueChanged<AcpRow> onViewRow;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!resourceState.isLoading && resourceState.rows.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            descriptor.emptyMessage,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppUiPalette.textSecondary),
+    final controller = ref.read(controllerProvider.notifier);
+    final tenantMissing =
+        descriptor.scopeMode == AcpScopeMode.required &&
+        (ref.watch(controllerProvider).selectedTenantId == null ||
+            ref.watch(controllerProvider).selectedTenantId!.isEmpty);
+    final createAction = descriptor.allowCreate
+        ? FilledButton.icon(
+            onPressed: tenantMissing
+                ? null
+                : () => _showCreateDialog(
+                    context: context,
+                    ref: ref,
+                    controllerProvider: controllerProvider,
+                    descriptor: descriptor,
+                  ),
+            icon: const Icon(Icons.add),
+            label: const Text('New Row'),
+          )
+        : null;
+    final actionColumnWidth = _actionColumnWidthFor(descriptor);
+
+    return AdminDataGrid<AcpRow>(
+      rows: resourceState.rows,
+      columns: [
+        for (final column in descriptor.columns)
+          AdminGridColumn<AcpRow>(
+            key: column.key,
+            label: column.label,
+            flex: column.flex,
+            cell: (_, row) =>
+                AdminCellText(_formatCellValue(row[column.key]), maxLines: 2),
           ),
+      ],
+      actionsBuilder: (context, row) => SizedBox(
+        width: actionColumnWidth,
+        child: _RowActions<T>(
+          controllerProvider: controllerProvider,
+          descriptor: descriptor,
+          row: row,
+          onViewRow: onViewRow,
         ),
-      );
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : _acpAdminTableMinWidth;
-        final tableWidth = math.max(availableWidth, _acpAdminTableMinWidth);
-        final actionColumnWidth = _actionColumnWidthFor(descriptor);
-
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: tableWidth,
-            child: SingleChildScrollView(
-              child: DataTable(
-                horizontalMargin: _acpAdminTableHorizontalMargin,
-                columnSpacing: _acpAdminColumnSpacing,
-                headingRowColor: const WidgetStatePropertyAll<Color?>(
-                  AppUiPalette.surfaceMuted,
-                ),
-                columns: [
-                  if (descriptor.actionsColumnLeading)
-                    DataColumn(
-                      columnWidth: FixedColumnWidth(actionColumnWidth),
-                      label: const _TableHeaderText('Actions'),
-                    ),
-                  for (final column in descriptor.columns)
-                    DataColumn(
-                      columnWidth: _columnWidthFor(column),
-                      label: _TableHeaderText(column.label),
-                    ),
-                  if (!descriptor.actionsColumnLeading)
-                    DataColumn(
-                      columnWidth: FixedColumnWidth(actionColumnWidth),
-                      label: const _TableHeaderText('Actions'),
-                    ),
-                ],
-                rows: resourceState.rows
-                    .map(
-                      (row) => DataRow(
-                        cells: [
-                          if (descriptor.actionsColumnLeading)
-                            DataCell(
-                              SizedBox(
-                                width: actionColumnWidth,
-                                child: _RowActions<T>(
-                                  controllerProvider: controllerProvider,
-                                  descriptor: descriptor,
-                                  row: row,
-                                ),
-                              ),
-                            ),
-                          for (final column in descriptor.columns)
-                            DataCell(
-                              _TableCellText(
-                                value: _formatCellValue(row[column.key]),
-                              ),
-                            ),
-                          if (!descriptor.actionsColumnLeading)
-                            DataCell(
-                              SizedBox(
-                                width: actionColumnWidth,
-                                child: _RowActions<T>(
-                                  controllerProvider: controllerProvider,
-                                  descriptor: descriptor,
-                                  row: row,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
-            ),
-          ),
-        );
+      ),
+      actionsWidth: actionColumnWidth,
+      rowKey: (row) => row.id ?? row.hashCode.toString(),
+      onRowSelected: onViewRow,
+      isRowSelected: (row) {
+        final selectedId = selectedRow?.id;
+        final rowId = row.id;
+        return selectedId != null && rowId != null && selectedId == rowId;
       },
+      isLoading: isBusy,
+      hasActiveFilter: resourceState.searchTerm.trim().isNotEmpty,
+      emptyState: AdminEmptyStateData(
+        title: _emptyTitle(descriptor),
+        message: _emptyMessage(descriptor),
+        primaryAction: createAction,
+        secondaryAction: TextButton.icon(
+          onPressed: controller.refresh,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Refresh'),
+        ),
+      ),
+      filteredEmptyState: const AdminEmptyStateData(
+        title: 'No matching records.',
+        message: 'Clear the search or adjust filters.',
+      ),
+      minWidth: _acpAdminTableMinWidth,
+      footer: _ResourcePaginator<T>(
+        controllerProvider: controllerProvider,
+        resourceState: resourceState,
+      ),
     );
   }
 
@@ -575,8 +553,20 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
   }
 }
 
-TableColumnWidth _columnWidthFor(AcpColumnDescriptor column) {
-  return FlexColumnWidth(math.max(column.flex.toDouble(), 1));
+String _emptyTitle(AcpResourceDescriptor descriptor) {
+  final noun = descriptor.title.toLowerCase();
+  return 'No $noun yet.';
+}
+
+String _emptyMessage(AcpResourceDescriptor descriptor) {
+  final description = descriptor.description?.trim();
+  if (description != null && description.isNotEmpty) {
+    return description;
+  }
+  if (descriptor.allowCreate) {
+    return 'Create a row to start managing this resource.';
+  }
+  return descriptor.emptyMessage;
 }
 
 double _actionColumnWidthFor(AcpResourceDescriptor descriptor) {
@@ -609,46 +599,18 @@ double _actionColumnWidthFor(AcpResourceDescriptor descriptor) {
   );
 }
 
-class _TableHeaderText extends StatelessWidget {
-  const _TableHeaderText(this.value);
-
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(child: Text(value, overflow: TextOverflow.ellipsis));
-  }
-}
-
-class _TableCellText extends StatelessWidget {
-  const _TableCellText({required this.value});
-
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final trimmed = value.trim();
-
-    return Tooltip(
-      message: trimmed,
-      child: SizedBox(
-        width: double.infinity,
-        child: Text(trimmed, overflow: TextOverflow.ellipsis, maxLines: 2),
-      ),
-    );
-  }
-}
-
 class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
   const _RowActions({
     required this.controllerProvider,
     required this.descriptor,
     required this.row,
+    required this.onViewRow,
   });
 
   final StateNotifierProvider<T, AcpAdminState> controllerProvider;
   final AcpResourceDescriptor descriptor;
   final AcpRow row;
+  final ValueChanged<AcpRow> onViewRow;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -679,109 +641,118 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
           _RowMenuAction.entity(action: action),
     ];
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          tooltip: 'View row',
-          icon: const Icon(Icons.visibility_outlined),
-          onPressed: () =>
-              _showRowDetailDialog(context, descriptor: descriptor, row: row),
-        ),
-        for (final action in rowButtonActions)
-          IconButton(
-            tooltip: action.action.label,
-            icon: Icon(action.action.icon ?? Icons.autorenew),
-            onPressed: () => _runCollectionAction(
-              context: context,
-              ref: ref,
-              controllerProvider: controllerProvider,
-              descriptor: descriptor,
-              action: action.action,
-              initialValues: action.initialValues,
-              scopeRow: row,
+    return Align(
+      alignment: Alignment.centerRight,
+      child: FittedBox(
+        alignment: Alignment.centerRight,
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AdminIconButton(
+              tooltip: 'View row',
+              icon: Icons.visibility_outlined,
+              onPressed: () => onViewRow(row),
             ),
-          ),
-        if (descriptor.allowUpdate && rowId != null)
-          IconButton(
-            tooltip: 'Edit row',
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => _showUpdateDialog(
-              context: context,
-              ref: ref,
-              controllerProvider: controllerProvider,
-              descriptor: descriptor,
-              row: row,
-            ),
-          ),
-        if (descriptor.allowDelete && rowId != null)
-          IconButton(
-            tooltip: 'Delete row',
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _deleteRow(
-              context: context,
-              ref: ref,
-              controllerProvider: controllerProvider,
-              descriptor: descriptor,
-              row: row,
-            ),
-          ),
-        if (descriptor.allowRestore && rowId != null)
-          IconButton(
-            tooltip: 'Restore row',
-            icon: const Icon(Icons.restore),
-            onPressed: () => _restoreRow(
-              context: context,
-              ref: ref,
-              controllerProvider: controllerProvider,
-              descriptor: descriptor,
-              row: row,
-            ),
-          ),
-        if (rowMenuActions.isNotEmpty)
-          Builder(
-            builder: (buttonContext) {
-              return IconButton(
-                key: const Key('acp-admin-row-more-actions'),
-                tooltip: 'More actions',
-                icon: const Icon(Icons.more_horiz),
-                onPressed: () async {
-                  final selectedActionName = await _showRowActionsMenu(
-                    context: buttonContext,
-                    actions: rowMenuActions,
-                  );
-                  if (selectedActionName == null || !buttonContext.mounted) {
-                    return;
-                  }
+            for (final action in rowButtonActions)
+              AdminIconButton(
+                tooltip: action.action.label,
+                icon: action.action.icon ?? Icons.autorenew,
+                onPressed: () => _runCollectionAction(
+                  context: context,
+                  ref: ref,
+                  controllerProvider: controllerProvider,
+                  descriptor: descriptor,
+                  action: action.action,
+                  initialValues: action.initialValues,
+                  scopeRow: row,
+                ),
+              ),
+            if (descriptor.allowUpdate && rowId != null)
+              AdminIconButton(
+                tooltip: 'Edit row',
+                icon: Icons.edit_outlined,
+                onPressed: () => _showUpdateDialog(
+                  context: context,
+                  ref: ref,
+                  controllerProvider: controllerProvider,
+                  descriptor: descriptor,
+                  row: row,
+                ),
+              ),
+            if (descriptor.allowDelete && rowId != null)
+              AdminIconButton(
+                tooltip: 'Delete row',
+                icon: Icons.delete_outline,
+                destructive: true,
+                onPressed: () => _deleteRow(
+                  context: context,
+                  ref: ref,
+                  controllerProvider: controllerProvider,
+                  descriptor: descriptor,
+                  row: row,
+                ),
+              ),
+            if (descriptor.allowRestore && rowId != null)
+              AdminIconButton(
+                tooltip: 'Restore row',
+                icon: Icons.restore,
+                onPressed: () => _restoreRow(
+                  context: context,
+                  ref: ref,
+                  controllerProvider: controllerProvider,
+                  descriptor: descriptor,
+                  row: row,
+                ),
+              ),
+            if (rowMenuActions.isNotEmpty)
+              Builder(
+                builder: (buttonContext) {
+                  return AdminIconButton(
+                    key: const Key('acp-admin-row-more-actions'),
+                    tooltip: 'More actions',
+                    icon: Icons.more_horiz,
+                    onPressed: () async {
+                      final selectedActionName = await _showRowActionsMenu(
+                        context: buttonContext,
+                        actions: rowMenuActions,
+                      );
+                      if (selectedActionName == null ||
+                          !buttonContext.mounted) {
+                        return;
+                      }
 
-                  final action = rowMenuActions.firstWhere(
-                    (candidate) => candidate.action.name == selectedActionName,
-                  );
-                  if (action.isCollectionAction) {
-                    await _runCollectionAction(
-                      context: buttonContext,
-                      ref: ref,
-                      controllerProvider: controllerProvider,
-                      descriptor: descriptor,
-                      action: action.action,
-                      initialValues: action.initialValues,
-                      scopeRow: row,
-                    );
-                    return;
-                  }
-                  await _runEntityAction(
-                    context: buttonContext,
-                    ref: ref,
-                    controllerProvider: controllerProvider,
-                    descriptor: descriptor,
-                    action: action.action,
-                    row: row,
+                      final action = rowMenuActions.firstWhere(
+                        (candidate) =>
+                            candidate.action.name == selectedActionName,
+                      );
+                      if (action.isCollectionAction) {
+                        await _runCollectionAction(
+                          context: buttonContext,
+                          ref: ref,
+                          controllerProvider: controllerProvider,
+                          descriptor: descriptor,
+                          action: action.action,
+                          initialValues: action.initialValues,
+                          scopeRow: row,
+                        );
+                        return;
+                      }
+                      await _runEntityAction(
+                        context: buttonContext,
+                        ref: ref,
+                        controllerProvider: controllerProvider,
+                        descriptor: descriptor,
+                        action: action.action,
+                        row: row,
+                      );
+                    },
                   );
                 },
-              );
-            },
-          ),
-      ],
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -837,71 +808,39 @@ Map<String, dynamic> _collectionActionInitialValues({
 class _ResourcePaginator<T extends AcpAdminController> extends ConsumerWidget {
   const _ResourcePaginator({
     required this.controllerProvider,
-    required this.descriptor,
     required this.resourceState,
   });
 
   final StateNotifierProvider<T, AcpAdminState> controllerProvider;
-  final AcpResourceDescriptor descriptor;
   final AcpResourceState resourceState;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.read(controllerProvider.notifier);
-
-    return Row(
-      children: [
-        Text(
-          '${resourceState.total} rows',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: AppUiPalette.textSecondary),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 140,
-          child: DropdownButtonFormField<int>(
-            key: const Key('acp-admin-page-size-selector'),
-            initialValue: resourceState.pageSize,
-            isExpanded: true,
-            decoration: appFormInputDecoration(labelText: 'Rows'),
-            items: const [10, 15, 25, 50]
-                .map(
-                  (value) => DropdownMenuItem<int>(
-                    value: value,
-                    child: Text('$value / page'),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: (value) async {
-              if (value == null) {
-                return;
-              }
-              await controller.setRowsPerPage(value);
-            },
-          ),
-        ),
-        const Spacer(),
-        Text(
-          'Page ${resourceState.page} of ${resourceState.pages}',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          tooltip: 'Previous page',
-          onPressed: resourceState.page <= 1
-              ? null
-              : () => controller.setPage(resourceState.page - 1),
-          icon: const Icon(Icons.chevron_left),
-        ),
-        IconButton(
-          tooltip: 'Next page',
-          onPressed: resourceState.page >= resourceState.pages
-              ? null
-              : () => controller.setPage(resourceState.page + 1),
-          icon: const Icon(Icons.chevron_right),
-        ),
-      ],
+    return AdminGridFooter(
+      state: AdminPaginationState(
+        visibleCount: resourceState.rows.length,
+        totalCount: resourceState.total,
+        page: resourceState.page,
+        pages: resourceState.pages,
+        pageSize: resourceState.pageSize,
+        pageSizes: const <int>[10, 15, 25, 50],
+        onPageSizeChanged: (value) {
+          unawaited(controller.setRowsPerPage(value));
+        },
+        onFirstPage: resourceState.page <= 1
+            ? null
+            : () => unawaited(controller.setPage(1)),
+        onPreviousPage: resourceState.page <= 1
+            ? null
+            : () => unawaited(controller.setPage(resourceState.page - 1)),
+        onNextPage: resourceState.page >= resourceState.pages
+            ? null
+            : () => unawaited(controller.setPage(resourceState.page + 1)),
+        onLastPage: resourceState.page >= resourceState.pages
+            ? null
+            : () => unawaited(controller.setPage(resourceState.pages)),
+      ),
     );
   }
 }
@@ -1544,84 +1483,94 @@ String _tenantLabelForId(AcpAdminState state, String tenantId) {
   return tenantId;
 }
 
-Future<void> _showRowDetailDialog(
-  BuildContext context, {
-  required AcpResourceDescriptor descriptor,
-  required AcpRow row,
-}) {
-  final objectId = row.id;
+class _AcpRowDetailDrawer extends StatelessWidget {
+  const _AcpRowDetailDrawer({
+    required this.descriptor,
+    required this.row,
+    required this.onClose,
+  });
 
-  return showDialog<void>(
-    context: context,
-    builder: (dialogContext) {
-      return Dialog(
-        insetPadding: const EdgeInsets.all(24),
-        backgroundColor: AppUiPalette.surfaceMuted,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppUiPalette.border),
+  final AcpResourceDescriptor descriptor;
+  final AcpRow row;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final objectId = row.id;
+    return AdminDetailDrawer(
+      title: descriptor.title,
+      subtitle: objectId,
+      onClose: onClose,
+      child: SelectionArea(
+        child: ListView(
+          padding: const EdgeInsets.all(12),
+          children: [
+            if (objectId != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const Key('acp-row-copy-object-id-button'),
+                  onPressed: () async {
+                    await Clipboard.setData(ClipboardData(text: objectId));
+                    if (!context.mounted) {
+                      return;
+                    }
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Object ID copied.')),
+                    );
+                  },
+                  icon: const Icon(Icons.content_copy, size: 18),
+                  label: const Text('Copy ID'),
+                ),
+              ),
+            const SizedBox(height: 8),
+            for (final entry in row.entries)
+              _AcpDetailField(label: entry.key, value: entry.value),
+          ],
         ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760, maxHeight: 760),
-          child: AppFormPanel(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        descriptor.title,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(dialogContext).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    if (objectId != null) ...[
-                      const SizedBox(width: 12),
-                      TextButton.icon(
-                        key: const Key('acp-row-copy-object-id-button'),
-                        onPressed: () async {
-                          await Clipboard.setData(
-                            ClipboardData(text: objectId),
-                          );
-                          if (!dialogContext.mounted) {
-                            return;
-                          }
-                          ScaffoldMessenger.of(dialogContext).showSnackBar(
-                            const SnackBar(content: Text('Object ID copied.')),
-                          );
-                        },
-                        icon: const Icon(Icons.content_copy, size: 18),
-                        label: const Text('Copy ID'),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: SingleChildScrollView(
-                    child: SelectableText(AcpJsonCodec.prettyPrint(row)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Close'),
-                  ),
-                ),
-              ],
+      ),
+    );
+  }
+}
+
+class _AcpDetailField extends StatelessWidget {
+  const _AcpDetailField({required this.label, required this.value});
+
+  final String label;
+  final Object? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = value is Map || value is List
+        ? AcpJsonCodec.prettyPrint(value)
+        : (value?.toString() ?? '-');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppUiPalette.textSecondary,
+              fontWeight: FontWeight.w700,
             ),
           ),
-        ),
-      );
-    },
-  );
+          const SizedBox(height: 3),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppUiPalette.surfaceMuted,
+              borderRadius: BorderRadius.circular(adminCompactRadius),
+              border: Border.all(color: AppUiPalette.border),
+            ),
+            child: Text(text, maxLines: 8, overflow: TextOverflow.ellipsis),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 Future<void> _handleObjectMutationResult({

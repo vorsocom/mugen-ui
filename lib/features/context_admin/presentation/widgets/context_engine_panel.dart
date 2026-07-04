@@ -10,6 +10,7 @@ class ContextEnginePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return AcpAdminPanel<ContextAdminController>(
       controllerProvider: contextAdminControllerProvider,
+      title: 'Context Engine',
       description:
           'Configure context profiles, policies, contributor/source bindings, and trace capture behavior.',
     );

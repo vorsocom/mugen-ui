@@ -9,7 +9,6 @@ import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_admin_panel.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
-import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 import '../../../test_support/fake_acp_admin_repository.dart';
 
@@ -52,16 +51,11 @@ void main() {
       ],
     );
 
-    final tabTooltip = tester.widget<Tooltip>(
-      find.byKey(const Key('acp-admin-tab-info-short-resource')),
-    );
-    expect(
-      tabTooltip.message,
-      'Short resource rows for compact form layout checks.',
-    );
+    expect(find.text('Short Resource'), findsWidgets);
+    expect(find.text('Hover Resource'), findsOneWidget);
     expect(
       find.text('Short resource rows for compact form layout checks.'),
-      findsNothing,
+      findsOneWidget,
     );
     expect(find.text('Hover-only tab help text.'), findsNothing);
 
@@ -70,15 +64,6 @@ void main() {
     addTearDown(mouse.removePointer);
     await mouse.moveTo(
       tester.getCenter(find.byKey(const Key('acp-admin-tab-hover-resource'))),
-    );
-    await tester.pump(const Duration(seconds: 1));
-
-    expect(find.text('Hover-only tab help text.'), findsNothing);
-
-    await mouse.moveTo(
-      tester.getCenter(
-        find.byKey(const Key('acp-admin-tab-info-hover-resource')),
-      ),
     );
     await tester.pump(const Duration(seconds: 1));
 
@@ -99,7 +84,7 @@ void main() {
     expect(tester.getSize(dialogPanel).height, lessThan(360));
   });
 
-  testWidgets('page-level description renders in a gray notice', (
+  testWidgets('page-level description renders in the page header', (
     WidgetTester tester,
   ) async {
     await _pumpPanel(
@@ -119,22 +104,12 @@ void main() {
       ],
     );
 
-    final noticeFinder = find.byKey(const Key('acp-admin-page-description'));
-    final notice = tester.widget<Container>(noticeFinder);
-    final decoration = notice.decoration! as BoxDecoration;
-
     expect(
       find.text('Screen-level Platform Configuration guidance.'),
       findsOneWidget,
     );
-    expect(decoration.color, AppUiPalette.surfaceMuted);
-    expect((decoration.border! as Border).top.color, AppUiPalette.border);
-
-    final noticeBottom = tester.getBottomLeft(noticeFinder).dy;
-    final controlsTop = tester
-        .getTopLeft(find.byKey(const Key('acp-admin-scope-selector')))
-        .dy;
-    expect(controlsTop - noticeBottom, greaterThanOrEqualTo(16));
+    expect(find.byKey(const Key('acp-admin-page-description')), findsNothing);
+    expect(find.byKey(const Key('acp-admin-scope-selector')), findsOneWidget);
   });
 
   testWidgets(
@@ -533,15 +508,8 @@ void main() {
     await tester.tap(find.byTooltip('View row'));
     await tester.pumpAndSettle();
 
-    final dialogPanel = find.descendant(
-      of: find.byType(Dialog),
-      matching: find.byType(AppFormPanel),
-    );
-    expect(tester.getSize(dialogPanel).height, lessThan(520));
-    expect(
-      find.descendant(of: find.byType(Dialog), matching: find.text('Copy ID')),
-      findsOneWidget,
-    );
+    expect(find.text('Copy Resource'), findsWidgets);
+    expect(find.text('Copy ID'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('acp-row-copy-object-id-button')));
     await tester.pumpAndSettle();

@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   status chips, row actions, grid footer, and contextual empty states.
 - Changed Tenants to use the shared admin header, toolbar, tabs, pagination
   footer, empty states, status chips, and row action sizing.
+- Changed Roles & Permissions to use the shared admin header, toolbar, tabs,
+  data grid, pagination footer, empty states, split permission columns, and
+  clearer lifecycle actions.
 
 ### Deprecated
 

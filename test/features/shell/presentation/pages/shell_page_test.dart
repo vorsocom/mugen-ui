@@ -367,7 +367,7 @@ void main() {
       greaterThan(tester.getTopLeft(aiAssistInDrawer).dy),
     );
     expect(find.text('Platform Configuration'), findsOneWidget);
-    expect(find.text('LocalUsers'), findsOneWidget);
+    expect(find.text('Local Users'), findsOneWidget);
     expect(find.text('Tenants'), findsOneWidget);
     expect(find.text('Roles & Permissions'), findsOneWidget);
     expect(find.text('Audit Events'), findsOneWidget);
@@ -428,7 +428,7 @@ void main() {
 
     expect(find.text('Platform Configuration'), findsOneWidget);
     expect(find.text('Knowledge Packs'), findsOneWidget);
-    expect(find.text('LocalUsers'), findsNothing);
+    expect(find.text('Local Users'), findsNothing);
     expect(find.text('Tenants'), findsNothing);
     expect(find.text('Roles & Permissions'), findsNothing);
     expect(find.text('Audit Events'), findsNothing);
@@ -489,7 +489,7 @@ void main() {
 
     expect(find.text('Human Handoff'), findsOneWidget);
     expect(find.text('Platform Configuration'), findsNothing);
-    expect(find.text('LocalUsers'), findsNothing);
+    expect(find.text('Local Users'), findsNothing);
     expect(find.text('Tenants'), findsNothing);
     expect(find.text('Roles & Permissions'), findsNothing);
     expect(find.text('Audit Events'), findsNothing);
@@ -544,7 +544,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Human Handoff'), findsNothing);
-    expect(find.text('LocalUsers'), findsNothing);
+    expect(find.text('Local Users'), findsNothing);
     expect(find.text('Tenants'), findsNothing);
     expect(find.text('Roles & Permissions'), findsNothing);
     expect(find.text('Audit Events'), findsNothing);
@@ -1079,7 +1079,7 @@ void main() {
         ),
         ShellRouteDefinition(
           id: RouteIds.localUsers,
-          title: 'LocalUsers',
+          title: 'Local Users',
           icon: Icons.groups_outlined,
           section: 'Platform Configuration',
           builder: _buildPlaceholderShellPage,
@@ -1122,7 +1122,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('LocalUsers'));
+    await tester.tap(find.text('Local Users'));
     await tester.pump();
     expect(shellController.lastRoute, RouteIds.localUsers);
 
@@ -1383,7 +1383,7 @@ void main() {
       final initialTitle = tester.widget<Text>(
         find.byKey(const Key('shell-user-bar-title')),
       );
-      expect(initialTitle.data, 'LocalUsers');
+      expect(initialTitle.data, 'Local Users');
 
       authController.setSession(
         const AuthSession(
@@ -1650,7 +1650,7 @@ void main() {
         ),
         ShellRouteDefinition(
           id: RouteIds.localUsers,
-          title: 'LocalUsers',
+          title: 'Local Users',
           icon: Icons.groups_outlined,
           section: 'Platform Configuration',
           builder: _buildPlaceholderShellPage,
@@ -1694,7 +1694,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(Divider), findsWidgets);
-    expect(find.byTooltip('LocalUsers'), findsOneWidget);
+    expect(find.byTooltip('Local Users'), findsOneWidget);
   });
 
   testWidgets(
@@ -1800,7 +1800,7 @@ MugenUiAppDefinition _buildShellTestDefinition({
               ),
               ShellRouteDefinition(
                 id: RouteIds.localUsers,
-                title: 'LocalUsers',
+                title: 'Local Users',
                 icon: Icons.groups_outlined,
                 section: 'Platform Configuration',
                 requiredRoles: <String>[

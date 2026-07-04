@@ -53,33 +53,23 @@ void main() {
       );
       expect(find.byTooltip('Deactivate tenant'), findsOneWidget);
       expect(find.byTooltip('Reactivate tenant'), findsNothing);
-      expect(
-        _tabTooltipMessage(
-          tester,
-          const Key('tenant-management-tab-domains-info'),
-        ),
-        'Verified tenant domains used to identify tenant-owned traffic.',
-      );
-      expect(
-        _tabTooltipMessage(
-          tester,
-          const Key('tenant-management-tab-invitations-info'),
-        ),
-        'Pending invitations for adding users to this tenant.',
-      );
-      expect(
-        _tabTooltipMessage(
-          tester,
-          const Key('tenant-management-tab-memberships-info'),
-        ),
-        'Users assigned to this tenant and their tenant roles.',
-      );
+      expect(find.text('Domains'), findsOneWidget);
+      expect(find.text('Invitations'), findsOneWidget);
+      expect(find.text('Memberships'), findsOneWidget);
 
       await tester.tap(find.byTooltip('Next page'));
       await tester.pumpAndSettle();
       expect(repository.lastTenantQuery?.pageRequest.page, 2);
 
       await tester.tap(find.byTooltip('Previous page'));
+      await tester.pumpAndSettle();
+      expect(repository.lastTenantQuery?.pageRequest.page, 1);
+
+      await tester.tap(find.byTooltip('Last page'));
+      await tester.pumpAndSettle();
+      expect(repository.lastTenantQuery?.pageRequest.page, 3);
+
+      await tester.tap(find.byTooltip('First page'));
       await tester.pumpAndSettle();
       expect(repository.lastTenantQuery?.pageRequest.page, 1);
 
@@ -115,6 +105,12 @@ void main() {
     expect(find.byType(AppErrorAlert), findsOneWidget);
     expect(find.text('tenant list failed'), findsOneWidget);
     expect(find.byTooltip('Copy error details'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'New Tenant').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Create Tenant'), findsWidgets);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('TenantManagementPanel create/edit/lifecycle actions', (
@@ -464,11 +460,6 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
-}
-
-String? _tabTooltipMessage(WidgetTester tester, Key tabKey) {
-  final tooltip = tester.widget<Tooltip>(find.byKey(tabKey));
-  return tooltip.message;
 }
 
 Future<void> _pumpPanel(

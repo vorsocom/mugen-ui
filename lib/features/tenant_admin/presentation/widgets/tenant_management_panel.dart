@@ -16,6 +16,7 @@ import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
+import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
@@ -73,56 +74,64 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
+        AdminPageHeader(
+          title: 'Tenants',
+          subtitle:
+              'Manage tenant records, domains, invitations, and memberships.',
+          primaryAction: FilledButton.icon(
+            key: const Key('tenant-management-new-tenant-button'),
+            onPressed: () => _showTenantDialog(),
+            icon: const Icon(Icons.add),
+            label: const Text('New Tenant'),
+          ),
+        ),
+        AdminToolbar(
           children: [
-            FilledButton.icon(
-              key: const Key('tenant-management-new-tenant-button'),
-              onPressed: () => _showTenantDialog(),
-              icon: const Icon(Icons.add),
-              label: const Text('New Tenant'),
+            SizedBox(
+              width: 320,
+              child: TextFormField(
+                key: const Key('tenant-management-search-field'),
+                initialValue: state.searchTerm,
+                decoration: const InputDecoration(
+                  hintText: 'Search tenants...',
+                  prefixIcon: Icon(Icons.search),
+                ),
+                onChanged: (value) {
+                  _searchDebounce?.cancel();
+                  _searchDebounce = Timer(_searchDebounceDuration, () async {
+                    controller.setSearchTerm(value.trim());
+                    await controller.loadTenants();
+                  });
+                },
+              ),
             ),
-            const SizedBox(width: 8),
             TextButton.icon(
-              onPressed: () => controller.loadTenants(),
+              onPressed: controller.loadTenants,
               icon: const Icon(Icons.refresh),
               label: const Text('Refresh'),
             ),
           ],
         ),
-        const SizedBox(height: 8),
-        TextFormField(
-          key: const Key('tenant-management-search-field'),
-          decoration: appFormInputDecoration(
-            labelText: 'Search tenants',
-            hintText: 'Name or slug',
-            suffixIcon: const Icon(Icons.search),
-          ),
-          onChanged: (value) {
-            _searchDebounce?.cancel();
-            _searchDebounce = Timer(_searchDebounceDuration, () async {
-              controller.setSearchTerm(value.trim());
-              await controller.loadTenants();
-            });
-          },
-        ),
         if (state.isLoadingTenants)
           const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: LinearProgressIndicator(),
+            padding: EdgeInsets.only(bottom: 8),
+            child: LinearProgressIndicator(minHeight: 2),
           ),
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(bottom: 8),
             child: AppErrorAlert(message: state.errorMessage!),
           ),
-        const SizedBox(height: 8),
-        AppFormPanel(
-          margin: EdgeInsets.zero,
+        AdminSurface(
+          padding: const EdgeInsets.all(8),
+          margin: const EdgeInsets.only(bottom: 8),
           child: _TenantSelector(
             tenants: state.tenants,
             selectedTenant: state.selectedTenant,
             selectedTenantId: state.selectedTenantId,
+            hasActiveFilter: state.searchTerm.trim().isNotEmpty,
             onSelected: controller.selectTenant,
+            onCreate: () => _showTenantDialog(),
             onEdit: state.selectedTenant == null
                 ? null
                 : () => _showTenantDialog(existingTenant: state.selectedTenant),
@@ -131,65 +140,85 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                 : () => _runTenantLifecycle(state.selectedTenant!),
           ),
         ),
-        const SizedBox(height: 8),
-        _TenantPaginator(state: state),
+        AdminGridFooter(
+          state: AdminPaginationState(
+            visibleCount: state.tenants.length,
+            totalCount: state.total,
+            page: state.page,
+            pages: state.pages,
+            pageSize: state.pageSize,
+            pageSizes: const <int>[15, 25, 50],
+            onPageSizeChanged: (value) async {
+              controller.setRowsPerPage(value);
+              await controller.loadTenants();
+            },
+            onFirstPage: state.page <= 1
+                ? null
+                : () async {
+                    controller.setPage(1);
+                    await controller.loadTenants();
+                  },
+            onPreviousPage: state.page <= 1
+                ? null
+                : () async {
+                    controller.setPage(state.page - 1);
+                    await controller.loadTenants();
+                  },
+            onNextPage: state.page >= state.pages
+                ? null
+                : () async {
+                    controller.setPage(state.page + 1);
+                    await controller.loadTenants();
+                  },
+            onLastPage: state.page >= state.pages
+                ? null
+                : () async {
+                    controller.setPage(state.pages);
+                    await controller.loadTenants();
+                  },
+          ),
+        ),
         const SizedBox(height: 8),
         Expanded(
-          child: AppFormPanel(
-            margin: EdgeInsets.zero,
+          child: AdminSurface(
             child: state.selectedTenant == null
-                ? const Center(
-                    child: Text(
-                      'Select a tenant to manage domains and access.',
+                ? const AdminEmptyState(
+                    data: AdminEmptyStateData(
+                      title: 'No tenant selected.',
+                      message:
+                          'Select a tenant to manage domains, invitations, and memberships.',
                     ),
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          _TenantTabChip(
-                            chipKey: const Key('tenant-management-tab-domains'),
+                      AdminTabs(
+                        items: [
+                          AdminTabItem(
+                            key: const Key('tenant-management-tab-domains'),
                             label: 'Domains',
-                            tooltip:
-                                'Verified tenant domains used to identify tenant-owned traffic.',
-                            tooltipKey: const Key(
-                              'tenant-management-tab-domains-info',
-                            ),
+                            count: state.domains.length,
                             selected: state.activeTab == TenantAdminTab.domains,
-                            onSelected: (_) =>
+                            onSelected: () =>
                                 controller.setActiveTab(TenantAdminTab.domains),
                           ),
-                          _TenantTabChip(
-                            chipKey: const Key(
-                              'tenant-management-tab-invitations',
-                            ),
+                          AdminTabItem(
+                            key: const Key('tenant-management-tab-invitations'),
                             label: 'Invitations',
-                            tooltip:
-                                'Pending invitations for adding users to this tenant.',
-                            tooltipKey: const Key(
-                              'tenant-management-tab-invitations-info',
-                            ),
+                            count: state.invitations.length,
                             selected:
                                 state.activeTab == TenantAdminTab.invitations,
-                            onSelected: (_) => controller.setActiveTab(
+                            onSelected: () => controller.setActiveTab(
                               TenantAdminTab.invitations,
                             ),
                           ),
-                          _TenantTabChip(
-                            chipKey: const Key(
-                              'tenant-management-tab-memberships',
-                            ),
+                          AdminTabItem(
+                            key: const Key('tenant-management-tab-memberships'),
                             label: 'Memberships',
-                            tooltip:
-                                'Users assigned to this tenant and their tenant roles.',
-                            tooltipKey: const Key(
-                              'tenant-management-tab-memberships-info',
-                            ),
+                            count: state.memberships.length,
                             selected:
                                 state.activeTab == TenantAdminTab.memberships,
-                            onSelected: (_) => controller.setActiveTab(
+                            onSelected: () => controller.setActiveTab(
                               TenantAdminTab.memberships,
                             ),
                           ),
@@ -197,10 +226,9 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                       ),
                       if (state.isLoadingDetails)
                         const Padding(
-                          padding: EdgeInsets.only(top: 8),
+                          padding: EdgeInsets.only(bottom: 8),
                           child: LinearProgressIndicator(),
                         ),
-                      const SizedBox(height: 8),
                       Expanded(
                         child: switch (state.activeTab) {
                           TenantAdminTab.domains => _TenantDomainsTab(
@@ -384,7 +412,9 @@ class _TenantSelector extends StatelessWidget {
     required this.tenants,
     required this.selectedTenant,
     required this.selectedTenantId,
+    required this.hasActiveFilter,
     required this.onSelected,
+    required this.onCreate,
     required this.onEdit,
     required this.onLifecycleAction,
   });
@@ -392,16 +422,29 @@ class _TenantSelector extends StatelessWidget {
   final List<TenantEntity> tenants;
   final TenantEntity? selectedTenant;
   final String? selectedTenantId;
+  final bool hasActiveFilter;
   final Future<void> Function(String tenantId) onSelected;
+  final VoidCallback onCreate;
   final VoidCallback? onEdit;
   final VoidCallback? onLifecycleAction;
 
   @override
   Widget build(BuildContext context) {
     if (tenants.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: Text('No tenants found.'),
+      return AdminEmptyState(
+        data: AdminEmptyStateData(
+          title: hasActiveFilter ? 'No matching tenants.' : 'No tenants yet.',
+          message: hasActiveFilter
+              ? 'Clear the search or adjust filters.'
+              : 'Create a tenant before assigning domains, invitations, or memberships.',
+          primaryAction: hasActiveFilter
+              ? null
+              : FilledButton.icon(
+                  onPressed: onCreate,
+                  icon: const Icon(Icons.add),
+                  label: const Text('New Tenant'),
+                ),
+        ),
       );
     }
 
@@ -435,147 +478,28 @@ class _TenantSelector extends StatelessWidget {
           ),
         ),
         if (selected != null)
-          Container(
+          Row(
             key: const Key('tenant-management-selected-tenant-actions'),
-            decoration: BoxDecoration(
-              color: AppUiPalette.surfaceMuted,
-              border: Border.all(color: AppUiPalette.border),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ActionIcon(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit tenant',
-                  onPressed: onEdit,
-                ),
-                _ActionIcon(
-                  icon: lifecycleIsActive
-                      ? Icons.pause_circle_outline
-                      : Icons.play_circle_outline,
-                  tooltip: lifecycleIsActive
-                      ? 'Deactivate tenant'
-                      : 'Reactivate tenant',
-                  onPressed: onLifecycleAction,
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _TenantTabChip extends StatelessWidget {
-  const _TenantTabChip({
-    required this.chipKey,
-    required this.label,
-    required this.tooltip,
-    required this.tooltipKey,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final Key chipKey;
-  final String label;
-  final String tooltip;
-  final Key tooltipKey;
-  final bool selected;
-  final ValueChanged<bool> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.centerRight,
-      children: [
-        ChoiceChip(
-          key: chipKey,
-          label: Padding(
-            padding: const EdgeInsets.only(right: 24),
-            child: Text(label),
-          ),
-          selected: selected,
-          onSelected: onSelected,
-        ),
-        Positioned(
-          right: 6,
-          top: 0,
-          bottom: 0,
-          child: Center(
-            child: Tooltip(
-              key: tooltipKey,
-              message: tooltip,
-              child: const SizedBox.square(
-                dimension: 18,
-                child: Center(
-                  child: Icon(
-                    Icons.info_outline,
-                    size: 16,
-                    color: AppUiPalette.textSecondary,
-                  ),
-                ),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AdminStatusChip(label: selected.status),
+              const SizedBox(width: 4),
+              _ActionIcon(
+                icon: Icons.edit_outlined,
+                tooltip: 'Edit tenant',
+                onPressed: onEdit,
               ),
-            ),
+              _ActionIcon(
+                icon: lifecycleIsActive
+                    ? Icons.pause_circle_outline
+                    : Icons.play_circle_outline,
+                tooltip: lifecycleIsActive
+                    ? 'Deactivate tenant'
+                    : 'Reactivate tenant',
+                onPressed: onLifecycleAction,
+              ),
+            ],
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TenantPaginator extends ConsumerWidget {
-  const _TenantPaginator({required this.state});
-
-  final TenantAdminState state;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.read(tenantAdminControllerProvider.notifier);
-    final hasPrev = state.page > 1;
-    final hasNext = state.page < state.pages;
-    return Row(
-      children: [
-        const Text('Rows per page'),
-        const SizedBox(width: 8),
-        DropdownButton<int>(
-          value: state.pageSize,
-          onChanged: (value) async {
-            if (value == null) {
-              return;
-            }
-            controller.setRowsPerPage(value);
-            await controller.loadTenants();
-          },
-          items: const [
-            DropdownMenuItem<int>(value: 15, child: Text('15')),
-            DropdownMenuItem<int>(value: 25, child: Text('25')),
-            DropdownMenuItem<int>(value: 50, child: Text('50')),
-          ],
-        ),
-        const Spacer(),
-        Text('Page ${state.page} / ${state.pages}'),
-        IconButton(
-          tooltip: 'Previous page',
-          onPressed: !hasPrev
-              ? null
-              : () async {
-                  controller.setPage(state.page - 1);
-                  await controller.loadTenants();
-                },
-          icon: const Icon(Icons.chevron_left),
-        ),
-        IconButton(
-          tooltip: 'Next page',
-          onPressed: !hasNext
-              ? null
-              : () async {
-                  controller.setPage(state.page + 1);
-                  await controller.loadTenants();
-                },
-          icon: const Icon(Icons.chevron_right),
-        ),
       ],
     );
   }
@@ -903,11 +827,7 @@ class _ActionIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      icon: Icon(icon, size: 20),
-    );
+    return AdminIconButton(icon: icon, tooltip: tooltip, onPressed: onPressed);
   }
 }
 

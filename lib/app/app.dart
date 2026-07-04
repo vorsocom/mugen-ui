@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/app_router.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
+import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 class MugenApp extends ConsumerWidget {
@@ -45,7 +46,7 @@ class MugenApp extends ConsumerWidget {
           color: AppUiPalette.surface,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(adminRadius),
             side: const BorderSide(color: AppUiPalette.border),
           ),
         ),
@@ -62,25 +63,25 @@ class MugenApp extends ConsumerWidget {
             vertical: 12,
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(adminRadius),
             borderSide: const BorderSide(
               color: AppUiPalette.border,
               width: 0.8,
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(adminRadius),
             borderSide: const BorderSide(
               color: AppUiPalette.borderStrong,
               width: 1.0,
             ),
           ),
           errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(adminRadius),
             borderSide: const BorderSide(color: AppUiPalette.danger),
           ),
           focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(adminRadius),
             borderSide: const BorderSide(color: AppUiPalette.danger),
           ),
         ),
@@ -92,6 +93,52 @@ class MugenApp extends ConsumerWidget {
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(0, adminControlHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(adminCompactRadius),
+            ),
+            backgroundColor: AppUiPalette.textPrimary,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: AppUiPalette.surfaceStrong,
+            disabledForegroundColor: AppUiPalette.textDisabled,
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, adminControlHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(adminCompactRadius),
+            ),
+            side: const BorderSide(color: AppUiPalette.border),
+            foregroundColor: AppUiPalette.textPrimary,
+            disabledForegroundColor: AppUiPalette.textDisabled,
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, adminControlHeight),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(adminCompactRadius),
+            ),
+            foregroundColor: AppUiPalette.textPrimary,
+            disabledForegroundColor: AppUiPalette.textDisabled,
+          ),
+        ),
+        iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(
+            minimumSize: const Size(32, 32),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(adminCompactRadius),
+            ),
+            foregroundColor: AppUiPalette.textPrimary,
+            disabledForegroundColor: AppUiPalette.textDisabled,
           ),
         ),
       ),

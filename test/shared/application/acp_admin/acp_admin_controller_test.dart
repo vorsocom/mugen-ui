@@ -58,7 +58,9 @@ void main() {
     await controller.loadInitialData();
 
     expect(repository.fetchTenantsCalls, 0);
-    expect(repository.listCalls.single.entitySet, 'SystemFlags');
+    expect(repository.activeListCalls.single.entitySet, 'SystemFlags');
+    expect(repository.countListCalls.single.entitySet, 'SystemFlags');
+    expect(controller.resourceStateFor('system-flags').tabCount, 40);
     expect(controller.activeDescriptor.entitySet, 'SystemFlags');
     expect(controller.usesTenantScope(controller.activeDescriptor), isFalse);
   });
@@ -81,22 +83,25 @@ void main() {
       expect(controller.state.selectedTenant?.id, 'global-id');
       expect(controller.resourceStateFor('schemas').rows, isNotEmpty);
       expect(controller.descriptorForKey('schemas').entitySet, 'Schemas');
-      expect(repository.listCalls.last.tenantId, isNull);
+      expect(repository.activeListCalls.last.tenantId, isNull);
+      expect(controller.resourceStateFor('schemas').tabCount, 40);
+      expect(controller.resourceStateFor('system-flags').tabCount, 40);
+      expect(controller.resourceStateFor('context-profiles').tabCount, 40);
       expect(controller.usesTenantScope(descriptors.first), isFalse);
 
       await controller.selectTenant('tenant-1');
       expect(controller.state.selectedTenantId, 'tenant-1');
-      expect(repository.listCalls, hasLength(1));
+      expect(repository.activeListCalls, hasLength(1));
 
       await controller.setOptionalScopeSelection(
         AcpOptionalScopeSelection.tenant,
       );
       expect(controller.usesTenantScope(descriptors.first), isTrue);
-      expect(repository.listCalls.last.tenantId, 'tenant-1');
+      expect(repository.activeListCalls.last.tenantId, 'tenant-1');
 
-      final refreshBaseline = repository.listCalls.length;
+      final refreshBaseline = repository.activeListCalls.length;
       await controller.refresh();
-      expect(repository.listCalls.length, refreshBaseline + 1);
+      expect(repository.activeListCalls.length, refreshBaseline + 1);
 
       await controller.loadInitialData();
       expect(controller.state.selectedTenantId, 'tenant-1');
@@ -143,28 +148,28 @@ void main() {
       await controller.loadInitialData();
 
       await controller.selectResource('schemas');
-      expect(repository.listCalls, hasLength(1));
+      expect(repository.activeListCalls, hasLength(1));
 
       await controller.selectResource('system-flags');
-      expect(repository.listCalls.last.entitySet, 'SystemFlags');
+      expect(repository.activeListCalls.last.entitySet, 'SystemFlags');
 
       await controller.selectTenant('tenant-1');
-      expect(repository.listCalls.last.entitySet, 'SystemFlags');
+      expect(repository.activeListCalls.last.entitySet, 'SystemFlags');
 
       await controller.setOptionalScopeSelection(
         AcpOptionalScopeSelection.global,
       );
-      expect(repository.listCalls.last.entitySet, 'SystemFlags');
+      expect(repository.activeListCalls.last.entitySet, 'SystemFlags');
 
       await controller.selectResource('context-profiles');
-      expect(repository.listCalls.last.entitySet, 'ContextProfiles');
-      expect(repository.listCalls.last.tenantId, 'tenant-1');
+      expect(repository.activeListCalls.last.entitySet, 'ContextProfiles');
+      expect(repository.activeListCalls.last.tenantId, 'tenant-1');
       expect(controller.usesTenantScope(descriptors[2]), isTrue);
 
-      final selectTenantReloads = repository.listCalls.length;
+      final selectTenantReloads = repository.activeListCalls.length;
       await controller.selectTenant('global-id');
-      expect(repository.listCalls.length, selectTenantReloads + 1);
-      expect(repository.listCalls.last.tenantId, 'global-id');
+      expect(repository.activeListCalls.length, selectTenantReloads + 1);
+      expect(repository.activeListCalls.last.tenantId, 'global-id');
 
       controller.setSearchTerm('profile');
       expect(controller.state.activeResourceState.searchTerm, 'profile');
@@ -172,7 +177,7 @@ void main() {
 
       await controller.setPage(99);
       expect(controller.state.activeResourceState.page, 3);
-      expect(repository.listCalls.last.searchTerm, 'profile');
+      expect(repository.activeListCalls.last.searchTerm, 'profile');
 
       await controller.setPage(0);
       expect(controller.state.activeResourceState.page, 1);
@@ -197,7 +202,7 @@ void main() {
       await controller.setOptionalScopeSelection(
         AcpOptionalScopeSelection.tenant,
       );
-      final baselineListCalls = repository.listCalls.length;
+      final baselineListCalls = repository.activeListCalls.length;
 
       final createResult = await controller.createRow(const <String, dynamic>{
         'Key': 'schema-a',
@@ -245,7 +250,7 @@ void main() {
       expect(repository.entityActionCalls.single.action.name, 'route');
       expect(repository.entityActionCalls.single.rowVersion, 7);
 
-      expect(repository.listCalls.length, baselineListCalls + 6);
+      expect(repository.activeListCalls.length, baselineListCalls + 6);
       expect(controller.state.isMutating, isFalse);
       expect(controller.state.errorMessage, isNull);
     },
@@ -273,7 +278,7 @@ void main() {
       );
 
       await controller.loadInitialData();
-      final baselineListCalls = repository.listCalls.length;
+      final baselineListCalls = repository.activeListCalls.length;
 
       final updateResult = await controller.updateRow(
         rowId: 'row-1',
@@ -281,7 +286,7 @@ void main() {
         rowVersion: 3,
       );
       expect(updateResult.isFailure, isTrue);
-      expect(repository.listCalls.length, baselineListCalls + 1);
+      expect(repository.activeListCalls.length, baselineListCalls + 1);
       expect(
         controller.state.errorMessage,
         'Schemas changed on the server. Reloading list.',
@@ -496,6 +501,18 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
   final List<_CollectionActionCall> collectionActionCalls =
       <_CollectionActionCall>[];
   final List<_EntityActionCall> entityActionCalls = <_EntityActionCall>[];
+
+  List<_ListCall> get activeListCalls {
+    return listCalls
+        .where((call) => call.pageSize != 1 || call.searchTerm != null)
+        .toList(growable: false);
+  }
+
+  List<_ListCall> get countListCalls {
+    return listCalls
+        .where((call) => call.pageSize == 1 && call.searchTerm == null)
+        .toList(growable: false);
+  }
 
   @override
   Future<Result<List<AcpTenantOption>>> fetchTenants({int top = 200}) async {

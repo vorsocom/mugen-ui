@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 class AppFormPanel extends StatelessWidget {
@@ -23,7 +24,7 @@ class AppFormPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppUiPalette.surface,
         border: Border.all(color: AppUiPalette.border),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(adminRadius),
       ),
       child: child,
     );
@@ -195,7 +196,7 @@ InputDecoration appFormInputDecoration({
   int? errorMaxLines,
 }) {
   final baseBorder = OutlineInputBorder(
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: BorderRadius.circular(adminRadius),
     borderSide: const BorderSide(color: AppUiPalette.border),
   );
 
@@ -211,7 +212,7 @@ InputDecoration appFormInputDecoration({
     errorMaxLines: errorMaxLines,
     filled: true,
     fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
     enabledBorder: baseBorder,
     focusedBorder: baseBorder.copyWith(
       borderSide: const BorderSide(color: AppUiPalette.textMuted),

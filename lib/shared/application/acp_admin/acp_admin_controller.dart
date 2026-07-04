@@ -17,6 +17,7 @@ class AcpResourceState {
     required this.searchTerm,
     required this.isLoading,
     required this.optionalScopeSelection,
+    this.tabCount,
   });
 
   final List<AcpRow> rows;
@@ -26,6 +27,7 @@ class AcpResourceState {
   final String searchTerm;
   final bool isLoading;
   final AcpOptionalScopeSelection optionalScopeSelection;
+  final int? tabCount;
 
   int get pages {
     if (pageSize <= 0) {
@@ -44,6 +46,8 @@ class AcpResourceState {
     String? searchTerm,
     bool? isLoading,
     AcpOptionalScopeSelection? optionalScopeSelection,
+    int? tabCount,
+    bool clearTabCount = false,
   }) {
     return AcpResourceState(
       rows: rows ?? this.rows,
@@ -54,6 +58,7 @@ class AcpResourceState {
       isLoading: isLoading ?? this.isLoading,
       optionalScopeSelection:
           optionalScopeSelection ?? this.optionalScopeSelection,
+      tabCount: clearTabCount ? null : (tabCount ?? this.tabCount),
     );
   }
 }
@@ -145,6 +150,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
                  searchTerm: '',
                  isLoading: false,
                  optionalScopeSelection: AcpOptionalScopeSelection.global,
+                 tabCount: null,
                ),
            },
            isLoadingTenants: false,
@@ -186,6 +192,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
   Future<void> loadInitialData() async {
     if (!hasTenantScopedResources) {
       await loadActiveResource();
+      await refreshResourceCounts();
       return;
     }
 
@@ -213,6 +220,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     );
 
     await loadActiveResource();
+    await refreshResourceCounts();
   }
 
   Future<void> refresh() async {
@@ -222,6 +230,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     }
 
     await loadActiveResource();
+    await refreshResourceCounts();
   }
 
   Future<void> loadActiveResource() async {
@@ -244,15 +253,18 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
 
     state = state.copyWith(selectedTenantId: tenantId, clearError: true);
     if (activeDescriptor.scopeMode == AcpScopeMode.none) {
+      await refreshResourceCounts();
       return;
     }
     if (activeDescriptor.scopeMode == AcpScopeMode.optional &&
         resourceStateFor(activeDescriptor.key).optionalScopeSelection ==
             AcpOptionalScopeSelection.global) {
+      await refreshResourceCounts();
       return;
     }
 
     await loadActiveResource();
+    await refreshResourceCounts();
   }
 
   Future<void> setOptionalScopeSelection(
@@ -273,6 +285,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       resourceState.copyWith(optionalScopeSelection: selection, page: 1),
     );
     await loadActiveResource();
+    await refreshResourceCounts();
   }
 
   void setSearchTerm(String value) {
@@ -302,6 +315,37 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       resourceState.copyWith(page: safePage),
     );
     await loadActiveResource();
+  }
+
+  Future<void> refreshResourceCounts() async {
+    for (final descriptor in descriptors) {
+      final resourceState = resourceStateFor(descriptor.key);
+      final tenantId = _tenantIdFor(descriptor);
+      if (descriptor.scopeMode == AcpScopeMode.required &&
+          (tenantId == null || tenantId.isEmpty)) {
+        _replaceResourceState(
+          descriptor.key,
+          resourceState.copyWith(tabCount: 0),
+        );
+        continue;
+      }
+
+      final result = await repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 1),
+        tenantId: tenantId,
+      );
+      if (result.isFailure) {
+        continue;
+      }
+
+      _replaceResourceState(
+        descriptor.key,
+        resourceStateFor(
+          descriptor.key,
+        ).copyWith(tabCount: result.data?.total ?? 0),
+      );
+    }
   }
 
   Future<void> setRowsPerPage(int rowsPerPage) async {
@@ -550,6 +594,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     state = state.copyWith(isMutating: false);
     if (result.isSuccess) {
       await loadActiveResource();
+      await refreshResourceCounts();
       return result;
     }
 
@@ -571,6 +616,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     state = state.copyWith(isMutating: false);
     if (result.isSuccess) {
       await loadActiveResource();
+      await refreshResourceCounts();
       return result;
     }
 

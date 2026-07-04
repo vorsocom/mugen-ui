@@ -10,6 +10,7 @@ class AcpConsolePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return AcpAdminPanel<AcpConsoleController>(
       controllerProvider: acpConsoleControllerProvider,
+      title: 'ACP Console',
       description:
           'Advanced descriptor-driven ACP console for long-tail resources that do not yet have dedicated forms.',
     );

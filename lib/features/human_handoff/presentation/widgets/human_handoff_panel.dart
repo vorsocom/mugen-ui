@@ -700,17 +700,26 @@ class _LiveStatusLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final error = state.liveErrorMessage?.trim();
-    final color = error != null && error.isNotEmpty
-        ? AppUiPalette.warning
-        : state.isLiveListening
-        ? AppUiPalette.success
-        : AppUiPalette.textMuted;
-    final label = error != null && error.isNotEmpty
-        ? 'Live updates paused'
-        : state.isLiveListening
-        ? 'Live updates on'
-        : 'Live updates off';
-    return Row(
+    final (color, label) = switch (state.liveStatus) {
+      HumanHandoffLiveStatus.offline => (
+        AppUiPalette.textMuted,
+        'Live updates off',
+      ),
+      HumanHandoffLiveStatus.connecting => (
+        AppUiPalette.textMuted,
+        'Live updates connecting',
+      ),
+      HumanHandoffLiveStatus.live => (AppUiPalette.success, 'Live updates on'),
+      HumanHandoffLiveStatus.reconnecting => (
+        AppUiPalette.warning,
+        'Live updates reconnecting',
+      ),
+      HumanHandoffLiveStatus.unavailable => (
+        AppUiPalette.warning,
+        'Live updates unavailable',
+      ),
+    };
+    final statusLine = Row(
       children: [
         Icon(Icons.circle, size: 9, color: color),
         const SizedBox(width: 6),
@@ -726,6 +735,9 @@ class _LiveStatusLine extends StatelessWidget {
         ),
       ],
     );
+    return error == null || error.isEmpty
+        ? statusLine
+        : Tooltip(message: error, child: statusLine);
   }
 }
 

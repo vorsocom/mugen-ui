@@ -1010,14 +1010,24 @@ Widget _buildDrawerNavItem({
             if (!isCollapsed) ...[
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  item.title,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: isSelected
-                        ? AppUiPalette.drawerText
-                        : AppUiPalette.drawerTextMuted,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      item.title,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: isSelected
+                            ? AppUiPalette.drawerText
+                            : AppUiPalette.drawerTextMuted,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -1061,24 +1071,18 @@ class _HumanHandoffDrawerStatusChipsState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(humanHandoffControllerProvider);
-    final chips = _buildHumanHandoffDrawerChips(state);
-    if (chips.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final chip = _buildHumanHandoffDrawerChip(state);
 
     return Tooltip(
       message: _buildHumanHandoffDrawerTooltip(state),
       child: ConstrainedBox(
         key: _humanHandoffDrawerStatusKey,
-        constraints: const BoxConstraints(maxWidth: 116),
-        child: Wrap(
-          alignment: WrapAlignment.end,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 4,
-          runSpacing: 4,
-          children: chips
-              .map((chip) => _DrawerStatusChip(data: chip))
-              .toList(growable: false),
+        constraints: const BoxConstraints(maxWidth: 40),
+        child: Align(
+          alignment: Alignment.centerRight,
+          widthFactor: 1,
+          heightFactor: 1,
+          child: _DrawerStatusChip(data: chip),
         ),
       ),
     );
@@ -1098,30 +1102,28 @@ class _HumanHandoffDrawerStatusChipsState
   }
 }
 
-List<_DrawerStatusChipData> _buildHumanHandoffDrawerChips(
-  HumanHandoffState state,
-) {
+_DrawerStatusChipData _buildHumanHandoffDrawerChip(HumanHandoffState state) {
   if (state.isLoadingTenants || state.isLoadingSessions) {
-    return const <_DrawerStatusChipData>[
-      _DrawerStatusChipData(label: 'Syncing', style: _DrawerStatusStyle.info),
-    ];
+    return const _DrawerStatusChipData(
+      label: 'Sync',
+      style: _DrawerStatusStyle.info,
+    );
   }
 
   final errorMessage = state.errorMessage?.trim();
   if (errorMessage != null && errorMessage.isNotEmpty) {
-    return const <_DrawerStatusChipData>[
-      _DrawerStatusChipData(label: 'Issue', style: _DrawerStatusStyle.danger),
-    ];
+    return const _DrawerStatusChipData(
+      label: 'Issue',
+      style: _DrawerStatusStyle.danger,
+    );
   }
 
   final selectedTenantId = state.selectedTenantId?.trim();
   if (selectedTenantId == null || selectedTenantId.isEmpty) {
-    return const <_DrawerStatusChipData>[
-      _DrawerStatusChipData(
-        label: 'No tenant',
-        style: _DrawerStatusStyle.neutral,
-      ),
-    ];
+    return const _DrawerStatusChipData(
+      label: 'None',
+      style: _DrawerStatusStyle.neutral,
+    );
   }
 
   final newCount = state.sessions
@@ -1130,57 +1132,37 @@ List<_DrawerStatusChipData> _buildHumanHandoffDrawerChips(
   final failedCount = state.sessions
       .where((session) => session.hasDeliveryFailure)
       .length;
+  if (failedCount > 0) {
+    return _DrawerStatusChipData(
+      label: 'Fail $failedCount',
+      style: _DrawerStatusStyle.danger,
+    );
+  }
+
+  if (newCount > 0) {
+    return _DrawerStatusChipData(
+      label: 'New $newCount',
+      style: _DrawerStatusStyle.warning,
+    );
+  }
+
+  if (state.liveStatus == HumanHandoffLiveStatus.unavailable) {
+    return const _DrawerStatusChipData(
+      label: 'Issue',
+      style: _DrawerStatusStyle.warning,
+    );
+  }
+
   final activeCountLabel = state.total > 99 ? '99+' : '${state.total}';
-  final activeChip = state.total > 0
+  return state.total > 0
       ? _DrawerStatusChipData(
-          label: 'Active $activeCountLabel',
+          label: 'Open $activeCountLabel',
           style: _DrawerStatusStyle.success,
         )
       : const _DrawerStatusChipData(
           label: 'Clear',
           style: _DrawerStatusStyle.neutral,
         );
-
-  final liveErrorMessage = state.liveErrorMessage?.trim();
-  if (liveErrorMessage != null && liveErrorMessage.isNotEmpty) {
-    return <_DrawerStatusChipData>[
-      const _DrawerStatusChipData(
-        label: 'Live issue',
-        style: _DrawerStatusStyle.warning,
-      ),
-      activeChip,
-    ];
-  }
-
-  if (failedCount > 0) {
-    return <_DrawerStatusChipData>[
-      _DrawerStatusChipData(
-        label: 'Failed $failedCount',
-        style: _DrawerStatusStyle.danger,
-      ),
-      activeChip,
-    ];
-  }
-
-  if (newCount > 0) {
-    return <_DrawerStatusChipData>[
-      _DrawerStatusChipData(
-        label: 'New $newCount',
-        style: _DrawerStatusStyle.warning,
-      ),
-      activeChip,
-    ];
-  }
-
-  return <_DrawerStatusChipData>[
-    activeChip,
-    _DrawerStatusChipData(
-      label: state.isLiveListening ? 'Live' : 'Offline',
-      style: state.isLiveListening
-          ? _DrawerStatusStyle.success
-          : _DrawerStatusStyle.neutral,
-    ),
-  ];
 }
 
 String _buildHumanHandoffDrawerTooltip(HumanHandoffState state) {
@@ -1190,9 +1172,24 @@ String _buildHumanHandoffDrawerTooltip(HumanHandoffState state) {
   final failedCount = state.sessions
       .where((session) => session.hasDeliveryFailure)
       .length;
-  final liveStatus = state.isLiveListening ? 'live' : 'offline';
-  return 'Human Handoff: ${state.total} active, $newCount new, '
-      '$failedCount failed, $liveStatus.';
+  final liveStatus = switch (state.liveStatus) {
+    HumanHandoffLiveStatus.offline => 'offline',
+    HumanHandoffLiveStatus.connecting => 'connecting',
+    HumanHandoffLiveStatus.live => 'live',
+    HumanHandoffLiveStatus.reconnecting => 'reconnecting',
+    HumanHandoffLiveStatus.unavailable => 'unavailable',
+  };
+  final summary =
+      'Human Handoff: ${state.total} active, $newCount new, '
+      '$failedCount failed, live updates $liveStatus.';
+  final liveError = state.liveErrorMessage?.trim();
+  if (liveError == null || liveError.isEmpty) {
+    return summary;
+  }
+  final boundedError = liveError.length > 160
+      ? '${liveError.substring(0, 159).trimRight()}…'
+      : liveError;
+  return '$summary Last error: $boundedError';
 }
 
 enum _DrawerStatusStyle { success, warning, danger, neutral, info }
@@ -1219,12 +1216,16 @@ class _DrawerStatusChip extends StatelessWidget {
         border: Border.all(color: colors.border),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(
-        data.label,
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colors.foreground,
-          fontWeight: FontWeight.w700,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          data.label,
+          maxLines: 1,
+          softWrap: false,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: colors.foreground,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
     );

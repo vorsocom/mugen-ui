@@ -21,8 +21,9 @@ abstract class HumanHandoffRepository {
   );
 
   Stream<Result<HumanHandoffEventEntity>> streamEvents(
-    HumanHandoffEventStreamQuery query,
-  );
+    HumanHandoffEventStreamQuery query, {
+    void Function()? onConnected,
+  });
 
   Future<Result<HumanHandoffDeliveryResultEntity>> sendReply(
     HumanHandoffReplyInput input,

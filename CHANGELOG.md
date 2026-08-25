@@ -53,6 +53,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed transient Human Handoff stream reconnects being reported as live
+  incidents, and consolidated the drawer status into one compact badge so the
+  navigation label remains stable.
 - Fixed rounded table surfaces so header backgrounds remain clipped inside
   their borders.
 - Fixed administrative page headers so subtitle copy uses the available width

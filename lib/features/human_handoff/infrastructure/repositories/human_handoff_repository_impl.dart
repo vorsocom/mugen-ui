@@ -181,8 +181,9 @@ class HumanHandoffRepositoryImpl implements HumanHandoffRepository {
 
   @override
   Stream<Result<HumanHandoffEventEntity>> streamEvents(
-    HumanHandoffEventStreamQuery query,
-  ) async* {
+    HumanHandoffEventStreamQuery query, {
+    void Function()? onConnected,
+  }) async* {
     final tenantId = query.tenantId.trim();
     if (tenantId.isEmpty) {
       yield const Result<HumanHandoffEventEntity>.failure(
@@ -198,6 +199,7 @@ class HumanHandoffRepositoryImpl implements HumanHandoffRepository {
     }
 
     final response = streamOpenResult.data!;
+    onConnected?.call();
     try {
       await for (final event in _parseSseEvents(response.stream)) {
         yield Result<HumanHandoffEventEntity>.success(event);

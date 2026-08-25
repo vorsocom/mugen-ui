@@ -226,8 +226,10 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
 
   @override
   Stream<Result<HumanHandoffEventEntity>> streamEvents(
-    HumanHandoffEventStreamQuery query,
-  ) {
+    HumanHandoffEventStreamQuery query, {
+    void Function()? onConnected,
+  }) {
+    onConnected?.call();
     return eventController.stream;
   }
 

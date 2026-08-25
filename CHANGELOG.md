@@ -46,6 +46,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed administrative page headers so subtitle copy uses the available width
+  beside primary actions instead of wrapping within an arbitrary fixed cap.
+
 ### Security
 
 ## [0.11.1] - 2026-06-21

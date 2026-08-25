@@ -2,11 +2,12 @@ import { EditorView, basicSetup } from 'codemirror';
 import { undo, redo } from '@codemirror/commands';
 import { json } from '@codemirror/lang-json';
 import { placeholder } from '@codemirror/view';
+import { containEditorWheel } from './acp_json_editor_scroll.mjs';
 
 const acpJsonEditorTheme = EditorView.theme({
   '&': {
     backgroundColor: '#ffffff',
-    color: '#111827',
+    color: '#252427',
     fontSize: '13px',
     height: '100%',
   },
@@ -18,6 +19,7 @@ const acpJsonEditorTheme = EditorView.theme({
       'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
     lineHeight: '1.5',
     overflow: 'auto',
+    overscrollBehavior: 'contain',
   },
   '.cm-content': {
     minHeight: '100%',
@@ -27,19 +29,25 @@ const acpJsonEditorTheme = EditorView.theme({
     padding: '0 10px',
   },
   '.cm-gutters': {
-    backgroundColor: '#f8fafc',
-    borderRight: '1px solid #e2e8f0',
-    color: '#64748b',
+    backgroundColor: '#f0ece5',
+    borderRight: '1px solid #d8d1c7',
+    color: '#706b68',
   },
   '.cm-activeLine': {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#f0ece5',
   },
   '.cm-activeLineGutter': {
-    backgroundColor: '#eef2ff',
-    color: '#1f2937',
+    backgroundColor: '#e8edf2',
+    color: '#40546a',
   },
   '.cm-placeholder': {
-    color: '#94a3b8',
+    color: '#918b85',
+  },
+  '.cm-cursor, .cm-dropCursor': {
+    borderLeftColor: '#40546a',
+  },
+  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground': {
+    backgroundColor: '#cfd8e1',
   },
 });
 
@@ -65,9 +73,13 @@ function create(parent, options = {}) {
       }),
     ],
   });
+  const scroller = view.scrollDOM;
+  const handleWheel = (event) => containEditorWheel(event, scroller);
+  scroller.addEventListener('wheel', handleWheel, { passive: true });
 
   return {
     destroy() {
+      scroller.removeEventListener('wheel', handleWheel);
       view.destroy();
     },
     focus() {

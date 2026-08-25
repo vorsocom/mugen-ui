@@ -225,6 +225,21 @@ changing behavior:
 3. ACP payload/field casing expected by backend endpoints
 4. auth refresh/logout behavior tied to the configured endpoint paths
 
+## Shared Presentation Contracts
+
+Downstream modules should use the host presentation primitives so overlays and
+request failures remain consistent with built-in features:
+
+- Use `AppFormDialog` for dialog-hosted forms. Use `AppResponsiveDialog` only
+  for non-form overlays that need the same responsive viewport constraints.
+- Use `AppErrorAlert` for page-, form-, and dialog-level failures. It converts
+  untrusted JSON, HTML, or plain API error text into safe selectable plain text.
+- Use `normalizeApiErrorMessage` before storing an API response body in a
+  `Failure` or showing it in a non-alert surface. Never render a raw response
+  body or HTML directly.
+- Keep field validation inline and reserve snackbars for brief operation
+  confirmations rather than persistent request failures.
+
 ## ACP Console Note
 
 `ACP Console` remains a static descriptor-driven surface. Extend it by changing

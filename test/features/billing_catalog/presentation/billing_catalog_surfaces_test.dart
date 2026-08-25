@@ -17,6 +17,7 @@ import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
+import 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_field.dart';
 
 void main() {
   test('repository provider builds the production implementation', () {
@@ -273,6 +274,16 @@ void main() {
 
     await tester.tap(find.byKey(const Key('billing-catalog-create-button')));
     await tester.pumpAndSettle();
+    expect(find.byType(AcpJsonEditorField), findsOneWidget);
+    for (final key in const <String>[
+      'billing-product-code-help',
+      'billing-product-name-help',
+      'billing-product-description-help',
+      'billing-product-attributes-help',
+    ]) {
+      expect(find.byKey(Key(key)), findsOneWidget);
+    }
+    expect(find.byTooltip('Format JSON'), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('billing-product-code-field')),
       ' starter ',
@@ -281,6 +292,15 @@ void main() {
       find.byKey(const Key('billing-product-name-field')),
       'Starter',
     );
+    await tester.enterText(
+      find.byKey(const Key('billing-product-attributes-field')),
+      '{invalid',
+    );
+    await tester.tap(find.byKey(const Key('billing-catalog-form-submit')));
+    await tester.pump();
+    expect(find.text('Enter valid JSON.'), findsOneWidget);
+    expect(repository.createdProduct, isNull);
+
     await tester.enterText(
       find.byKey(const Key('billing-product-attributes-field')),
       '{"tier":1}',
@@ -327,6 +347,23 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('billing-catalog-create-button')));
       await tester.pumpAndSettle();
+
+      expect(find.byType(AcpJsonEditorField), findsOneWidget);
+      for (final key in const <String>[
+        'billing-price-product-help',
+        'billing-price-code-help',
+        'billing-price-type-help',
+        'billing-price-currency-help',
+        'billing-price-unit-amount-help',
+        'billing-price-interval-unit-help',
+        'billing-price-interval-count-help',
+        'billing-price-trial-days-help',
+        'billing-price-usage-unit-help',
+        'billing-price-meter-code-help',
+        'billing-price-attributes-help',
+      ]) {
+        expect(find.byKey(Key(key)), findsOneWidget);
+      }
 
       await tester.tap(find.byKey(const Key('billing-catalog-form-submit')));
       await tester.pump();

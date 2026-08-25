@@ -34,11 +34,15 @@ void main() {
     final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(app.title, 'Redcell Wargaming Console');
     final theme = app.theme!;
+    expect(theme.textTheme.bodyMedium?.fontFamily, 'Inter');
+    expect(theme.textTheme.labelLarge?.fontFamily, 'Inter');
     expect(AppUiPalette.background, Colors.white);
     expect(AppUiPalette.userBar, Colors.white);
     expect(AppUiPalette.surface, Colors.white);
     expect(theme.scaffoldBackgroundColor, AppUiPalette.background);
     expect(theme.colorScheme.primary, AppUiPalette.accent);
+    expect(AppUiPalette.accent, AppUiPalette.buttonPrimary);
+    expect(AppUiPalette.accent, const Color(0xFF40546A));
     expect(theme.drawerTheme.backgroundColor, AppUiPalette.drawer);
     expect(theme.dialogTheme.backgroundColor, AppUiPalette.surface);
     expect(
@@ -121,7 +125,7 @@ void main() {
     expect(find.text('Log in'), findsOneWidget);
   });
 
-  testWidgets('screen tabs use an indigo underline and neutral count badges', (
+  testWidgets('screen tabs use a graphite underline and neutral count badges', (
     WidgetTester tester,
   ) async {
     var selectedPrices = false;
@@ -177,6 +181,35 @@ void main() {
 
     await tester.tap(find.byKey(const Key('prices-tab')));
     expect(selectedPrices, isTrue);
+  });
+
+  testWidgets('admin surfaces clip children and keep their border above them', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AdminSurface(
+            padding: EdgeInsets.zero,
+            child: ColoredBox(
+              color: AppUiPalette.surfaceMuted,
+              child: SizedBox(width: 240, height: 80),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final surface = tester.widget<Container>(
+      find.descendant(
+        of: find.byType(AdminSurface),
+        matching: find.byType(Container),
+      ),
+    );
+    expect(surface.clipBehavior, Clip.antiAlias);
+    final foreground = surface.foregroundDecoration! as BoxDecoration;
+    expect(foreground.borderRadius, BorderRadius.circular(adminRadius));
+    expect((foreground.border! as Border).top.color, AppUiPalette.border);
   });
 }
 

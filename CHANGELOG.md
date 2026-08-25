@@ -16,12 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Unified the admin interaction palette around graphite blue, bundled explicit
+  Inter font weights for crisp navigation and action labels, and added shared
+  safe plain-text normalization for JSON, HTML, and plain API errors.
+- Updated Billing Product and Price forms with contextual field help and the
+  shared JSON editor, including independently contained editor scrolling.
 - Consolidated dialog-hosted forms on a responsive shared base with a uniform
   closeable header, section dividers, pinned action footer, and a body that
   shrink-wraps short content or scrolls within the available viewport.
 - Redesigned the web admin console with a graphite navigation drawer, warm
-  neutral borders around clean white workspace and dialog surfaces, restrained
-  indigo interaction states, graphite-blue primary actions, refined typography,
+  neutral borders around clean white workspace and dialog surfaces,
+  graphite-blue interaction states and primary actions, refined typography,
   underlined count-bearing screen tabs, and denser enterprise controls and
   tables.
 - Changed descriptor-driven admin consoles to use shared operational headers,
@@ -46,6 +51,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed rounded table surfaces so header backgrounds remain clipped inside
+  their borders.
 - Fixed administrative page headers so subtitle copy uses the available width
   beside primary actions instead of wrapping within an arbitrary fixed cap.
 - Fixed searchable Tenant and Product selectors so their scrollable option

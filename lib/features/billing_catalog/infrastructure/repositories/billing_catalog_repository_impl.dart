@@ -4,6 +4,7 @@ import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/features/billing_catalog/application/dto/billing_catalog_inputs.dart';
 import 'package:mugen_ui/features/billing_catalog/domain/entities/billing_catalog_entities.dart';
 import 'package:mugen_ui/features/billing_catalog/domain/repositories/billing_catalog_repository.dart';
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -317,7 +318,7 @@ class BillingCatalogRepositoryImpl implements BillingCatalogRepository {
         return Result<AuthenticatedResponse>.failure(
           ApiFailure(
             response.response.statusCode,
-            _errorMessageFor(response.response.body),
+            normalizeApiErrorMessage(response.response.body),
           ),
         );
       }
@@ -412,30 +413,6 @@ class BillingCatalogRepositoryImpl implements BillingCatalogRepository {
     } catch (_) {
       return trimmed;
     }
-  }
-
-  String _errorMessageFor(String raw) {
-    final decoded = _decodeJson(raw);
-    if (decoded is Map) {
-      for (final key in const <String>['message', 'error', 'detail']) {
-        final value = _asNullableString(decoded[key]);
-        if (value != null) {
-          return value;
-        }
-      }
-    }
-    final paragraph = RegExp(
-      r'<p>(.*?)</p>',
-      caseSensitive: false,
-      dotAll: true,
-    ).firstMatch(raw)?.group(1);
-    final normalizedParagraph = _asNullableString(
-      paragraph?.replaceAll(RegExp(r'<[^>]+>'), ''),
-    );
-    if (normalizedParagraph != null) {
-      return normalizedParagraph;
-    }
-    return _asNullableString(raw) ?? 'API request failed.';
   }
 
   String _asString(Object? value) => value?.toString().trim() ?? '';

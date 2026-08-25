@@ -46,6 +46,36 @@ String _contextKey(String? owner, String? actionName, String fieldKey) {
 }
 
 const Map<String, String> _fieldHelpByContext = <String, String>{
+  'billingproducts::code':
+      'Stable global Product code used by the Billing API and downstream integrations. The backend normalizes it and rejects duplicates, so choose a durable catalog identifier.',
+  'billingproducts::name':
+      'Operator-facing Product name shown in the global catalog and tenant subscription selectors.',
+  'billingproducts::description':
+      'Optional commercial description that explains what the Product offers. It is global and never changes with the selected tenant.',
+  'billingproducts::attributes':
+      'Optional JSON object for non-secret Product metadata supported by the backend. This metadata belongs to the global catalog.',
+  'billingprices::productid':
+      'Global Product that owns this Price. The selector never follows tenant scope. Referenced Prices may require creating a replacement instead of changing this field.',
+  'billingprices::code':
+      'Stable global Price code used by subscriptions and integrations. The backend normalizes it and reports conflicts when the code already exists.',
+  'billingprices::pricetype':
+      'Commercial charging model for the Price: one-time, recurring, or metered. Referenced Prices may make this field immutable.',
+  'billingprices::currency':
+      'Three-letter ISO currency code, such as USD or GYD. The amount is stored in that currency’s minor units.',
+  'billingprices::unitamount':
+      'Charge amount in minor currency units, for example 15000 for USD 150.00. Leave blank only when the backend permits custom pricing.',
+  'billingprices::intervalunit':
+      'Recurring billing period: day, week, month, or year. Use it together with Interval Count.',
+  'billingprices::intervalcount':
+      'Number of billing intervals between charges. For example, 3 with Month bills every three months.',
+  'billingprices::trialperioddays':
+      'Optional number of trial days offered before billing starts. Enter zero or leave blank when no trial applies.',
+  'billingprices::usageunit':
+      'Unit used to measure consumption for a metered Price. It must be supplied together with Meter Code.',
+  'billingprices::metercode':
+      'Global meter identifier required by a metered Price. Subscribing tenants must provide a matching tenant Meter Definition.',
+  'billingprices::attributes':
+      'Optional JSON object for non-secret Price metadata supported by the backend. Commercial changes to referenced Prices may require a new Price.',
   'messagingclientprofiles::provider':
       'Messaging platform provider discriminator for this client profile. This is transport-specific metadata used by adapters such as WeChat; it is not the same as a KeyRef provider. Leave it blank unless the selected platform requires a provider value.',
   'messaging-client-profiles::provider':

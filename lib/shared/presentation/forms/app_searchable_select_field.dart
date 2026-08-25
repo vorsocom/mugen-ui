@@ -16,6 +16,7 @@ class AppSearchableSelectField<T> extends StatefulWidget {
     required this.optionSearchText,
     required this.onSelected,
     this.hintText,
+    this.helpKey,
     this.helpText,
     this.suffixIcon = Icons.manage_search_outlined,
     this.emptyMessage = 'No matching options found.',
@@ -27,6 +28,7 @@ class AppSearchableSelectField<T> extends StatefulWidget {
   final String optionKeyPrefix;
   final String labelText;
   final String? hintText;
+  final Key? helpKey;
   final String? helpText;
   final IconData suffixIcon;
   final List<T> options;
@@ -108,6 +110,7 @@ class _AppSearchableSelectFieldState<T>
               decoration: appFormInputDecoration(
                 labelText: widget.labelText,
                 hintText: widget.hintText,
+                helpKey: widget.helpKey,
                 helpText: widget.helpText,
                 suffixIcon: IconButton(
                   tooltip: 'Show ${widget.labelText} options',

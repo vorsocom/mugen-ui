@@ -1,5 +1,6 @@
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/features/tenant_invite/domain/repositories/tenant_invitation_redeem_repository.dart';
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/auth/cookie_store.dart';
@@ -84,7 +85,10 @@ class TenantInvitationRedeemRepositoryImpl
           );
         default:
           return Result<InviteRedeemResult>.failure(
-            ApiFailure(statusCode, 'API error.'),
+            ApiFailure(
+              statusCode,
+              normalizeApiErrorMessage(response.response.body),
+            ),
           );
       }
     } catch (_) {

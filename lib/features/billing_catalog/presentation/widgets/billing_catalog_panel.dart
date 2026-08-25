@@ -14,8 +14,11 @@ import 'package:mugen_ui/features/billing_catalog/application/billing_catalog_co
 import 'package:mugen_ui/features/billing_catalog/application/dto/billing_catalog_inputs.dart';
 import 'package:mugen_ui/features/billing_catalog/domain/entities/billing_catalog_entities.dart';
 import 'package:mugen_ui/features/billing_catalog/presentation/providers/billing_catalog_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
+import 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_field.dart';
 import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
@@ -906,14 +909,30 @@ class _ProductFormDialogState extends ConsumerState<_ProductFormDialog> {
             TextFormField(
               key: const Key('billing-product-code-field'),
               controller: _codeController,
-              decoration: appFormInputDecoration(labelText: 'Code'),
+              decoration: appFormInputDecoration(
+                labelText: 'Code',
+                helpKey: const Key('billing-product-code-help'),
+                helpText: _catalogFieldHelp(
+                  resource: 'BillingProducts',
+                  key: 'Code',
+                  label: 'Code',
+                ),
+              ),
               validator: _requiredText,
             ),
             const SizedBox(height: 12),
             TextFormField(
               key: const Key('billing-product-name-field'),
               controller: _nameController,
-              decoration: appFormInputDecoration(labelText: 'Name'),
+              decoration: appFormInputDecoration(
+                labelText: 'Name',
+                helpKey: const Key('billing-product-name-help'),
+                helpText: _catalogFieldHelp(
+                  resource: 'BillingProducts',
+                  key: 'Name',
+                  label: 'Name',
+                ),
+              ),
               validator: _requiredText,
             ),
             const SizedBox(height: 12),
@@ -922,17 +941,30 @@ class _ProductFormDialogState extends ConsumerState<_ProductFormDialog> {
               controller: _descriptionController,
               minLines: 2,
               maxLines: 4,
-              decoration: appFormInputDecoration(labelText: 'Description'),
+              decoration: appFormInputDecoration(
+                labelText: 'Description',
+                helpKey: const Key('billing-product-description-help'),
+                helpText: _catalogFieldHelp(
+                  resource: 'BillingProducts',
+                  key: 'Description',
+                  label: 'Description',
+                ),
+              ),
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              key: const Key('billing-product-attributes-field'),
+            AcpJsonEditorField(
+              editorKey: const Key('billing-product-attributes-field'),
               controller: _attributesController,
+              labelText: 'Attributes (JSON object)',
+              helpKey: const Key('billing-product-attributes-help'),
+              helpText: _catalogFieldHelp(
+                resource: 'BillingProducts',
+                key: 'Attributes',
+                label: 'Attributes',
+                kind: AcpFieldKind.json,
+              ),
               minLines: 4,
               maxLines: 8,
-              decoration: appFormInputDecoration(
-                labelText: 'Attributes (JSON object)',
-              ),
               validator: _validateJsonObject,
             ),
           ],
@@ -1100,6 +1132,12 @@ class _PriceFormDialogState extends ConsumerState<_PriceFormDialog> {
               optionKeyPrefix: 'billing-price-product-option',
               labelText: 'Product',
               hintText: 'Search the global Product catalog',
+              helpKey: const Key('billing-price-product-help'),
+              helpText: _catalogFieldHelp(
+                resource: 'BillingPrices',
+                key: 'ProductId',
+                label: 'Product',
+              ),
               options: options,
               selectedOptionKey: _productId,
               optionKey: (item) => item.id,
@@ -1114,14 +1152,30 @@ class _PriceFormDialogState extends ConsumerState<_PriceFormDialog> {
             TextFormField(
               key: const Key('billing-price-code-field'),
               controller: _codeController,
-              decoration: appFormInputDecoration(labelText: 'Code'),
+              decoration: appFormInputDecoration(
+                labelText: 'Code',
+                helpKey: const Key('billing-price-code-help'),
+                helpText: _catalogFieldHelp(
+                  resource: 'BillingPrices',
+                  key: 'Code',
+                  label: 'Code',
+                ),
+              ),
               validator: _requiredText,
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               key: const Key('billing-price-type-field'),
               initialValue: _priceType,
-              decoration: appFormInputDecoration(labelText: 'Price Type'),
+              decoration: appFormInputDecoration(
+                labelText: 'Price Type',
+                helpKey: const Key('billing-price-type-help'),
+                helpText: _catalogFieldHelp(
+                  resource: 'BillingPrices',
+                  key: 'PriceType',
+                  label: 'Price Type',
+                ),
+              ),
               items: const [
                 DropdownMenuItem(value: 'one_time', child: Text('One-time')),
                 DropdownMenuItem(value: 'recurring', child: Text('Recurring')),
@@ -1139,7 +1193,15 @@ class _PriceFormDialogState extends ConsumerState<_PriceFormDialog> {
                     key: const Key('billing-price-currency-field'),
                     controller: _currencyController,
                     enabled: !_commercialLocked,
-                    decoration: appFormInputDecoration(labelText: 'Currency'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Currency',
+                      helpKey: const Key('billing-price-currency-help'),
+                      helpText: _catalogFieldHelp(
+                        resource: 'BillingPrices',
+                        key: 'Currency',
+                        label: 'Currency',
+                      ),
+                    ),
                     validator: (value) {
                       final required = _requiredText(value);
                       if (required != null) {
@@ -1160,6 +1222,12 @@ class _PriceFormDialogState extends ConsumerState<_PriceFormDialog> {
                     keyboardType: TextInputType.number,
                     decoration: appFormInputDecoration(
                       labelText: 'Unit Amount (minor units)',
+                      helpKey: const Key('billing-price-unit-amount-help'),
+                      helpText: _catalogFieldHelp(
+                        resource: 'BillingPrices',
+                        key: 'UnitAmount',
+                        label: 'Unit Amount',
+                      ),
                     ),
                     validator: (value) => _optionalInteger(
                       value,
@@ -1179,6 +1247,12 @@ class _PriceFormDialogState extends ConsumerState<_PriceFormDialog> {
                     initialValue: _intervalUnit,
                     decoration: appFormInputDecoration(
                       labelText: 'Billing Interval',
+                      helpKey: const Key('billing-price-interval-unit-help'),
+                      helpText: _catalogFieldHelp(
+                        resource: 'BillingPrices',
+                        key: 'IntervalUnit',
+                        label: 'Billing Interval',
+                      ),
                     ),
                     items: const [
                       DropdownMenuItem(value: 'day', child: Text('Day')),
@@ -1200,6 +1274,12 @@ class _PriceFormDialogState extends ConsumerState<_PriceFormDialog> {
                     keyboardType: TextInputType.number,
                     decoration: appFormInputDecoration(
                       labelText: 'Interval Count',
+                      helpKey: const Key('billing-price-interval-count-help'),
+                      helpText: _catalogFieldHelp(
+                        resource: 'BillingPrices',
+                        key: 'IntervalCount',
+                        label: 'Interval Count',
+                      ),
                     ),
                     validator: (value) => _optionalInteger(
                       value,
@@ -1218,6 +1298,12 @@ class _PriceFormDialogState extends ConsumerState<_PriceFormDialog> {
               keyboardType: TextInputType.number,
               decoration: appFormInputDecoration(
                 labelText: 'Trial Period Days',
+                helpKey: const Key('billing-price-trial-days-help'),
+                helpText: _catalogFieldHelp(
+                  resource: 'BillingPrices',
+                  key: 'TrialPeriodDays',
+                  label: 'Trial Period Days',
+                ),
               ),
               validator: (value) => _optionalInteger(
                 value,
@@ -1233,7 +1319,15 @@ class _PriceFormDialogState extends ConsumerState<_PriceFormDialog> {
                     key: const Key('billing-price-usage-unit-field'),
                     controller: _usageUnitController,
                     enabled: !_commercialLocked,
-                    decoration: appFormInputDecoration(labelText: 'Usage Unit'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Usage Unit',
+                      helpKey: const Key('billing-price-usage-unit-help'),
+                      helpText: _catalogFieldHelp(
+                        resource: 'BillingPrices',
+                        key: 'UsageUnit',
+                        label: 'Usage Unit',
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1242,20 +1336,33 @@ class _PriceFormDialogState extends ConsumerState<_PriceFormDialog> {
                     key: const Key('billing-price-meter-code-field'),
                     controller: _meterCodeController,
                     enabled: !_commercialLocked,
-                    decoration: appFormInputDecoration(labelText: 'Meter Code'),
+                    decoration: appFormInputDecoration(
+                      labelText: 'Meter Code',
+                      helpKey: const Key('billing-price-meter-code-help'),
+                      helpText: _catalogFieldHelp(
+                        resource: 'BillingPrices',
+                        key: 'MeterCode',
+                        label: 'Meter Code',
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              key: const Key('billing-price-attributes-field'),
+            AcpJsonEditorField(
+              editorKey: const Key('billing-price-attributes-field'),
               controller: _attributesController,
+              labelText: 'Attributes (JSON object)',
+              helpKey: const Key('billing-price-attributes-help'),
+              helpText: _catalogFieldHelp(
+                resource: 'BillingPrices',
+                key: 'Attributes',
+                label: 'Attributes',
+                kind: AcpFieldKind.json,
+              ),
               minLines: 4,
               maxLines: 8,
-              decoration: appFormInputDecoration(
-                labelText: 'Attributes (JSON object)',
-              ),
               validator: _validateJsonObject,
             ),
           ],
@@ -1478,6 +1585,20 @@ Widget _lifecycleChip(bool archived) {
   return AdminStatusChip(
     label: archived ? 'Archived' : 'Active',
     kind: archived ? AdminStatusKind.warning : AdminStatusKind.success,
+  );
+}
+
+String _catalogFieldHelp({
+  required String resource,
+  required String key,
+  required String label,
+  AcpFieldKind kind = AcpFieldKind.text,
+}) {
+  return acpFieldHelpText(
+    key: key,
+    label: label,
+    kind: kind,
+    resourceKey: resource,
   );
 }
 

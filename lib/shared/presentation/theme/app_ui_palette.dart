@@ -15,10 +15,10 @@ abstract class AppUiPalette {
   static const Color textMuted = Color(0xFF706B68);
   static const Color textDisabled = Color(0xFF918B85);
 
-  static const Color accent = Color(0xFF5148CF);
-  static const Color accentSoft = Color(0xFFECEAFB);
-  static const Color focusRing = Color(0x335148CF);
-  static const Color buttonPrimary = Color(0xFF40546A);
+  static const Color accent = Color(0xFF40546A);
+  static const Color accentSoft = Color(0xFFE8EDF2);
+  static const Color focusRing = Color(0x3340546A);
+  static const Color buttonPrimary = accent;
 
   static const Color drawer = Color(0xFF2D2F33);
   static const Color drawerRaised = Color(0xFF36383D);

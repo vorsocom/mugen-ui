@@ -105,8 +105,12 @@ class AdminSurface extends StatelessWidget {
     return Container(
       margin: margin,
       padding: padding,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppUiPalette.surface,
+        borderRadius: BorderRadius.circular(adminRadius),
+      ),
+      foregroundDecoration: BoxDecoration(
         borderRadius: BorderRadius.circular(adminRadius),
         border: Border.all(color: AppUiPalette.border),
       ),

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -207,7 +208,7 @@ class AppErrorAlert extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedMessage = message.trim();
+    final resolvedMessage = normalizeApiErrorMessage(message);
     final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
       color: AppUiPalette.textPrimary,
       height: 1.3,

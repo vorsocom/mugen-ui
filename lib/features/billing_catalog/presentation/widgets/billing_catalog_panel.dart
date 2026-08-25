@@ -531,40 +531,44 @@ class _BillingCatalogPanelState extends ConsumerState<BillingCatalogPanel> {
   }) {
     showDialog<void>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 620),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final field in fields)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          field.$1,
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: AppUiPalette.textSecondary),
-                        ),
-                        const SizedBox(height: 2),
-                        SelectableText(field.$2.isEmpty ? '—' : field.$2),
-                      ],
-                    ),
+      builder: (_) => AppResponsiveDialog(
+        maxWidth: 720,
+        maxHeight: 620,
+        scrollable: true,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              for (final field in fields)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        field.$1,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: AppUiPalette.textSecondary),
+                      ),
+                      const SizedBox(height: 2),
+                      SelectableText(field.$2.isEmpty ? '—' : field.$2),
+                    ],
                   ),
-              ],
-            ),
+                ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
@@ -1376,79 +1380,39 @@ class _CatalogFormDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 760, maxHeight: 820),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Close',
-                    onPressed: submitting
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (errorMessage != null && errorMessage!.isNotEmpty) ...[
-                      AppErrorAlert(message: errorMessage!),
-                      const SizedBox(height: 12),
-                    ],
-                    child,
-                  ],
-                ),
-              ),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: submitting
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    key: const Key('billing-catalog-form-submit'),
-                    onPressed: submitting ? null : onSubmit,
-                    child: submitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(submitLabel),
-                  ),
-                ],
-              ),
-            ),
+    return AppFormDialog(
+      title: title,
+      maxWidth: 760,
+      maxHeight: 820,
+      closeEnabled: !submitting,
+      onClose: () => Navigator.of(context).pop(false),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (errorMessage != null && errorMessage!.isNotEmpty) ...[
+            AppErrorAlert(message: errorMessage!),
+            const SizedBox(height: 12),
           ],
-        ),
+          child,
+        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: submitting ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          key: const Key('billing-catalog-form-submit'),
+          onPressed: submitting ? null : onSubmit,
+          child: submitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(submitLabel),
+        ),
+      ],
     );
   }
 }

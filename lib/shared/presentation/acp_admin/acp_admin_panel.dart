@@ -1288,32 +1288,18 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
 }) {
   return showDialog<Map<String, dynamic>>(
     context: context,
-    builder: (dialogContext) {
-      return Dialog(
-        insetPadding: const EdgeInsets.all(24),
-        backgroundColor: AppUiPalette.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppUiPalette.border),
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 760),
-          child: _AcpDynamicFormDialog(
-            title: title,
-            contextLabel: contextLabel,
-            referenceSearch: referenceSearch,
-            referenceLookup: referenceLookup,
-            submitLabel: submitLabel,
-            fields: fields,
-            resourceKey: resourceKey,
-            entitySet: entitySet,
-            actionName: actionName,
-            initialValues: initialValues,
-          ),
-        ),
-      );
-    },
+    builder: (_) => _AcpDynamicFormDialog(
+      title: title,
+      contextLabel: contextLabel,
+      referenceSearch: referenceSearch,
+      referenceLookup: referenceLookup,
+      submitLabel: submitLabel,
+      fields: fields,
+      resourceKey: resourceKey,
+      entitySet: entitySet,
+      actionName: actionName,
+      initialValues: initialValues,
+    ),
   );
 }
 
@@ -1592,45 +1578,17 @@ Future<void> _handleObjectMutationResult({
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return Dialog(
-          insetPadding: const EdgeInsets.all(24),
-          backgroundColor: AppUiPalette.surface,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: AppUiPalette.border),
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760, maxHeight: 760),
-            child: AppFormPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Action Result',
-                    style: Theme.of(dialogContext).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        AcpJsonCodec.prettyPrint(result.data),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: const Text('Close'),
-                    ),
-                  ),
-                ],
-              ),
+        return AppFormDialog(
+          title: 'Action Result',
+          maxWidth: 760,
+          maxHeight: 760,
+          body: SelectableText(AcpJsonCodec.prettyPrint(result.data)),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Close'),
             ),
-          ),
+          ],
         );
       },
     );
@@ -2058,10 +2016,7 @@ class _AcpDynamicFormDialog extends StatefulWidget {
 }
 
 class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
-  static const double _dialogScrollGutterWidth = 18;
-
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final ScrollController _formScrollController = ScrollController();
   late final Map<String, TextEditingController> _textControllers;
   late final Map<String, bool> _boolValues;
   String? _formErrorText;
@@ -2097,25 +2052,20 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     for (final controller in _textControllers.values) {
       controller.dispose();
     }
-    _formScrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AppFormPanel(
-      child: Column(
+    return AppFormDialog(
+      title: widget.title,
+      maxWidth: 720,
+      maxHeight: 760,
+      body: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            widget.title,
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
           if (widget.contextLabel != null) ...[
-            const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(
                 color: AppUiPalette.success.withValues(alpha: 0.08),
@@ -2146,64 +2096,35 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
                 ],
               ),
             ),
+            const SizedBox(height: 12),
           ],
           if (_formErrorText != null && _formErrorText!.isNotEmpty) ...[
-            const SizedBox(height: 12),
             AppErrorAlert(
               key: const Key('acp-dynamic-form-error-alert'),
               copyButtonKey: const Key('acp-dynamic-form-error-copy-button'),
               message: _formErrorText!,
             ),
+            const SizedBox(height: 12),
           ],
-          const SizedBox(height: 12),
-          Flexible(
-            fit: FlexFit.loose,
-            child: Form(
-              key: _formKey,
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(
-                  context,
-                ).copyWith(scrollbars: false),
-                child: Scrollbar(
-                  controller: _formScrollController,
-                  thumbVisibility: true,
-                  trackVisibility: true,
-                  thickness: 8,
-                  radius: const Radius.circular(999),
-                  child: SingleChildScrollView(
-                    controller: _formScrollController,
-                    padding: const EdgeInsets.only(
-                      top: 8,
-                      right: _dialogScrollGutterWidth,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: widget.fields
-                          .map((field) => _buildField(context, field))
-                          .expand(
-                            (widget) => [widget, const SizedBox(height: 10)],
-                          )
-                          .toList(growable: false),
-                    ),
-                  ),
-                ),
-              ),
+          Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: widget.fields
+                  .map((field) => _buildField(context, field))
+                  .expand((widget) => [widget, const SizedBox(height: 10)])
+                  .toList(growable: false),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(onPressed: _submit, child: Text(widget.submitLabel)),
-            ],
           ),
         ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: Text(widget.submitLabel)),
+      ],
     );
   }
 

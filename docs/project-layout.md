@@ -86,6 +86,29 @@ Infrastructure maps these modes to the web plugin structured multipart contract 
 3. Supply a typed builder and any required dialog sizing/header options.
 4. Ensure role gating and rendering behavior are covered by widget tests.
 
+### Add a Form or Dialog
+
+Form surfaces and overlays use the shared primitives in
+`lib/shared/presentation/theme/app_form_style.dart`:
+
+1. Use `AppFormPanel` for inline forms rendered within a page.
+2. Use `AppFormDialog` for every dialog-hosted form. Supply its `title`, `body`,
+   and ordered `actions`; the base owns the closeable header, header and footer
+   dividers, responsive scrolling body, and right-aligned action footer.
+3. Use `AppResponsiveDialog` only for non-form overlays that need the same
+   responsive viewport constraints.
+4. Do not compose a form from a raw `Dialog`, a fixed-height `SizedBox`, or an
+   `Expanded` body. Those patterns either overflow short viewports or force
+   short forms to occupy their maximum height.
+5. Do not rebuild the title, close control, dividers, or footer inside the form
+   body. Keep stateful submit and cancel buttons in `actions`; they remain
+   visible while a long body scrolls.
+6. Add widget coverage for both a standard viewport and a constrained-height
+   viewport. Only set `scrollable: false` when the body supplies its own bounded
+   scrolling implementation.
+7. The architecture check rejects raw `Dialog`, `AlertDialog`, and
+   `SimpleDialog` construction outside the shared dialog primitives.
+
 ### Replace a Built-In Feature Downstream
 
 1. Build a different `modules` list in `lib/extension/app_definition.dart`.

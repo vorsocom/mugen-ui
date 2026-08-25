@@ -85,10 +85,10 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
 
         return Dialog(
           insetPadding: const EdgeInsets.all(_userSessionsDialogInset),
-          backgroundColor: AppUiPalette.surfaceMuted,
+          backgroundColor: AppUiPalette.surface,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             side: const BorderSide(color: AppUiPalette.border),
           ),
           child: ConstrainedBox(
@@ -697,11 +697,24 @@ class _RegisterUserFormState extends ConsumerState<_RegisterUserForm> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Add New User',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Add New User',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Close dialog',
+                    onPressed: _saving
+                        ? null
+                        : () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               TextFormField(

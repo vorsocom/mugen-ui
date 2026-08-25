@@ -1300,7 +1300,7 @@ class _TenantMembershipDialogState
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppUiPalette.surface,
           border: Border.all(color: AppUiPalette.border),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -1312,7 +1312,7 @@ class _TenantMembershipDialogState
       constraints: const BoxConstraints(maxHeight: 220),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppUiPalette.surface,
           border: Border.all(color: AppUiPalette.border),
           borderRadius: BorderRadius.circular(8),
         ),

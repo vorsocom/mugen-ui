@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Redesigned the web admin console with a graphite navigation drawer, warm
+  neutral borders around clean white workspace and dialog surfaces, restrained
+  indigo interaction states, graphite-blue primary actions, refined typography,
+  underlined count-bearing screen tabs, and denser enterprise controls and
+  tables.
 - Changed descriptor-driven admin consoles to use shared operational headers,
   resource tabs with counts, grid footers, contextual empty states, and row
   detail drawers.

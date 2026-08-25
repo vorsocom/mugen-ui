@@ -42,6 +42,7 @@ import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const String _reportsRoute = 'reports';
 const Key _shellNoAccessibleRoutesKey = Key('shell-no-access-routes');
@@ -116,6 +117,17 @@ void main() {
 
       expect(find.text('Redcell'), findsOneWidget);
       expect(find.text('Redcell Wargaming Console'), findsNothing);
+      final drawer = tester.widget<Drawer>(find.byType(Drawer));
+      expect(drawer.backgroundColor, AppUiPalette.drawer);
+      final activeItem = tester.widget<AnimatedContainer>(
+        find.byKey(const Key('shell-drawer-item-reports')),
+      );
+      final activeDecoration = activeItem.decoration! as BoxDecoration;
+      expect(activeDecoration.color, AppUiPalette.drawerSelected);
+      expect(
+        (activeDecoration.border! as Border).left.color,
+        AppUiPalette.accent,
+      );
     },
   );
 

@@ -1,25 +1,35 @@
 import 'package:flutter/material.dart';
 
 abstract class AppUiPalette {
-  static const Color background = Color(0xFFFDFDFE);
+  static const Color background = Color(0xFFFFFFFF);
+  static const Color userBar = Color(0xFFFFFFFF);
   static const Color surface = Color(0xFFFFFFFF);
-  static const Color surfaceMuted = Color(0xFFF3F4F6);
-  static const Color surfaceStrong = Color(0xFFE5E7EB);
+  static const Color surfaceMuted = Color(0xFFF0ECE5);
+  static const Color surfaceStrong = Color(0xFFE6E0D7);
 
-  static const Color border = Color(0xFFD9DEE5);
-  static const Color borderStrong = Color(0xFFC3CBD6);
+  static const Color border = Color(0xFFD8D1C7);
+  static const Color borderStrong = Color(0xFFC5BDB2);
 
-  static const Color textPrimary = Color(0xFF111827);
-  static const Color textSecondary = Color(0xFF374151);
-  static const Color textMuted = Color(0xFF4B5563);
-  static const Color textDisabled = Color(0xFF6B7280);
+  static const Color textPrimary = Color(0xFF252427);
+  static const Color textSecondary = Color(0xFF555158);
+  static const Color textMuted = Color(0xFF706B68);
+  static const Color textDisabled = Color(0xFF918B85);
 
-  static const Color accent = Color(0xFF4B5563);
-  static const Color accentSoft = Color(0xFFECEFF3);
+  static const Color accent = Color(0xFF5148CF);
+  static const Color accentSoft = Color(0xFFECEAFB);
+  static const Color focusRing = Color(0x335148CF);
+  static const Color buttonPrimary = Color(0xFF40546A);
 
-  static const Color success = Color(0xFF0F8A45);
-  static const Color warning = Color(0xFFB45309);
-  static const Color warningSoft = Color(0xFFFFF0DB);
-  static const Color danger = Color(0xFFB42318);
-  static const Color dangerSoft = Color(0xFFFEE4E2);
+  static const Color drawer = Color(0xFF2D2F33);
+  static const Color drawerRaised = Color(0xFF36383D);
+  static const Color drawerSelected = Color(0xFF3C3D48);
+  static const Color drawerBorder = Color(0xFF484A4F);
+  static const Color drawerText = Color(0xFFE7E1D8);
+  static const Color drawerTextMuted = Color(0xFFB7B1A9);
+
+  static const Color success = Color(0xFF28724E);
+  static const Color warning = Color(0xFF9B5D18);
+  static const Color warningSoft = Color(0xFFF9EBD7);
+  static const Color danger = Color(0xFFA54842);
+  static const Color dangerSoft = Color(0xFFF8E4E1);
 }

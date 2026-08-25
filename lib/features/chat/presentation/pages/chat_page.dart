@@ -328,9 +328,14 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: Material(
-                                  color: Colors.white,
-                                  elevation: 2,
-                                  borderRadius: BorderRadius.circular(20),
+                                  color: AppUiPalette.surface,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                    side: const BorderSide(
+                                      color: AppUiPalette.border,
+                                    ),
+                                  ),
                                   child: InkWell(
                                     key: _scrollToBottomButtonKey,
                                     borderRadius: BorderRadius.circular(20),
@@ -357,7 +362,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                       14,
                       14 + _composerBottomReserveSpace,
                     ),
-                    decoration: BoxDecoration(color: Colors.white),
+                    decoration: const BoxDecoration(
+                      color: AppUiPalette.surface,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -368,7 +375,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         Container(
                           padding: const EdgeInsets.fromLTRB(12, 14, 12, 10),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppUiPalette.surface,
                             borderRadius: BorderRadius.circular(24),
                             border: Border.all(color: AppUiPalette.border),
                           ),
@@ -480,8 +487,9 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                         ? () => _submitComposer(controller)
                                         : null,
                                     style: IconButton.styleFrom(
-                                      backgroundColor: Colors.black,
-                                      foregroundColor: Colors.white,
+                                      backgroundColor:
+                                          AppUiPalette.buttonPrimary,
+                                      foregroundColor: AppUiPalette.surface,
                                       disabledBackgroundColor:
                                           AppUiPalette.border,
                                       disabledForegroundColor:
@@ -493,7 +501,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                             height: 16,
                                             child: CircularProgressIndicator(
                                               strokeWidth: 2,
-                                              color: Colors.white,
+                                              color: AppUiPalette.surface,
                                             ),
                                           )
                                         : const Icon(
@@ -1050,7 +1058,7 @@ class _ComposerAttachmentTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppUiPalette.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppUiPalette.border),
       ),
@@ -1097,16 +1105,8 @@ class _ComposerDivider extends StatelessWidget {
       child: SizedBox(
         width: 180,
         height: 1,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: <Color>[
-                Colors.transparent,
-                AppUiPalette.borderStrong,
-                Colors.transparent,
-              ],
-            ),
-          ),
+        child: const DecoratedBox(
+          decoration: BoxDecoration(color: AppUiPalette.borderStrong),
         ),
       ),
     );
@@ -2038,7 +2038,7 @@ class _TextFilePreview extends StatelessWidget {
     return Container(
       width: previewWidth,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppUiPalette.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppUiPalette.border),
       ),
@@ -2133,7 +2133,7 @@ class _SpreadsheetFilePreview extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: rowIndex == 0
                           ? AppUiPalette.surfaceMuted
-                          : Colors.white,
+                          : AppUiPalette.surface,
                     ),
                     children: [
                       for (final cellValue in rows[rowIndex])
@@ -2176,7 +2176,7 @@ class _SpreadsheetFilePreview extends StatelessWidget {
     return Container(
       width: _previewWidth,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppUiPalette.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppUiPalette.border),
       ),
@@ -2290,7 +2290,7 @@ class _PdfPreviewCard extends StatelessWidget {
     return Container(
       width: _previewWidth,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppUiPalette.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppUiPalette.border),
       ),

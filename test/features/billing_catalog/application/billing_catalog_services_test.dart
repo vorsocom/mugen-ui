@@ -309,13 +309,13 @@ void main() {
         priceType: 'recurring',
         currency: 'USD',
       );
-      const priceUpdate = BillingPriceUpdateInput(
-        id: 'price-1',
-        rowVersion: 4,
-        productId: 'product-1',
-        code: 'monthly',
-        priceType: 'recurring',
-        currency: 'USD',
+      final priceUpdate = BillingPriceUpdateInput(
+        id: _price.id,
+        rowVersion: _price.rowVersion,
+        productId: _price.productId,
+        code: _price.code,
+        priceType: _price.priceType,
+        currency: _price.currency,
       );
 
       expect((await controller.createProduct(productCreate)).isSuccess, isTrue);

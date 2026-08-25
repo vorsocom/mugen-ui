@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed administrative page headers so subtitle copy uses the available width
   beside primary actions instead of wrapping within an arbitrary fixed cap.
+- Fixed searchable Tenant and Product selectors so their scrollable option
+  menus open in anchored overlays without expanding the surrounding layout.
 
 ### Security
 

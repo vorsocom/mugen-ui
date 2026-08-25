@@ -232,6 +232,11 @@ request failures remain consistent with built-in features:
 
 - Use `AppFormDialog` for dialog-hosted forms. Use `AppResponsiveDialog` only
   for non-form overlays that need the same responsive viewport constraints.
+- Use `appFormInputDecoration`, `AppSearchableSelectField`, and
+  `AcpJsonEditorField` for form controls, and provide nonblank field guidance
+  that explains purpose, format, scope, and consequential behavior. For
+  descriptor-driven forms, call `acpFieldHelpText` with resource/entity/action
+  context so repeated field names retain their backend-specific meaning.
 - Use `AppErrorAlert` for page-, form-, and dialog-level failures. It converts
   untrusted JSON, HTML, or plain API error text into safe selectable plain text.
 - Use `normalizeApiErrorMessage` before storing an API response body in a

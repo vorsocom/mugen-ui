@@ -12,6 +12,7 @@ import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
   testWidgets('EditProfilePanel loads and updates profile form', (
@@ -31,6 +32,13 @@ void main() {
     final lastNameField = tester.widget<TextFormField>(fields.at(1));
     expect(firstNameField.controller?.text, 'Alice');
     expect(lastNameField.controller?.text, 'Example');
+    final guidance = tester
+        .widgetList<AppFieldHelpIcon>(find.byType(AppFieldHelpIcon))
+        .map((icon) => icon.message)
+        .toList(growable: false);
+    expect(guidance, hasLength(2));
+    expect(guidance, anyElement(contains('given name')));
+    expect(guidance, anyElement(contains('family name')));
 
     await tester.enterText(fields.at(0), 'Alice Updated');
     await tester.enterText(fields.at(1), 'Example Updated');

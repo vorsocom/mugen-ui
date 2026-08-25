@@ -18,6 +18,7 @@ import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
   testWidgets('AuditManagementPanel renders table and detail state', (
@@ -42,6 +43,9 @@ void main() {
     expect(find.text('Users/User'), findsWidgets);
     expect(find.text('success'), findsWidgets);
     expect(find.textContaining('Event global-1'), findsOneWidget);
+    var guidance = _fieldGuidance(tester);
+    expect(guidance, anyElement(contains('platform-global events')));
+    expect(guidance, anyElement(contains('entity, operation, action')));
 
     await tester.tap(find.byTooltip('Next page'));
     await tester.pumpAndSettle();
@@ -54,6 +58,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pumpAndSettle();
     expect(repository.lastQuery?.searchTerm, 'users');
+
+    await tester.tap(find.text('Global'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tenant').last);
+    await tester.pumpAndSettle();
+    guidance = _fieldGuidance(tester);
+    expect(guidance, anyElement(contains('Tenant whose audit events')));
   });
 
   testWidgets('run lifecycle requires explicit guardrail confirmations', (
@@ -72,6 +83,11 @@ void main() {
       const Key('audit-run-lifecycle-dry-run-switch'),
     );
     expect(dryRunFinder, findsOneWidget);
+    final guidance = _fieldGuidance(tester);
+    expect(guidance, anyElement(contains('without mutating records')));
+    expect(guidance, anyElement(contains('keep maintenance work bounded')));
+    expect(guidance, anyElement(contains('default lifecycle sequence')));
+    expect(guidance, anyElement(contains('server clock')));
     await tester.tap(
       find.byKey(const Key('audit-run-lifecycle-phase-seal_backlog')),
     );
@@ -120,6 +136,9 @@ void main() {
       of: find.byType(Dialog).last,
       matching: find.byType(TextFormField),
     );
+    final guidance = _fieldGuidance(tester);
+    expect(guidance, anyElement(contains('audit review')));
+    expect(guidance, anyElement(contains('legal hold remains active')));
     await tester.enterText(formFields.at(0), 'incident review');
     await tester.tap(find.widgetWithText(FilledButton, 'Place Hold'));
     await tester.pumpAndSettle();
@@ -132,6 +151,13 @@ void main() {
     expect(repository.placeHoldInputs.single.reason, 'incident review');
     expect(repository.placeHoldInputs.single.rowVersion, 1);
   });
+}
+
+List<String> _fieldGuidance(WidgetTester tester) {
+  return tester
+      .widgetList<AppFieldHelpIcon>(find.byType(AppFieldHelpIcon))
+      .map((icon) => icon.message)
+      .toList(growable: false);
 }
 
 Future<void> _pumpPanel(

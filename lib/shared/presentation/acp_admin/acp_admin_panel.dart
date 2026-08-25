@@ -315,7 +315,14 @@ class _ToolbarRowState<T extends AcpAdminController>
               key: const Key('acp-admin-scope-selector'),
               initialValue: resourceState.optionalScopeSelection,
               isExpanded: true,
-              decoration: appFormInputDecoration(labelText: 'Scope'),
+              decoration: appFormInputDecoration(
+                labelText: 'Scope',
+                helpText: acpFieldHelpText(
+                  key: 'Scope',
+                  label: 'Scope',
+                  resourceKey: 'AcpAdmin',
+                ),
+              ),
               items: const [
                 DropdownMenuItem(
                   value: AcpOptionalScopeSelection.global,
@@ -342,6 +349,11 @@ class _ToolbarRowState<T extends AcpAdminController>
               optionKeyPrefix: 'acp-admin-tenant-option',
               labelText: 'Tenant',
               hintText: 'Search tenants',
+              helpText: acpFieldHelpText(
+                key: 'Tenant',
+                label: 'Tenant',
+                resourceKey: 'AcpAdmin',
+              ),
               options: state.tenants,
               selectedOptionKey: state.selectedTenantId,
               optionKey: (tenant) => tenant.id,
@@ -365,6 +377,11 @@ class _ToolbarRowState<T extends AcpAdminController>
               decoration: appFormInputDecoration(
                 labelText: 'Search',
                 hintText: 'Filter by key fields',
+                helpText: acpFieldHelpText(
+                  key: 'Search',
+                  label: 'Search',
+                  resourceKey: 'AcpAdmin',
+                ),
                 suffixIcon: const Icon(Icons.search),
               ),
               onChanged: (value) {

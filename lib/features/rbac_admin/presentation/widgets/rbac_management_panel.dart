@@ -65,6 +65,11 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                 optionKeyPrefix: 'rbac-management-tenant-option',
                 labelText: 'Tenant',
                 hintText: 'Search tenants',
+                helpText: acpFieldHelpText(
+                  key: 'Tenant',
+                  label: 'Tenant',
+                  resourceKey: 'RbacAdmin',
+                ),
                 options: state.tenants,
                 selectedOptionKey: state.selectedTenantId,
                 optionKey: (tenant) => tenant.id,
@@ -2248,7 +2253,7 @@ class _RbacEntitySearchField<T> extends StatefulWidget {
   final String optionKeyPrefix;
   final String labelText;
   final String hintText;
-  final String? helpText;
+  final String helpText;
   final IconData suffixIcon;
   final List<T> options;
   final String Function(T option) optionKey;

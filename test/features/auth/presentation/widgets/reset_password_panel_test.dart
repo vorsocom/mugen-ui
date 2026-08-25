@@ -15,6 +15,7 @@ import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
   testWidgets(
@@ -34,6 +35,14 @@ void main() {
       );
 
       expect(find.byIcon(Icons.visibility_outlined), findsNWidgets(3));
+      final guidance = tester
+          .widgetList<AppFieldHelpIcon>(find.byType(AppFieldHelpIcon))
+          .map((icon) => icon.message)
+          .toList(growable: false);
+      expect(guidance, hasLength(3));
+      expect(guidance, anyElement(contains('confirms your identity')));
+      expect(guidance, anyElement(contains('backend password policy')));
+      expect(guidance, anyElement(contains('typing error')));
 
       await tester.tap(find.byTooltip('Close'));
       await tester.pump();

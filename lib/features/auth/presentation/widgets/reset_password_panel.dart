@@ -5,6 +5,7 @@ import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/application/dto/reset_password_input.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -142,6 +143,11 @@ class _ResetPasswordPanelState extends ConsumerState<ResetPasswordPanel> {
               obscureText: _obscureCurrentPassword,
               decoration: appFormInputDecoration(
                 labelText: 'Current password',
+                helpText: acpFieldHelpText(
+                  key: 'CurrentPassword',
+                  label: 'Current Password',
+                  resourceKey: 'ResetPassword',
+                ),
                 suffixIcon: IconButton(
                   splashRadius: 1,
                   onPressed: () {
@@ -170,6 +176,11 @@ class _ResetPasswordPanelState extends ConsumerState<ResetPasswordPanel> {
               obscureText: _obscureNewPassword,
               decoration: appFormInputDecoration(
                 labelText: 'New password',
+                helpText: acpFieldHelpText(
+                  key: 'NewPassword',
+                  label: 'New Password',
+                  resourceKey: 'ResetPassword',
+                ),
                 suffixIcon: IconButton(
                   splashRadius: 1,
                   onPressed: () {
@@ -198,6 +209,11 @@ class _ResetPasswordPanelState extends ConsumerState<ResetPasswordPanel> {
               obscureText: _obscureConfirmPassword,
               decoration: appFormInputDecoration(
                 labelText: 'Confirm new password',
+                helpText: acpFieldHelpText(
+                  key: 'ConfirmNewPassword',
+                  label: 'Confirm New Password',
+                  resourceKey: 'ResetPassword',
+                ),
                 suffixIcon: IconButton(
                   splashRadius: 1,
                   onPressed: () {

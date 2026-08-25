@@ -3,6 +3,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 
 void main() {
+  test('AppSearchableSelectField rejects blank field guidance', () {
+    expect(
+      () => AppSearchableSelectField<String>(
+        fieldKey: const Key('blank-help-field'),
+        optionKeyPrefix: 'blank-help-option',
+        labelText: 'Tenant',
+        helpText: '',
+        options: const <String>[],
+        selectedOptionKey: null,
+        optionKey: (option) => option,
+        optionTitle: (option) => option,
+        optionSubtitle: (option) => option,
+        optionSearchText: (option) => option,
+        onSelected: (_) {},
+      ),
+      throwsAssertionError,
+    );
+  });
+
   testWidgets(
     'AppSearchableSelectField filters, empties, and selects options',
     (WidgetTester tester) async {
@@ -147,6 +166,7 @@ void main() {
                 fieldKey: const Key('long-searchable-field'),
                 optionKeyPrefix: 'long-searchable-option',
                 labelText: 'Tenant',
+                helpText: 'Tenant to select from the bounded result list.',
                 options: options,
                 selectedOptionKey: null,
                 optionKey: (option) => option.id,

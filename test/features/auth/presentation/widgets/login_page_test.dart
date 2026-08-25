@@ -8,6 +8,7 @@ import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dar
 import 'package:mugen_ui/features/tenant_invite/presentation/providers/pending_invite_providers.dart';
 import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
   testWidgets('LoginPage renders username/password fields', (
@@ -30,6 +31,13 @@ void main() {
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Login'), findsOneWidget);
+    final guidance = tester
+        .widgetList<AppFieldHelpIcon>(find.byType(AppFieldHelpIcon))
+        .map((icon) => icon.message)
+        .toList(growable: false);
+    expect(guidance, hasLength(2));
+    expect(guidance, anyElement(contains('local account you want to sign in')));
+    expect(guidance, anyElement(contains('authenticate this sign-in attempt')));
   });
 
   testWidgets('LoginPage validates required fields and toggles visibility', (

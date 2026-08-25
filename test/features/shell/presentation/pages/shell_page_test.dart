@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
@@ -522,7 +523,7 @@ void main() {
     expect(find.text('Human Handoff'), findsOneWidget);
     expect(find.byKey(_humanHandoffDrawerStatusKey), findsOneWidget);
     expect(find.text('New 1'), findsOneWidget);
-    expect(find.text('Active 2'), findsOneWidget);
+    expect(find.text('Open 2'), findsNothing);
     expect(find.text('Platform Configuration'), findsNothing);
     expect(find.text('Local Users'), findsNothing);
     expect(find.text('Tenants'), findsNothing);
@@ -541,11 +542,11 @@ void main() {
     );
 
     expect(find.byKey(_humanHandoffDrawerStatusKey), findsOneWidget);
-    expect(find.text('Active 2'), findsOneWidget);
-    expect(find.text('Live'), findsOneWidget);
+    expect(find.text('Open 2'), findsOneWidget);
+    expect(find.text('Live'), findsNothing);
   });
 
-  testWidgets('Human Handoff drawer chips show offline stream status', (
+  testWidgets('Human Handoff drawer tooltip shows reconnecting stream status', (
     tester,
   ) async {
     await _pumpHumanHandoffDrawer(
@@ -557,8 +558,15 @@ void main() {
     );
 
     expect(find.byKey(_humanHandoffDrawerStatusKey), findsOneWidget);
-    expect(find.text('Active 2'), findsOneWidget);
-    expect(find.text('Offline'), findsOneWidget);
+    expect(find.text('Open 2'), findsOneWidget);
+    expect(find.text('Offline'), findsNothing);
+    final tooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(_humanHandoffDrawerStatusKey),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(tooltip.message, contains('live updates reconnecting'));
   });
 
   testWidgets('Human Handoff drawer chips prioritize failed deliveries', (
@@ -575,24 +583,94 @@ void main() {
     );
 
     expect(find.byKey(_humanHandoffDrawerStatusKey), findsOneWidget);
-    expect(find.text('Failed 1'), findsOneWidget);
-    expect(find.text('Active 2'), findsOneWidget);
+    expect(find.text('Fail 1'), findsOneWidget);
+    expect(find.text('Open 2'), findsNothing);
   });
 
-  testWidgets('Human Handoff drawer chips show live stream issues', (
+  testWidgets('Human Handoff drawer suppresses transient stream issues', (
     tester,
   ) async {
     await _pumpHumanHandoffDrawer(
       tester,
       repository: _FakeHumanHandoffRepository(
-        failLiveStream: true,
+        liveStreamFailuresBeforeSuccess: 1,
         sessions: _buildDrawerHandoffSessions(hasNewActivity: false),
       ),
     );
 
     expect(find.byKey(_humanHandoffDrawerStatusKey), findsOneWidget);
-    expect(find.text('Live issue'), findsOneWidget);
-    expect(find.text('Active 2'), findsOneWidget);
+    expect(find.text('Issue'), findsNothing);
+    expect(find.text('Open 2'), findsOneWidget);
+    var tooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(_humanHandoffDrawerStatusKey),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(tooltip.message, contains('live updates reconnecting'));
+    expect(tooltip.message, contains('Last error: Live stream unavailable.'));
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+
+    expect(find.text('Issue'), findsNothing);
+    expect(find.text('Open 2'), findsOneWidget);
+    tooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(_humanHandoffDrawerStatusKey),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(tooltip.message, contains('live updates live'));
+    expect(tooltip.message, isNot(contains('Last error:')));
+  });
+
+  testWidgets('Human Handoff drawer shows one compact persistent issue badge', (
+    tester,
+  ) async {
+    final longLiveError = 'Live stream unavailable. ${'detail ' * 30}';
+    await _pumpHumanHandoffDrawer(
+      tester,
+      repository: _FakeHumanHandoffRepository(
+        liveStreamFailuresBeforeSuccess: 3,
+        liveStreamFailureMessage: longLiveError,
+        sessions: _buildDrawerHandoffSessions(hasNewActivity: false),
+      ),
+    );
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+
+    expect(find.text('Issue'), findsOneWidget);
+    expect(find.text('Open 2'), findsNothing);
+    expect(find.text('Clear'), findsNothing);
+    final tooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(_humanHandoffDrawerStatusKey),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(tooltip.message, contains('live updates unavailable'));
+    expect(tooltip.message, contains('Last error: Live stream unavailable.'));
+    expect(tooltip.message, endsWith('…'));
+    expect(tooltip.message, isNot(contains(longLiveError)));
+    final statusSize = tester.getSize(find.byKey(_humanHandoffDrawerStatusKey));
+    expect(statusSize.height, lessThanOrEqualTo(24));
+    final title = tester.renderObject<RenderParagraph>(
+      find.text('Human Handoff'),
+    );
+    final tileSize = tester.getSize(
+      find.byKey(Key('shell-drawer-item-${RouteIds.humanHandoff}')),
+    );
+    expect(
+      title.didExceedMaxLines,
+      isFalse,
+      reason:
+          'title=${title.size}, intrinsic=${title.getMaxIntrinsicWidth(double.infinity)}, '
+          'status=$statusSize, tile=$tileSize',
+    );
   });
 
   testWidgets('drawer hides tenant admin routes for non-admin users', (
@@ -2143,12 +2221,15 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
   _FakeHumanHandoffRepository({
     List<HumanHandoffSessionEntity>? sessions,
     this.completeLiveStream = false,
-    this.failLiveStream = false,
+    this.liveStreamFailuresBeforeSuccess = 0,
+    this.liveStreamFailureMessage = 'Live stream unavailable.',
   }) : sessions = sessions ?? _buildDrawerHandoffSessions();
 
   final List<HumanHandoffSessionEntity> sessions;
   final bool completeLiveStream;
-  final bool failLiveStream;
+  final int liveStreamFailuresBeforeSuccess;
+  final String liveStreamFailureMessage;
+  int _liveStreamAttempts = 0;
   final StreamController<Result<HumanHandoffEventEntity>> eventController =
       StreamController<Result<HumanHandoffEventEntity>>.broadcast();
 
@@ -2192,15 +2273,18 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
 
   @override
   Stream<Result<HumanHandoffEventEntity>> streamEvents(
-    HumanHandoffEventStreamQuery query,
-  ) {
-    if (failLiveStream) {
+    HumanHandoffEventStreamQuery query, {
+    void Function()? onConnected,
+  }) {
+    _liveStreamAttempts += 1;
+    if (_liveStreamAttempts <= liveStreamFailuresBeforeSuccess) {
       return Stream<Result<HumanHandoffEventEntity>>.value(
-        const Result<HumanHandoffEventEntity>.failure(
-          ValidationFailure('Live stream unavailable.'),
+        Result<HumanHandoffEventEntity>.failure(
+          NetworkFailure(liveStreamFailureMessage),
         ),
       );
     }
+    onConnected?.call();
     if (completeLiveStream) {
       return const Stream<Result<HumanHandoffEventEntity>>.empty();
     }

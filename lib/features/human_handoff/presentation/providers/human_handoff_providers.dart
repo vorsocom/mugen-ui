@@ -16,6 +16,14 @@ import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 
+enum HumanHandoffLiveStatus {
+  offline,
+  connecting,
+  live,
+  reconnecting,
+  unavailable,
+}
+
 class HumanHandoffState {
   const HumanHandoffState({
     required this.tenants,
@@ -35,7 +43,7 @@ class HumanHandoffState {
     required this.isReplying,
     required this.isReleasing,
     required this.hasMoreTranscript,
-    required this.isLiveListening,
+    required this.liveStatus,
     this.latestTranscriptSequenceNo,
     this.selectedTenantId,
     this.selectedSessionId,
@@ -62,7 +70,7 @@ class HumanHandoffState {
   final bool isReplying;
   final bool isReleasing;
   final bool hasMoreTranscript;
-  final bool isLiveListening;
+  final HumanHandoffLiveStatus liveStatus;
   final int? latestTranscriptSequenceNo;
   final String? selectedTenantId;
   final String? selectedSessionId;
@@ -70,6 +78,8 @@ class HumanHandoffState {
   final String? lastDeliveryError;
   final String? errorMessage;
   final String? liveErrorMessage;
+
+  bool get isLiveListening => liveStatus == HumanHandoffLiveStatus.live;
 
   int get pages {
     if (pageSize <= 0) {
@@ -119,7 +129,7 @@ class HumanHandoffState {
     bool? isReplying,
     bool? isReleasing,
     bool? hasMoreTranscript,
-    bool? isLiveListening,
+    HumanHandoffLiveStatus? liveStatus,
     int? latestTranscriptSequenceNo,
     String? selectedTenantId,
     String? selectedSessionId,
@@ -153,7 +163,7 @@ class HumanHandoffState {
       isReplying: isReplying ?? this.isReplying,
       isReleasing: isReleasing ?? this.isReleasing,
       hasMoreTranscript: hasMoreTranscript ?? this.hasMoreTranscript,
-      isLiveListening: isLiveListening ?? this.isLiveListening,
+      liveStatus: liveStatus ?? this.liveStatus,
       latestTranscriptSequenceNo: clearLatestTranscriptSequence
           ? null
           : (latestTranscriptSequenceNo ?? this.latestTranscriptSequenceNo),
@@ -191,6 +201,10 @@ final humanHandoffControllerProvider =
     });
 
 class HumanHandoffController extends StateNotifier<HumanHandoffState> {
+  static const Duration _eventReconnectDelay = Duration(seconds: 5);
+  static const Duration _eventStableDuration = Duration(seconds: 20);
+  static const int _liveIssueFailureThreshold = 3;
+
   HumanHandoffController(this.ref)
     : super(
         const HumanHandoffState(
@@ -211,14 +225,17 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
           isReplying: false,
           isReleasing: false,
           hasMoreTranscript: false,
-          isLiveListening: false,
+          liveStatus: HumanHandoffLiveStatus.offline,
         ),
       );
 
   final Ref ref;
   int _messageCounter = 0;
+  int _eventStreamGeneration = 0;
+  int _consecutiveEventFailures = 0;
   StreamSubscription<Result<HumanHandoffEventEntity>>? _eventSubscription;
   Timer? _eventReconnectTimer;
+  Timer? _eventStableTimer;
   String? _streamTenantId;
   String? _lastEventId;
   bool _disposed = false;
@@ -403,6 +420,7 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
         normalized == state.selectedTenantId) {
       return;
     }
+    _stopEventStream();
     state = state.copyWith(
       selectedTenantId: normalized,
       page: 1,
@@ -572,12 +590,23 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
     }
 
     final previousTenantId = _streamTenantId;
-    _stopEventStream(keepLastEventId: previousTenantId == tenantId);
-    if (previousTenantId != tenantId) {
-      _lastEventId = null;
+    final isSameTenant = previousTenantId == tenantId;
+    _stopEventStream(keepLastEventId: isSameTenant, preserveLiveState: true);
+    if (!isSameTenant) {
+      _consecutiveEventFailures = 0;
     }
     _streamTenantId = tenantId;
-    state = state.copyWith(isLiveListening: true, clearLiveError: true);
+    final generation = ++_eventStreamGeneration;
+    final startingStatus =
+        _consecutiveEventFailures >= _liveIssueFailureThreshold
+        ? HumanHandoffLiveStatus.unavailable
+        : _consecutiveEventFailures > 0
+        ? HumanHandoffLiveStatus.reconnecting
+        : HumanHandoffLiveStatus.connecting;
+    state = state.copyWith(
+      liveStatus: startingStatus,
+      clearLiveError: _consecutiveEventFailures == 0,
+    );
     _eventSubscription = ref
         .read(humanHandoffRepositoryProvider)
         .streamEvents(
@@ -585,34 +614,87 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
             tenantId: tenantId,
             lastEventId: _lastEventId,
           ),
+          onConnected: () => _handleEventStreamConnected(
+            generation: generation,
+            tenantId: tenantId,
+          ),
         )
         .listen(
-          (result) => unawaited(_handleEventResult(result)),
-          onDone: _handleEventStreamDone,
+          (result) => unawaited(
+            _handleEventResult(
+              result,
+              generation: generation,
+              tenantId: tenantId,
+            ),
+          ),
+          onError: (Object _, StackTrace _) => _handleEventStreamFailure(
+            const NetworkFailure('Handoff event stream disconnected.'),
+            generation: generation,
+            tenantId: tenantId,
+          ),
+          onDone: () => _handleEventStreamDone(
+            generation: generation,
+            tenantId: tenantId,
+          ),
         );
   }
 
-  void _stopEventStream({bool keepLastEventId = false}) {
+  void _stopEventStream({
+    bool keepLastEventId = false,
+    bool preserveLiveState = false,
+  }) {
+    _eventStreamGeneration += 1;
     _eventReconnectTimer?.cancel();
     _eventReconnectTimer = null;
-    _eventSubscription?.cancel();
+    _eventStableTimer?.cancel();
+    _eventStableTimer = null;
+    final subscription = _eventSubscription;
+    if (subscription != null) {
+      unawaited(subscription.cancel());
+    }
     _eventSubscription = null;
     _streamTenantId = null;
     if (!keepLastEventId) {
       _lastEventId = null;
+      _consecutiveEventFailures = 0;
     }
-    if (!_disposed && state.isLiveListening) {
-      state = state.copyWith(isLiveListening: false);
+    if (!_disposed && !preserveLiveState) {
+      state = state.copyWith(
+        liveStatus: HumanHandoffLiveStatus.offline,
+        clearLiveError: true,
+      );
     }
   }
 
-  void _handleEventStreamDone() {
-    _eventSubscription = null;
-    if (_disposed || _streamTenantId == null) {
+  void _handleEventStreamConnected({
+    required int generation,
+    required String tenantId,
+  }) {
+    if (!_isCurrentEventStream(generation, tenantId)) {
       return;
     }
-    state = state.copyWith(isLiveListening: false);
-    _scheduleEventReconnect();
+    state = state.copyWith(
+      liveStatus: HumanHandoffLiveStatus.live,
+      clearLiveError: true,
+    );
+    _eventStableTimer?.cancel();
+    _eventStableTimer = Timer(_eventStableDuration, () {
+      if (_isCurrentEventStream(generation, tenantId) &&
+          state.liveStatus == HumanHandoffLiveStatus.live) {
+        _consecutiveEventFailures = 0;
+      }
+    });
+  }
+
+  void _handleEventStreamDone({
+    required int generation,
+    required String tenantId,
+  }) {
+    _handleEventStreamFailure(
+      const NetworkFailure('Handoff event stream disconnected.'),
+      generation: generation,
+      tenantId: tenantId,
+    );
   }
 
   void _scheduleEventReconnect() {
@@ -620,37 +702,91 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       return;
     }
     _eventReconnectTimer?.cancel();
-    _eventReconnectTimer = Timer(const Duration(seconds: 5), _startEventStream);
+    _eventReconnectTimer = Timer(_eventReconnectDelay, _startEventStream);
   }
 
   Future<void> _handleEventResult(
-    Result<HumanHandoffEventEntity> result,
-  ) async {
-    if (_disposed) {
+    Result<HumanHandoffEventEntity> result, {
+    required int generation,
+    required String tenantId,
+  }) async {
+    if (!_isCurrentEventStream(generation, tenantId)) {
       return;
     }
     if (result.isFailure) {
-      final failure = result.failure!;
-      if (failure is SessionExpiredFailure) {
-        ref.read(authControllerProvider.notifier).refreshSession();
-      }
-      state = state.copyWith(
-        isLiveListening: false,
-        liveErrorMessage: failure.message.trim().isEmpty
-            ? 'Live handoff updates disconnected.'
-            : failure.message,
+      _handleEventStreamFailure(
+        result.failure!,
+        generation: generation,
+        tenantId: tenantId,
       );
-      _scheduleEventReconnect();
       return;
     }
 
+    _consecutiveEventFailures = 0;
+    _eventStableTimer?.cancel();
+    _eventStableTimer = null;
     final event = result.data!;
     final eventId = event.eventId?.trim();
     if (eventId != null && eventId.isNotEmpty) {
       _lastEventId = eventId;
     }
-    state = state.copyWith(isLiveListening: true, clearLiveError: true);
+    state = state.copyWith(
+      liveStatus: HumanHandoffLiveStatus.live,
+      clearLiveError: true,
+    );
     await _handleHandoffEvent(event);
+  }
+
+  void _handleEventStreamFailure(
+    Failure failure, {
+    required int generation,
+    required String tenantId,
+  }) {
+    if (!_isCurrentEventStream(generation, tenantId)) {
+      return;
+    }
+    if (failure is SessionExpiredFailure) {
+      ref.read(authControllerProvider.notifier).refreshSession();
+    }
+
+    _eventStableTimer?.cancel();
+    _eventStableTimer = null;
+    final subscription = _eventSubscription;
+    _eventSubscription = null;
+    _eventStreamGeneration += 1;
+    if (subscription != null) {
+      unawaited(subscription.cancel());
+    }
+    _consecutiveEventFailures += 1;
+    final isUnavailable =
+        _requiresImmediateLiveIssue(failure) ||
+        _consecutiveEventFailures >= _liveIssueFailureThreshold;
+    state = state.copyWith(
+      liveStatus: isUnavailable
+          ? HumanHandoffLiveStatus.unavailable
+          : HumanHandoffLiveStatus.reconnecting,
+      liveErrorMessage: failure.message.trim().isEmpty
+          ? 'Live handoff updates disconnected.'
+          : failure.message,
+    );
+    _scheduleEventReconnect();
+  }
+
+  bool _requiresImmediateLiveIssue(Failure failure) {
+    if (failure is ValidationFailure || failure is UnauthorizedFailure) {
+      return true;
+    }
+    return failure is ApiFailure &&
+        failure.statusCode >= 400 &&
+        failure.statusCode < 500 &&
+        failure.statusCode != 408 &&
+        failure.statusCode != 429;
+  }
+
+  bool _isCurrentEventStream(int generation, String tenantId) {
+    return !_disposed &&
+        generation == _eventStreamGeneration &&
+        tenantId == _streamTenantId;
   }
 
   Future<void> _handleHandoffEvent(HumanHandoffEventEntity event) async {
@@ -725,8 +861,13 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
   @override
   void dispose() {
     _disposed = true;
+    _eventStreamGeneration += 1;
     _eventReconnectTimer?.cancel();
-    _eventSubscription?.cancel();
+    _eventStableTimer?.cancel();
+    final subscription = _eventSubscription;
+    if (subscription != null) {
+      unawaited(subscription.cancel());
+    }
     super.dispose();
   }
 }

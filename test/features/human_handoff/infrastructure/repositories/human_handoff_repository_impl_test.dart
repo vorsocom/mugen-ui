@@ -249,6 +249,7 @@ data: {"tenant_id":"tenant-1","session_id":"session-1","event_type":"handoff.tra
         cookieStore: cookieStore,
         httpClient: httpClient,
       );
+      var connected = false;
 
       final events = await fixture.repository
           .streamEvents(
@@ -257,9 +258,11 @@ data: {"tenant_id":"tenant-1","session_id":"session-1","event_type":"handoff.tra
               lastEventId: 'tenant-1:event-0',
               sessionId: 'session-1',
             ),
+            onConnected: () => connected = true,
           )
           .toList();
 
+      expect(connected, isTrue);
       expect(events.single.isSuccess, isTrue);
       final event = events.single.data!;
       expect(event.eventId, 'tenant-1:event-1');

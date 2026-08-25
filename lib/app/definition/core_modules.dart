@@ -9,6 +9,8 @@ import 'package:mugen_ui/features/auth/presentation/pages/login_page.dart';
 import 'package:mugen_ui/features/auth/presentation/widgets/auth_guard.dart';
 import 'package:mugen_ui/features/auth/presentation/widgets/edit_profile_panel.dart';
 import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
+import 'package:mugen_ui/features/billing_catalog/presentation/providers/billing_catalog_providers.dart';
+import 'package:mugen_ui/features/billing_catalog/presentation/widgets/billing_catalog_panel.dart';
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
 import 'package:mugen_ui/features/context_admin/presentation/widgets/context_engine_panel.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/widgets/human_handoff_panel.dart';
@@ -29,6 +31,7 @@ MugenUiAppDefinition buildDefaultAppDefinition() {
       _coreAuthModule,
       _coreShellModule,
       _coreHumanHandoffModule,
+      _coreBillingCatalogModule,
       _coreLocalUsersModule,
       _coreTenantModule,
       _coreRbacModule,
@@ -245,6 +248,20 @@ final MugenUiModule _coreAcpConsoleModule = MugenUiModule(
   ],
 );
 
+final MugenUiModule _coreBillingCatalogModule = MugenUiModule(
+  id: 'core.billing_catalog',
+  shellRoutes: <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.billingCatalog,
+      title: 'Billing Catalog',
+      icon: Icons.payments_outlined,
+      section: 'Platform Configuration',
+      availabilityProvider: billingCatalogShellAvailabilityProvider,
+      builder: _buildBillingCatalogRoute,
+    ),
+  ],
+);
+
 final MugenUiModule _coreTenantInviteModule = MugenUiModule(
   id: 'core.tenant_invite',
   topLevelRoutes: <TopLevelRouteDefinition>[
@@ -299,3 +316,6 @@ Widget _buildKnowledgePackRoute(BuildContext context) =>
 
 Widget _buildAcpConsoleRoute(BuildContext context) =>
     const Padding(padding: EdgeInsets.all(16), child: AcpConsolePanel());
+
+Widget _buildBillingCatalogRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(16), child: BillingCatalogPanel());

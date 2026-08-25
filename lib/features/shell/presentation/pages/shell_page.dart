@@ -44,11 +44,16 @@ class _ShellPageState extends ConsumerState<ShellPage> {
     final shellState = ref.watch(shellControllerProvider);
     final definition = ref.watch(appDefinitionProvider);
     final authState = ref.watch(authControllerProvider);
+    final routeAvailabilities = _watchRouteAvailabilities(
+      ref,
+      definition.shellRoutes,
+    );
     final routeAccess = resolveShellRouteAccess(
       shellRoutes: definition.shellRoutes,
       defaultShellRouteId: definition.defaultShellRouteId,
       sessionRoles: authState.session?.roles ?? const <String>[],
       requestedRoute: shellState.activeRoute,
+      routeAvailabilities: routeAvailabilities,
     );
     _scheduleRouteCorrection(routeAccess);
 
@@ -92,7 +97,7 @@ class _ShellPageState extends ConsumerState<ShellPage> {
   }) {
     final displayedRouteId = routeAccess.displayedRouteId;
     if (displayedRouteId == null) {
-      return const _NoAccessibleRoutesView();
+      return _NoAccessibleRoutesView(message: routeAccess.denialMessage);
     }
 
     return buildRegisteredShellRouteWidget(
@@ -128,6 +133,10 @@ class _ShellPageState extends ConsumerState<ShellPage> {
         sessionRoles:
             ref.read(authControllerProvider).session?.roles ?? const <String>[],
         requestedRoute: currentState.activeRoute,
+        routeAvailabilities: _readRouteAvailabilities(
+          ref,
+          definition.shellRoutes,
+        ),
       );
       // coverage:ignore-start
       if (!currentAccess.shouldRedirect) {
@@ -144,7 +153,11 @@ class _ShellPageState extends ConsumerState<ShellPage> {
       if (didCorrect) {
         ref
             .read(snackBarDispatcherProvider)
-            .showInContext(context, 'You do not have access to that section.');
+            .showInContext(
+              context,
+              currentAccess.denialMessage ??
+                  'You do not have access to that section.',
+            );
       }
 
       if (_pendingRedirectToken == redirectToken) {
@@ -168,6 +181,10 @@ class _ShellUserBar extends ConsumerWidget {
       defaultShellRouteId: definition.defaultShellRouteId,
       sessionRoles: session?.roles ?? const <String>[],
       requestedRoute: shellState.activeRoute,
+      routeAvailabilities: _watchRouteAvailabilities(
+        ref,
+        definition.shellRoutes,
+      ),
     );
     final displayedRouteId = routeAccess.displayedRouteId;
     final displayName = session?.username ?? session?.userId ?? 'User';
@@ -246,6 +263,28 @@ class _ShellUserBar extends ConsumerWidget {
       ),
     );
   }
+}
+
+Map<String, ShellRouteAvailability> _watchRouteAvailabilities(
+  WidgetRef ref,
+  List<ShellRouteDefinition> routes,
+) {
+  return <String, ShellRouteAvailability>{
+    for (final route in routes)
+      if (route.availabilityProvider != null)
+        route.id: ref.watch(route.availabilityProvider!),
+  };
+}
+
+Map<String, ShellRouteAvailability> _readRouteAvailabilities(
+  WidgetRef ref,
+  List<ShellRouteDefinition> routes,
+) {
+  return <String, ShellRouteAvailability>{
+    for (final route in routes)
+      if (route.availabilityProvider != null)
+        route.id: ref.read(route.availabilityProvider!),
+  };
 }
 
 String _resolveShellRouteTitle({
@@ -776,6 +815,10 @@ class _AppDrawer extends ConsumerWidget {
       defaultShellRouteId: definition.defaultShellRouteId,
       sessionRoles: sessionRoles,
       requestedRoute: shellState.activeRoute,
+      routeAvailabilities: _watchRouteAvailabilities(
+        ref,
+        definition.shellRoutes,
+      ),
     );
     final activeRoute = routeAccess.displayedRouteId;
     final visibleDrawerItems = definition.shellRoutes
@@ -1207,7 +1250,9 @@ class _DrawerIconBadge extends StatelessWidget {
 }
 
 class _NoAccessibleRoutesView extends StatelessWidget {
-  const _NoAccessibleRoutesView();
+  const _NoAccessibleRoutesView({this.message});
+
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -1234,7 +1279,8 @@ class _NoAccessibleRoutesView extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'No accessible sections are available for this account.',
+                message ??
+                    'No accessible sections are available for this account.',
                 textAlign: TextAlign.center,
                 style: theme.textTheme.titleMedium,
               ),

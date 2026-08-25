@@ -76,6 +76,7 @@ abstract class CoreShellRouteIds {
   static const String contextEngine = 'context-engine';
   static const String knowledgePacks = 'knowledge-packs';
   static const String acpConsole = 'acp-console';
+  static const String billingCatalog = 'billing-catalog';
 }
 
 abstract class RouteIds {
@@ -97,6 +98,7 @@ abstract class RouteIds {
   static const String contextEngine = CoreShellRouteIds.contextEngine;
   static const String knowledgePacks = CoreShellRouteIds.knowledgePacks;
   static const String acpConsole = CoreShellRouteIds.acpConsole;
+  static const String billingCatalog = CoreShellRouteIds.billingCatalog;
 
   static String buildInviteRoute({
     required String tenantId,

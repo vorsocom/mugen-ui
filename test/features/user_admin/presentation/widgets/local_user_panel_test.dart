@@ -401,7 +401,7 @@ void main() {
 
     await tester.tap(find.text('New User'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Close dialog'));
+    await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
     expect(find.text('Add New User'), findsNothing);
 

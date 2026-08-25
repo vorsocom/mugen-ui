@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -29,6 +31,164 @@ class AppFormPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: child,
+    );
+  }
+}
+
+class AppResponsiveDialog extends StatelessWidget {
+  const AppResponsiveDialog({
+    required this.child,
+    super.key,
+    this.maxWidth = 520,
+    this.maxHeight = 760,
+    this.insetPadding = const EdgeInsets.all(24),
+    this.scrollable = false,
+  });
+
+  final Widget child;
+  final double maxWidth;
+  final double maxHeight;
+  final EdgeInsets insetPadding;
+  final bool scrollable;
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaSize = MediaQuery.sizeOf(context);
+    final availableWidth = math.max(
+      1.0,
+      mediaSize.width - insetPadding.horizontal,
+    );
+    final availableHeight = math.max(
+      1.0,
+      mediaSize.height - insetPadding.vertical,
+    );
+
+    return Dialog(
+      insetPadding: insetPadding,
+      backgroundColor: AppUiPalette.surface,
+      surfaceTintColor: Colors.transparent,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: AppUiPalette.border),
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: math.min(maxWidth, availableWidth),
+          maxHeight: math.min(maxHeight, availableHeight),
+        ),
+        child: scrollable
+            ? SingleChildScrollView(primary: false, child: child)
+            : child,
+      ),
+    );
+  }
+}
+
+class AppFormDialog extends StatelessWidget {
+  const AppFormDialog({
+    required this.title,
+    required this.body,
+    required this.actions,
+    super.key,
+    this.maxWidth = 520,
+    this.maxHeight = 760,
+    this.insetPadding = const EdgeInsets.all(24),
+    this.bodyPadding = const EdgeInsets.all(20),
+    this.scrollable = true,
+    this.leading,
+    this.headerActions = const <Widget>[],
+    this.showCloseButton = true,
+    this.closeEnabled = true,
+    this.onClose,
+  });
+
+  final String title;
+  final Widget body;
+  final List<Widget> actions;
+  final double maxWidth;
+  final double maxHeight;
+  final EdgeInsets insetPadding;
+  final EdgeInsetsGeometry bodyPadding;
+  final bool scrollable;
+  final Widget? leading;
+  final List<Widget> headerActions;
+  final bool showCloseButton;
+  final bool closeEnabled;
+  final VoidCallback? onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppResponsiveDialog(
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+      insetPadding: insetPadding,
+      child: AppFormPanel(
+        padding: EdgeInsets.zero,
+        showBorder: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
+              child: Row(
+                children: [
+                  if (leading != null) ...[leading!, const SizedBox(width: 10)],
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  ...headerActions,
+                  if (showCloseButton)
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: closeEnabled
+                          ? onClose ?? () => Navigator.of(context).pop()
+                          : null,
+                      icon: const Icon(Icons.close),
+                    ),
+                ],
+              ),
+            ),
+            const Divider(
+              key: Key('app-form-dialog-header-divider'),
+              height: 1,
+            ),
+            Flexible(
+              fit: FlexFit.loose,
+              child: scrollable
+                  ? SingleChildScrollView(
+                      key: const Key('app-form-dialog-body-scroll'),
+                      primary: false,
+                      padding: bodyPadding,
+                      child: body,
+                    )
+                  : Padding(padding: bodyPadding, child: body),
+            ),
+            const Divider(
+              key: Key('app-form-dialog-footer-divider'),
+              height: 1,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: actions,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -115,76 +275,36 @@ Future<bool?> showAppConfirmationDialog({
     context: context,
     builder: (dialogContext) {
       final theme = Theme.of(dialogContext);
-      return Dialog(
-        insetPadding: const EdgeInsets.all(24),
-        backgroundColor: AppUiPalette.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppUiPalette.border),
+      return AppFormDialog(
+        maxWidth: 520,
+        title: title,
+        leading: Container(
+          width: 32,
+          height: 32,
+          decoration: const BoxDecoration(
+            color: AppUiPalette.surfaceStrong,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 18, color: AppUiPalette.textPrimary),
         ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: AppFormPanel(
-            showBorder: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: const BoxDecoration(
-                        color: AppUiPalette.surfaceStrong,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        icon,
-                        size: 18,
-                        color: AppUiPalette.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  message,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppUiPalette.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      key: cancelButtonKey,
-                      onPressed: () => Navigator.of(dialogContext).pop(false),
-                      child: Text(cancelLabel),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      key: confirmButtonKey,
-                      onPressed: () => Navigator.of(dialogContext).pop(true),
-                      child: Text(confirmLabel),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+        body: Text(
+          message,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: AppUiPalette.textSecondary,
           ),
         ),
+        actions: [
+          TextButton(
+            key: cancelButtonKey,
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(cancelLabel),
+          ),
+          FilledButton(
+            key: confirmButtonKey,
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(confirmLabel),
+          ),
+        ],
       );
     },
   );

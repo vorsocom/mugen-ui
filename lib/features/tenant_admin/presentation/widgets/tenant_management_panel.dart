@@ -304,104 +304,84 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
 
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    isEditing ? 'Edit Tenant' : 'Create Tenant',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: nameController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Name',
-                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Field cannot be empty.';
-                      }
+      builder: (_) => AppFormDialog(
+        title: isEditing ? 'Edit Tenant' : 'Create Tenant',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Name',
+                  helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Field cannot be empty.';
+                  }
 
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: slugController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Slug',
-                      helpText: acpFieldHelpText(key: 'Slug', label: 'Slug'),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Field cannot be empty.';
-                      }
-
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () async {
-                          final isValid =
-                              formKey.currentState?.validate() ?? false;
-                          if (!isValid) {
-                            return;
-                          }
-
-                          final success = isEditing
-                              ? await controller.updateTenant(
-                                  UpdateTenantInput(
-                                    tenantId: existingTenant.id,
-                                    name: nameController.text.trim(),
-                                    slug: slugController.text.trim(),
-                                    rowVersion: existingTenant.rowVersion,
-                                  ),
-                                )
-                              : await controller.createTenant(
-                                  CreateTenantInput(
-                                    name: nameController.text.trim(),
-                                    slug: slugController.text.trim(),
-                                  ),
-                                );
-                          snackBar.show(
-                            navigator,
-                            success
-                                ? 'Tenant saved successfully.'
-                                : 'Tenant save failed.',
-                          );
-                          if (success && mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: Text(
-                          isEditing ? 'Save Changes' : 'Create Tenant',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  return null;
+                },
               ),
-            ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: slugController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Slug',
+                  helpText: acpFieldHelpText(key: 'Slug', label: 'Slug'),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Field cannot be empty.';
+                  }
+
+                  return null;
+                },
+              ),
+            ],
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final success = isEditing
+                  ? await controller.updateTenant(
+                      UpdateTenantInput(
+                        tenantId: existingTenant.id,
+                        name: nameController.text.trim(),
+                        slug: slugController.text.trim(),
+                        rowVersion: existingTenant.rowVersion,
+                      ),
+                    )
+                  : await controller.createTenant(
+                      CreateTenantInput(
+                        name: nameController.text.trim(),
+                        slug: slugController.text.trim(),
+                      ),
+                    );
+              snackBar.show(
+                navigator,
+                success ? 'Tenant saved successfully.' : 'Tenant save failed.',
+              );
+              if (success && mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Text(isEditing ? 'Save Changes' : 'Create Tenant'),
+          ),
+        ],
       ),
     );
   }
@@ -888,108 +868,88 @@ Future<void> _showDomainDialog(
   await showDialog<void>(
     context: context,
     builder: (_) => StatefulBuilder(
-      builder: (context, setState) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    existing == null ? 'Add Domain' : 'Edit Domain',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: domainController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Domain',
-                      helpText: acpFieldHelpText(
-                        key: 'Domain',
-                        label: 'Domain',
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Field cannot be empty.';
-                      }
+      builder: (context, setState) => AppFormDialog(
+        title: existing == null ? 'Add Domain' : 'Edit Domain',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: domainController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Domain',
+                  helpText: acpFieldHelpText(key: 'Domain', label: 'Domain'),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Field cannot be empty.';
+                  }
 
-                      return null;
-                    },
-                  ),
-                  CheckboxListTile(
-                    value: isPrimary,
-                    title: appFieldLabelWithHelp(
-                      labelText: 'Primary domain',
-                      helpText: acpFieldHelpText(
-                        key: 'IsPrimary',
-                        label: 'Primary Domain',
-                        kind: AcpFieldKind.boolean,
-                      ),
-                    ),
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (value) {
-                      setState(() {
-                        isPrimary = value ?? false;
-                      });
-                    },
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () async {
-                          final isValid =
-                              formKey.currentState?.validate() ?? false;
-                          if (!isValid) {
-                            return;
-                          }
-
-                          final success = existing == null
-                              ? await controller.createDomain(
-                                  CreateTenantDomainInput(
-                                    tenantId: tenant.id,
-                                    domain: domainController.text.trim(),
-                                    isPrimary: isPrimary,
-                                  ),
-                                )
-                              : await controller.updateDomain(
-                                  UpdateTenantDomainInput(
-                                    tenantId: tenant.id,
-                                    domainId: existing.id,
-                                    domain: domainController.text.trim(),
-                                    isPrimary: isPrimary,
-                                    rowVersion: existing.rowVersion,
-                                  ),
-                                );
-                          snackBar.show(
-                            navigator,
-                            success
-                                ? 'Domain saved successfully.'
-                                : 'Domain save failed.',
-                          );
-                          if (success && context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: Text(existing == null ? 'Add Domain' : 'Save'),
-                      ),
-                    ],
-                  ),
-                ],
+                  return null;
+                },
               ),
-            ),
+              CheckboxListTile(
+                value: isPrimary,
+                title: appFieldLabelWithHelp(
+                  labelText: 'Primary domain',
+                  helpText: acpFieldHelpText(
+                    key: 'IsPrimary',
+                    label: 'Primary Domain',
+                    kind: AcpFieldKind.boolean,
+                  ),
+                ),
+                contentPadding: EdgeInsets.zero,
+                onChanged: (value) {
+                  setState(() {
+                    isPrimary = value ?? false;
+                  });
+                },
+              ),
+            ],
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final success = existing == null
+                  ? await controller.createDomain(
+                      CreateTenantDomainInput(
+                        tenantId: tenant.id,
+                        domain: domainController.text.trim(),
+                        isPrimary: isPrimary,
+                      ),
+                    )
+                  : await controller.updateDomain(
+                      UpdateTenantDomainInput(
+                        tenantId: tenant.id,
+                        domainId: existing.id,
+                        domain: domainController.text.trim(),
+                        isPrimary: isPrimary,
+                        rowVersion: existing.rowVersion,
+                      ),
+                    );
+              snackBar.show(
+                navigator,
+                success ? 'Domain saved successfully.' : 'Domain save failed.',
+              );
+              if (success && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Text(existing == null ? 'Add Domain' : 'Save'),
+          ),
+        ],
       ),
     ),
   );
@@ -1010,120 +970,102 @@ Future<void> _showInvitationDialog(
   await showDialog<void>(
     context: context,
     builder: (_) => StatefulBuilder(
-      builder: (context, setDialogState) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Create Invitation',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: emailController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Email',
-                      helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Field cannot be empty.';
-                      }
+      builder: (context, setDialogState) => AppFormDialog(
+        title: 'Create Invitation',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: emailController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Email',
+                  helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Field cannot be empty.';
+                  }
 
-                      if (!value.contains('@')) {
-                        return 'Email address must be valid';
-                      }
+                  if (!value.contains('@')) {
+                    return 'Email address must be valid';
+                  }
 
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    key: const Key('tenant-invitation-role-dropdown'),
-                    initialValue: selectedRole,
-                    isExpanded: true,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Role In Tenant',
-                      helpText: acpFieldHelpText(
-                        key: 'RoleInTenant',
-                        label: 'Role In Tenant',
-                      ),
-                    ),
-                    items: _tenantMembershipRoleOptions
-                        .map(
-                          (option) => DropdownMenuItem<String>(
-                            value: option.value,
-                            child: Text(option.label),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-
-                      setDialogState(() {
-                        selectedRole = value;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Field cannot be empty.';
-                      }
-
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () async {
-                          final isValid =
-                              formKey.currentState?.validate() ?? false;
-                          if (!isValid) {
-                            return;
-                          }
-
-                          final success = await controller.createInvitation(
-                            CreateTenantInvitationInput(
-                              tenantId: tenant.id,
-                              email: emailController.text.trim(),
-                              roleInTenant: selectedRole,
-                            ),
-                          );
-                          snackBar.show(
-                            navigator,
-                            success
-                                ? 'Invitation created.'
-                                : 'Invitation creation failed.',
-                          );
-                          if (success && context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: const Text('Create Invitation'),
-                      ),
-                    ],
-                  ),
-                ],
+                  return null;
+                },
               ),
-            ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                key: const Key('tenant-invitation-role-dropdown'),
+                initialValue: selectedRole,
+                isExpanded: true,
+                decoration: appFormInputDecoration(
+                  labelText: 'Role In Tenant',
+                  helpText: acpFieldHelpText(
+                    key: 'RoleInTenant',
+                    label: 'Role In Tenant',
+                  ),
+                ),
+                items: _tenantMembershipRoleOptions
+                    .map(
+                      (option) => DropdownMenuItem<String>(
+                        value: option.value,
+                        child: Text(option.label),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+
+                  setDialogState(() {
+                    selectedRole = value;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Field cannot be empty.';
+                  }
+
+                  return null;
+                },
+              ),
+            ],
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final success = await controller.createInvitation(
+                CreateTenantInvitationInput(
+                  tenantId: tenant.id,
+                  email: emailController.text.trim(),
+                  roleInTenant: selectedRole,
+                ),
+              );
+              snackBar.show(
+                navigator,
+                success ? 'Invitation created.' : 'Invitation creation failed.',
+              );
+              if (success && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: const Text('Create Invitation'),
+          ),
+        ],
       ),
     ),
   );
@@ -1137,15 +1079,10 @@ Future<void> _showMembershipDialog(
 }) async {
   await showDialog<void>(
     context: context,
-    builder: (_) => Dialog(
-      child: SizedBox(
-        width: _formDialogPanelWidth,
-        child: _TenantMembershipDialog(
-          tenant: tenant,
-          memberships: memberships,
-          existing: existing,
-        ),
-      ),
+    builder: (_) => _TenantMembershipDialog(
+      tenant: tenant,
+      memberships: memberships,
+      existing: existing,
     ),
   );
 }
@@ -1199,41 +1136,31 @@ class _TenantMembershipDialogState
 
   @override
   Widget build(BuildContext context) {
-    return AppFormPanel(
-      child: Form(
+    return AppFormDialog(
+      title: _isEditing ? 'Edit Membership Role' : 'Add Membership',
+      maxWidth: _formDialogPanelWidth,
+      body: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              _isEditing ? 'Edit Membership Role' : 'Add Membership',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
             _isEditing ? _buildReadonlyUserField() : _buildUserPicker(),
             const SizedBox(height: 8),
             _buildRoleDropdown(),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _submit,
-                  child: Text(_isEditing ? 'Save' : 'Add Membership'),
-                ),
-              ],
-            ),
           ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(_isEditing ? 'Save' : 'Add Membership'),
+        ),
+      ],
     );
   }
 

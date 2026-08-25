@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,7 +18,6 @@ import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 const double _localUserActionsColumnWidth = 176;
 const double _userSessionsDialogMaxWidth = 760;
 const double _userSessionsDialogMaxHeight = 760;
-const double _userSessionsDialogInset = 24;
 
 class LocalUserPanel extends ConsumerStatefulWidget {
   const LocalUserPanel({super.key}); // coverage:ignore-line
@@ -51,53 +49,32 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
   Future<void> _showRegisterDialog() async {
     await showDialog<void>(
       context: context,
-      builder: (_) => const Dialog(child: _RegisterUserForm()),
+      builder: (_) => const _RegisterUserForm(),
     );
   }
 
   Future<void> _showEditUserDialog(UserEntity user) async {
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(child: _EditUserForm(user: user)),
+      builder: (_) => _EditUserForm(user: user),
     );
   }
 
   Future<void> _showResetPasswordDialog(UserEntity user) async {
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(child: _ResetPasswordAdminForm(user: user)),
+      builder: (_) => _ResetPasswordAdminForm(user: user),
     );
   }
 
   Future<void> _showSessionsDialog(UserEntity user) async {
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) {
-        final mediaSize = MediaQuery.sizeOf(dialogContext);
-        final maxWidth = math.min(
-          _userSessionsDialogMaxWidth,
-          math.max(0.0, mediaSize.width - (_userSessionsDialogInset * 2)),
-        );
-        final maxHeight = math.min(
-          _userSessionsDialogMaxHeight,
-          math.max(0.0, mediaSize.height - (_userSessionsDialogInset * 2)),
-        );
-
-        return Dialog(
-          insetPadding: const EdgeInsets.all(_userSessionsDialogInset),
-          backgroundColor: AppUiPalette.surface,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: const BorderSide(color: AppUiPalette.border),
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: maxWidth,
-              maxHeight: maxHeight,
-            ),
-            child: _UserSessionsDialog(user: user),
-          ),
+      builder: (_) {
+        return AppResponsiveDialog(
+          maxWidth: _userSessionsDialogMaxWidth,
+          maxHeight: _userSessionsDialogMaxHeight,
+          child: _UserSessionsDialog(user: user),
         );
       },
     );
@@ -687,131 +664,94 @@ class _RegisterUserFormState extends ConsumerState<_RegisterUserForm> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      width: 520,
-      child: AppFormPanel(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Add New User',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Close dialog',
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _firstNameController,
-                decoration: appFormInputDecoration(
-                  labelText: 'First Name',
-                  helpText: acpFieldHelpText(
-                    key: 'FirstName',
-                    label: 'First Name',
-                  ),
+    return AppFormDialog(
+      title: 'Add New User',
+      maxWidth: 520,
+      closeEnabled: !_saving,
+      body: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _firstNameController,
+              decoration: appFormInputDecoration(
+                labelText: 'First Name',
+                helpText: acpFieldHelpText(
+                  key: 'FirstName',
+                  label: 'First Name',
                 ),
-                validator: _required,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _lastNameController,
-                decoration: appFormInputDecoration(
-                  labelText: 'Last Name',
-                  helpText: acpFieldHelpText(
-                    key: 'LastName',
-                    label: 'Last Name',
-                  ),
-                ),
-                validator: _required,
+              validator: _required,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _lastNameController,
+              decoration: appFormInputDecoration(
+                labelText: 'Last Name',
+                helpText: acpFieldHelpText(key: 'LastName', label: 'Last Name'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _userNameController,
-                decoration: appFormInputDecoration(
-                  labelText: 'Username',
-                  helpText: acpFieldHelpText(
-                    key: 'Username',
-                    label: 'Username',
-                  ),
-                ),
-                validator: _required,
+              validator: _required,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _userNameController,
+              decoration: appFormInputDecoration(
+                labelText: 'Username',
+                helpText: acpFieldHelpText(key: 'Username', label: 'Username'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _emailController,
-                decoration: appFormInputDecoration(
-                  labelText: 'Email',
-                  helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Field cannot be empty.';
-                  }
-                  final regex = RegExp(
-                    "[a-z0-9!#\\\$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#\\\$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?",
-                  );
-                  if (!regex.hasMatch(value)) {
-                    return 'Email address must be valid';
-                  }
-                  return null;
-                },
+              validator: _required,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _emailController,
+              decoration: appFormInputDecoration(
+                labelText: 'Email',
+                helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: appFormInputDecoration(
-                  labelText: 'Password',
-                  helpText: acpFieldHelpText(
-                    key: 'Password',
-                    label: 'Password',
-                  ),
-                ),
-                validator: _required,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Field cannot be empty.';
+                }
+                final regex = RegExp(
+                  "[a-z0-9!#\\\$%&'*+/=?^_`{|}~-]+(?:\\.[a-z0-9!#\\\$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?",
+                );
+                if (!regex.hasMatch(value)) {
+                  return 'Email address must be valid';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: true,
+              decoration: appFormInputDecoration(
+                labelText: 'Password',
+                helpText: acpFieldHelpText(key: 'Password', label: 'Password'),
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _saving ? null : _submit,
-                    child: _saving
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Add User'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+              validator: _required,
+            ),
+          ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Add User'),
+        ),
+      ],
     );
   }
 
@@ -905,82 +845,64 @@ class _EditUserFormState extends ConsumerState<_EditUserForm> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      width: 520,
-      child: AppFormPanel(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Edit User Details',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+    return AppFormDialog(
+      title: 'Edit User Details',
+      maxWidth: 520,
+      closeEnabled: !_saving,
+      body: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _firstNameController,
+              decoration: appFormInputDecoration(
+                labelText: 'First name',
+                helpText: acpFieldHelpText(
+                  key: 'FirstName',
+                  label: 'First Name',
                 ),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _firstNameController,
-                decoration: appFormInputDecoration(
-                  labelText: 'First name',
-                  helpText: acpFieldHelpText(
-                    key: 'FirstName',
-                    label: 'First Name',
-                  ),
-                ),
-                validator: _required,
+              validator: _required,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _lastNameController,
+              decoration: appFormInputDecoration(
+                labelText: 'Last name',
+                helpText: acpFieldHelpText(key: 'LastName', label: 'Last Name'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _lastNameController,
-                decoration: appFormInputDecoration(
-                  labelText: 'Last name',
-                  helpText: acpFieldHelpText(
-                    key: 'LastName',
-                    label: 'Last Name',
-                  ),
-                ),
-                validator: _required,
+              validator: _required,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _emailController,
+              decoration: appFormInputDecoration(
+                labelText: 'Email',
+                helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _emailController,
-                decoration: appFormInputDecoration(
-                  labelText: 'Email',
-                  helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
-                ),
-                validator: _required,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _saving ? null : _submit,
-                    child: _saving
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Save Changes'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+              validator: _required,
+            ),
+          ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save Changes'),
+        ),
+      ],
     );
   }
 
@@ -1060,85 +982,70 @@ class _ResetPasswordAdminFormState
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return SizedBox(
-      width: 520,
-      child: AppFormPanel(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Reset User Password - ${widget.user.userName}',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+    return AppFormDialog(
+      title: 'Reset User Password - ${widget.user.userName}',
+      maxWidth: 520,
+      closeEnabled: !_saving,
+      body: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              controller: _newPasswordController,
+              obscureText: true,
+              decoration: appFormInputDecoration(
+                labelText: 'New password',
+                helpText: acpFieldHelpText(
+                  key: 'NewPassword',
+                  label: 'New Password',
                 ),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _newPasswordController,
-                obscureText: true,
-                decoration: appFormInputDecoration(
-                  labelText: 'New password',
-                  helpText: acpFieldHelpText(
-                    key: 'NewPassword',
-                    label: 'New Password',
-                  ),
+              validator: _required,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _confirmPasswordController,
+              obscureText: true,
+              decoration: appFormInputDecoration(
+                labelText: 'Confirm new password',
+                helpText: acpFieldHelpText(
+                  key: 'ConfirmNewPassword',
+                  label: 'Confirm New Password',
                 ),
-                validator: _required,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _confirmPasswordController,
-                obscureText: true,
-                decoration: appFormInputDecoration(
-                  labelText: 'Confirm new password',
-                  helpText: acpFieldHelpText(
-                    key: 'ConfirmNewPassword',
-                    label: 'Confirm New Password',
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Field cannot be empty.';
-                  }
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Field cannot be empty.';
+                }
 
-                  if (value != _newPasswordController.text) {
-                    return 'Passwords must match.';
-                  }
+                if (value != _newPasswordController.text) {
+                  return 'Passwords must match.';
+                }
 
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _saving ? null : _submit,
-                    child: _saving
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Reset Password'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                return null;
+              },
+            ),
+          ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _submit,
+          child: _saving
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Reset Password'),
+        ),
+      ],
     );
   }
 

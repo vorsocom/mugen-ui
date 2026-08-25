@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 class ShellSettingsPanel extends ConsumerWidget {
@@ -105,48 +106,40 @@ class SettingsOverlayDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.sizeOf(context);
-
-    return Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: maxWidth.clamp(320.0, media.width - 48),
-          maxHeight: maxHeight.clamp(280.0, media.height - 48),
-        ),
-        child: Column(
-          mainAxisSize: expandBody ? MainAxisSize.max : MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (showHeader)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: AppUiPalette.border),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: 'Close',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
+    return AppResponsiveDialog(
+      maxWidth: maxWidth,
+      maxHeight: maxHeight,
+      scrollable: !expandBody,
+      child: Column(
+        mainAxisSize: expandBody ? MainAxisSize.max : MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showHeader)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: AppUiPalette.border)),
               ),
-            if (expandBody) Expanded(child: child) else child,
-          ],
-        ),
+              child: Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+          if (expandBody) Expanded(child: child) else child,
+        ],
       ),
     );
   }

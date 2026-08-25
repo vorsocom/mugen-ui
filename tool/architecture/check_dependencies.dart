@@ -17,6 +17,7 @@ void main() {
 
     final path = entity.path.replaceAll('\\', '/');
     final lines = entity.readAsLinesSync();
+    final source = lines.join('\n');
     final imports = lines
         .where((line) => line.trimLeft().startsWith('import '))
         .map((line) => line.trim())
@@ -60,6 +61,16 @@ void main() {
         imports,
         <String>['/presentation/'],
         'Infrastructure layer imports presentation dependency',
+      );
+    }
+
+    if (path != 'lib/shared/presentation/theme/app_form_style.dart' &&
+        RegExp(
+          r'\b(?:Dialog|AlertDialog|SimpleDialog)\s*\(',
+        ).hasMatch(source)) {
+      violations.add(
+        '$path :: Raw dialog construction bypasses AppFormDialog or '
+        'AppResponsiveDialog',
       );
     }
   }

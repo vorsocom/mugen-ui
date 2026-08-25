@@ -140,20 +140,19 @@ void main() {
       expect(find.byTooltip('Format JSON'), findsOneWidget);
       expect(find.byTooltip('Compact JSON'), findsOneWidget);
 
-      final formFinder = find.byType(Form);
       final scrollView = tester.widget<SingleChildScrollView>(
-        find.descendant(
-          of: formFinder,
-          matching: find.byType(SingleChildScrollView),
-        ),
-      );
-      final scrollbar = tester.widget<Scrollbar>(
-        find.descendant(of: formFinder, matching: find.byType(Scrollbar)),
+        find.byKey(const Key('app-form-dialog-body-scroll')),
       );
 
-      expect(scrollView.padding, const EdgeInsets.only(top: 8, right: 18));
-      expect(scrollbar.thumbVisibility, isTrue);
-      expect(scrollbar.trackVisibility, isTrue);
+      expect(scrollView.padding, const EdgeInsets.all(20));
+      expect(
+        find.byKey(const Key('app-form-dialog-header-divider')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('app-form-dialog-footer-divider')),
+        findsOneWidget,
+      );
     },
   );
 

@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Consolidated dialog-hosted forms on a responsive shared base with a uniform
+  closeable header, section dividers, pinned action footer, and a body that
+  shrink-wraps short content or scrolls within the available viewport.
 - Redesigned the web admin console with a graphite navigation drawer, warm
   neutral borders around clean white workspace and dialog surfaces, restrained
   indigo interaction states, graphite-blue primary actions, refined typography,

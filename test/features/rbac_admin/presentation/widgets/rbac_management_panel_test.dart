@@ -292,9 +292,12 @@ void main() {
       'read',
     );
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const Key('rbac-global-grant-permission-type-option-pt-2')),
+    final globalPermissionTypeOption = find.byKey(
+      const Key('rbac-global-grant-permission-type-option-pt-2'),
     );
+    await tester.ensureVisible(globalPermissionTypeOption);
+    await tester.pumpAndSettle();
+    await tester.tap(globalPermissionTypeOption);
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(FilledButton, 'Create Global Grant'));

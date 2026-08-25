@@ -500,58 +500,28 @@ class _ReleaseHandoffDialogState extends State<_ReleaseHandoffDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      backgroundColor: AppUiPalette.surface,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppUiPalette.border),
+    return AppFormDialog(
+      title: 'Release handoff',
+      maxWidth: 520,
+      body: TextField(
+        key: _releaseReasonFieldKey,
+        controller: _reasonController,
+        minLines: 3,
+        maxLines: 5,
+        decoration: appFormInputDecoration(labelText: 'Reason'),
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: AppFormPanel(
-          margin: EdgeInsets.zero,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Release handoff',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: _releaseReasonFieldKey,
-                controller: _reasonController,
-                minLines: 3,
-                maxLines: 5,
-                decoration: appFormInputDecoration(labelText: 'Reason'),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    key: _confirmReleaseButtonKey,
-                    onPressed: () =>
-                        Navigator.of(context).pop(_reasonController.text),
-                    icon: const Icon(Icons.logout_outlined),
-                    label: const Text('Release'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
         ),
-      ),
+        FilledButton.icon(
+          key: _confirmReleaseButtonKey,
+          onPressed: () => Navigator.of(context).pop(_reasonController.text),
+          icon: const Icon(Icons.logout_outlined),
+          label: const Text('Release'),
+        ),
+      ],
     );
   }
 }

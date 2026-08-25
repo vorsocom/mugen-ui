@@ -249,6 +249,50 @@ void main() {
 
     expect(copiedText, 'Error details');
   });
+
+  testWidgets('AppErrorAlert never renders or copies HTML markup', (
+    WidgetTester tester,
+  ) async {
+    String? copiedText;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (MethodCall call) async {
+        if (call.method == 'Clipboard.setData') {
+          final arguments = Map<Object?, Object?>.from(
+            call.arguments as Map<Object?, Object?>,
+          );
+          copiedText = arguments['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AppErrorAlert(
+            message:
+                '<html><h1>Access denied</h1><p>Request &amp; retry.</p></html>',
+            copyButtonKey: Key('copy-normalized-error'),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Access denied: Request & retry.'), findsOneWidget);
+    expect(find.textContaining('<html>'), findsNothing);
+
+    await tester.tap(find.byKey(const Key('copy-normalized-error')));
+    await tester.pump();
+
+    expect(copiedText, 'Access denied: Request & retry.');
+  });
 }
 
 Future<void> _pumpDialogLauncher(

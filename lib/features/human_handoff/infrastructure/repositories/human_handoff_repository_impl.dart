@@ -11,6 +11,7 @@ import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_se
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tenant_option_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/repositories/human_handoff_repository.dart';
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -397,7 +398,7 @@ class HumanHandoffRepositoryImpl implements HumanHandoffRepository {
         return Result<AuthenticatedResponse>.failure(
           ApiFailure(
             response.response.statusCode,
-            _errorMessageFor(response.response.body),
+            normalizeApiErrorMessage(response.response.body),
           ),
         );
       }
@@ -565,7 +566,7 @@ class HumanHandoffRepositoryImpl implements HumanHandoffRepository {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final payload = await response.stream.bytesToString();
       return Result<http.StreamedResponse>.failure(
-        ApiFailure(response.statusCode, _errorMessageFor(payload)),
+        ApiFailure(response.statusCode, normalizeApiErrorMessage(payload)),
       );
     }
 
@@ -747,71 +748,5 @@ class HumanHandoffRepositoryImpl implements HumanHandoffRepository {
   String _normalizeTenantScopeValue(String? value) {
     return value?.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '') ??
         '';
-  }
-
-  String _errorMessageFor(String raw) {
-    final decoded = _decodeJson(raw);
-    if (decoded is Map) {
-      for (final key in const <String>['message', 'error', 'detail']) {
-        final value = decoded[key];
-        final text = value?.toString().trim();
-        if (text != null && text.isNotEmpty) {
-          return text;
-        }
-      }
-    }
-
-    final htmlMessage = _htmlErrorMessageFor(raw);
-    if (htmlMessage != null) {
-      return htmlMessage;
-    }
-
-    final trimmed = raw.trim();
-    if (trimmed.isNotEmpty) {
-      return trimmed;
-    }
-    return 'API request failed.';
-  }
-
-  String? _htmlErrorMessageFor(String raw) {
-    final trimmed = raw.trim();
-    if (!trimmed.toLowerCase().contains('<html')) {
-      return null;
-    }
-
-    final title = _htmlTagText(trimmed, 'title');
-    final heading = _htmlTagText(trimmed, 'h1');
-    final headingText =
-        heading != null &&
-            !(title?.toLowerCase().contains(heading.toLowerCase()) ?? false)
-        ? heading
-        : null;
-    final paragraph = _htmlTagText(trimmed, 'p');
-    final parts = <String>[?title, ?headingText, ?paragraph];
-    if (parts.isEmpty) {
-      return 'API request failed.';
-    }
-    return parts.join(': ');
-  }
-
-  String? _htmlTagText(String raw, String tagName) {
-    final match = RegExp(
-      '<$tagName[^>]*>(.*?)</$tagName>',
-      caseSensitive: false,
-      dotAll: true,
-    ).firstMatch(raw);
-    final text = match?.group(1);
-    if (text == null) {
-      return null;
-    }
-    final normalized = text
-        .replaceAll(RegExp(r'<[^>]+>'), ' ')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&#39;', "'")
-        .replaceAll('&quot;', '"')
-        .replaceAll('&amp;', '&')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    return normalized.isEmpty ? null : normalized;
   }
 }

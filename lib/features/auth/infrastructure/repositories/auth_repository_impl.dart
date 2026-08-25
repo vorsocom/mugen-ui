@@ -4,6 +4,7 @@ import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
 import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/features/auth/domain/repositories/auth_repository.dart';
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
@@ -48,7 +49,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
       if (!response.response.isSuccess) {
         return Result<AuthSession>.failure(
-          ApiFailure(response.response.statusCode, 'API error.'),
+          ApiFailure(
+            response.response.statusCode,
+            normalizeApiErrorMessage(response.response.body),
+          ),
         );
       }
 
@@ -100,7 +104,12 @@ class AuthRepositoryImpl implements AuthRepository {
         return const Result<void>.success(null);
       }
 
-      return Result<void>.failure(ApiFailure(statusCode, 'API error.'));
+      return Result<void>.failure(
+        ApiFailure(
+          statusCode,
+          normalizeApiErrorMessage(response.response.body),
+        ),
+      );
     } catch (_) {
       return const Result<void>.failure(NetworkFailure('Network error.'));
     }
@@ -180,7 +189,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
       if (!response.response.isSuccess) {
         return Result<void>.failure(
-          ApiFailure(response.response.statusCode, 'API error.'),
+          ApiFailure(
+            response.response.statusCode,
+            normalizeApiErrorMessage(response.response.body),
+          ),
         );
       }
 
@@ -216,7 +228,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
       if (!response.response.isSuccess) {
         return Result<OwnProfileEntity>.failure(
-          ApiFailure(response.response.statusCode, 'API error.'),
+          ApiFailure(
+            response.response.statusCode,
+            normalizeApiErrorMessage(response.response.body),
+          ),
         );
       }
 
@@ -302,7 +317,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
       if (!response.response.isSuccess) {
         return Result<void>.failure(
-          ApiFailure(response.response.statusCode, 'API error.'),
+          ApiFailure(
+            response.response.statusCode,
+            normalizeApiErrorMessage(response.response.body),
+          ),
         );
       }
 

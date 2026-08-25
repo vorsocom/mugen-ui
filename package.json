@@ -3,7 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "build:json-editor": "esbuild tool/codemirror/acp_json_editor.js --bundle --format=iife --global-name=MugenAcpJsonEditorBundle --outfile=web/js/acp_json_editor.bundle.js --minify --target=es2020"
+    "build:json-editor": "esbuild tool/codemirror/acp_json_editor.js --bundle --format=iife --global-name=MugenAcpJsonEditorBundle --outfile=web/js/acp_json_editor.bundle.js --minify --target=es2020",
+    "test:json-editor": "node --test tool/codemirror/*.test.mjs"
   },
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",

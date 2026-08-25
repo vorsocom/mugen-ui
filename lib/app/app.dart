@@ -40,6 +40,7 @@ class MugenApp extends ConsumerWidget {
     final baseTextTheme = ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
+      fontFamily: 'Inter',
     ).textTheme;
     final textTheme = baseTextTheme
         .apply(
@@ -108,6 +109,7 @@ class MugenApp extends ConsumerWidget {
       title: config.browserTitle ?? config.appName,
       theme: ThemeData(
         useMaterial3: true,
+        fontFamily: 'Inter',
         colorScheme: colorScheme,
         textTheme: textTheme,
         scaffoldBackgroundColor: AppUiPalette.background,

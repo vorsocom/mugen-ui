@@ -8,6 +8,7 @@ import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_entity.dar
 import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_invitation_entity.dart';
 import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_membership_entity.dart';
 import 'package:mugen_ui/features/tenant_admin/domain/repositories/tenant_admin_repository.dart';
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -407,7 +408,10 @@ class TenantAdminRepositoryImpl implements TenantAdminRepository {
 
       if (!response.response.isSuccess) {
         return Result<AuthenticatedResponse>.failure(
-          ApiFailure(response.response.statusCode, 'API error.'),
+          ApiFailure(
+            response.response.statusCode,
+            normalizeApiErrorMessage(response.response.body),
+          ),
         );
       }
 
@@ -429,7 +433,10 @@ class TenantAdminRepositoryImpl implements TenantAdminRepository {
 
       if (!response.response.isSuccess) {
         return Result<void>.failure(
-          ApiFailure(response.response.statusCode, 'API error.'),
+          ApiFailure(
+            response.response.statusCode,
+            normalizeApiErrorMessage(response.response.body),
+          ),
         );
       }
 

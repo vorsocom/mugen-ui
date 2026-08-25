@@ -14,6 +14,7 @@ import 'package:mugen_ui/features/user_admin/domain/entities/user_session_entity
 import 'package:mugen_ui/features/user_admin/domain/entities/user_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/entities/user_role_entity.dart';
 import 'package:mugen_ui/features/user_admin/domain/repositories/user_admin_repository.dart';
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
@@ -89,7 +90,10 @@ class UserAdminRepositoryImpl implements UserAdminRepository {
 
       if (!response.response.isSuccess) {
         return Result<PageResult<UserEntity>>.failure(
-          ApiFailure(response.response.statusCode, 'API error.'),
+          ApiFailure(
+            response.response.statusCode,
+            normalizeApiErrorMessage(response.response.body),
+          ),
         );
       }
 
@@ -151,7 +155,10 @@ class UserAdminRepositoryImpl implements UserAdminRepository {
 
       if (!response.response.isSuccess) {
         return Result<List<UserRoleEntity>>.failure(
-          ApiFailure(response.response.statusCode, 'API error.'),
+          ApiFailure(
+            response.response.statusCode,
+            normalizeApiErrorMessage(response.response.body),
+          ),
         );
       }
 
@@ -277,7 +284,10 @@ class UserAdminRepositoryImpl implements UserAdminRepository {
 
       if (!response.response.isSuccess) {
         return Result<List<UserSessionEntity>>.failure(
-          ApiFailure(response.response.statusCode, 'API error.'),
+          ApiFailure(
+            response.response.statusCode,
+            normalizeApiErrorMessage(response.response.body),
+          ),
         );
       }
 
@@ -461,7 +471,10 @@ class UserAdminRepositoryImpl implements UserAdminRepository {
 
     if (!response.response.isSuccess) {
       return Result<void>.failure(
-        ApiFailure(response.response.statusCode, 'API error.'),
+        ApiFailure(
+          response.response.statusCode,
+          normalizeApiErrorMessage(response.response.body),
+        ),
       );
     }
 

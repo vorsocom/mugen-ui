@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_repository.dart';
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -351,7 +352,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         return Result<AuthenticatedResponse>.failure(
           ApiFailure(
             response.response.statusCode,
-            _errorMessageFor(response.response.body),
+            normalizeApiErrorMessage(response.response.body),
           ),
         );
       }
@@ -402,27 +403,5 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     }
     final parsed = int.tryParse(raw?.toString() ?? '');
     return parsed ?? fallback;
-  }
-
-  String _errorMessageFor(String raw) {
-    final decoded = _decodeJson(raw);
-    if (decoded is Map) {
-      for (final key in const <String>['message', 'error', 'detail']) {
-        final candidate = decoded[key];
-        if (candidate != null) {
-          final text = candidate.toString().trim();
-          if (text.isNotEmpty) {
-            return text;
-          }
-        }
-      }
-    }
-
-    final trimmed = raw.trim();
-    if (trimmed.isNotEmpty) {
-      return trimmed;
-    }
-
-    return 'API request failed.';
   }
 }

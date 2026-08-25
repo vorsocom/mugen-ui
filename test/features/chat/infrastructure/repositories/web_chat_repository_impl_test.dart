@@ -709,7 +709,7 @@ data: "content":"hello"}}
     expect(fallbackResult.isFailure, isTrue);
     expect(
       (fallbackResult.failure as ApiFailure).message,
-      '502 HTTP error: Gateway returned "blocked".',
+      'Gateway returned "blocked".',
     );
   });
 

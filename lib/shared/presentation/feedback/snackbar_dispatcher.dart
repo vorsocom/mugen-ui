@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
 
 const int _snackBarDurationSeconds = 5;
@@ -21,10 +22,14 @@ class SnackBarDispatcher {
       return;
     }
 
+    final resolvedContent = normalizeApiErrorMessage(
+      content,
+      fallback: 'Request failed.',
+    );
     messenger.showSnackBar(
       SnackBar(
         duration: const Duration(seconds: _snackBarDurationSeconds),
-        content: Text(content),
+        content: Text(resolvedContent),
         showCloseIcon: true,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(

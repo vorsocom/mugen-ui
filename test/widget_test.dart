@@ -39,7 +39,18 @@ void main() {
     expect(AppUiPalette.background, Colors.white);
     expect(AppUiPalette.userBar, Colors.white);
     expect(AppUiPalette.surface, Colors.white);
+    expect(AppUiPalette.surfaceMuted, const Color(0xFFF5F5F5));
+    expect(AppUiPalette.surfaceStrong, const Color(0xFFE5E5E5));
+    expect(AppUiPalette.border, const Color(0xFFD4D4D4));
+    expect(AppUiPalette.borderStrong, const Color(0xFFA3A3A3));
+    expect(AppUiPalette.textPrimary, const Color(0xFF262626));
+    expect(AppUiPalette.textSecondary, const Color(0xFF525252));
+    expect(AppUiPalette.textMuted, const Color(0xFF737373));
+    expect(AppUiPalette.textDisabled, const Color(0xFFA3A3A3));
+    expect(AppUiPalette.drawerText, const Color(0xFFE5E5E5));
+    expect(AppUiPalette.drawerTextMuted, const Color(0xFFA3A3A3));
     expect(theme.scaffoldBackgroundColor, AppUiPalette.background);
+    expect(theme.drawerTheme.scrimColor, const Color(0x8F262626));
     expect(theme.colorScheme.primary, AppUiPalette.accent);
     expect(AppUiPalette.accent, AppUiPalette.buttonPrimary);
     expect(AppUiPalette.accent, const Color(0xFF40546A));

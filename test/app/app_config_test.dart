@@ -26,6 +26,7 @@ void main() {
             acpBase: 'custom/acp/v2',
             webMessages: 'custom/messages',
             authDeleteUser: 'custom/users/{user_id}/delete',
+            runtimeExtensions: 'custom/runtime/extensions',
             tenantMembershipActionSuspend:
                 'custom/tenants/{tenant_id}/memberships/{membership_id}/suspend',
             rbacGlobalRoleMembership: 'custom/global-role-memberships',
@@ -67,6 +68,11 @@ void main() {
       'core/acp/v1/Users/{user_id}/\$action/delete',
     );
     expect(defaults.api.endpoints.tenant, 'core/acp/v1/Tenants');
+    expect(
+      defaults.api.endpoints.runtimeExtensions,
+      'core/acp/v1/runtime/extensions',
+    );
+    expect(merged.api.endpoints.runtimeExtensions, 'custom/runtime/extensions');
     expect(
       defaults.api.endpoints.tenantMembershipActionSuspend,
       'core/acp/v1/tenants/{tenant_id}/TenantMemberships/{membership_id}/\$action/suspend',
@@ -201,6 +207,13 @@ void main() {
     expect(shellRouteIds, contains(RouteIds.contextEngine));
     expect(shellRouteIds, contains(RouteIds.knowledgePacks));
     expect(shellRouteIds, contains(RouteIds.acpConsole));
+    expect(shellRouteIds, contains(RouteIds.billingCatalog));
+    expect(
+      definition.shellRoutes
+          .firstWhere((route) => route.id == RouteIds.billingCatalog)
+          .availabilityProvider,
+      isNotNull,
+    );
     expect(
       definition.shellRoutes
           .firstWhere((route) => route.id == RouteIds.localUsers)
@@ -225,6 +238,10 @@ void main() {
     expect(
       shellRouteOrder.indexOf(RouteIds.humanHandoff),
       shellRouteOrder.indexOf(RouteIds.chat) + 1,
+    );
+    expect(
+      shellRouteOrder.indexOf(RouteIds.localUsers),
+      shellRouteOrder.indexOf(RouteIds.billingCatalog) + 1,
     );
     expect(
       shellRouteOrder.indexOf(RouteIds.knowledgePacks),
@@ -497,6 +514,12 @@ void main() {
     expect(
       definition.shellRoutes
           .firstWhere((route) => route.id == RouteIds.acpConsole)
+          .builder(context),
+      isA<Padding>(),
+    );
+    expect(
+      definition.shellRoutes
+          .firstWhere((route) => route.id == RouteIds.billingCatalog)
           .builder(context),
       isA<Padding>(),
     );

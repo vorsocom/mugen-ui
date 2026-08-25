@@ -11,6 +11,26 @@ typedef ParsedTopLevelRouteLocationBuilder<T> = String Function(T data);
 typedef ParsedTopLevelRouteWidgetBuilder<T> =
     Widget Function(BuildContext context, T data);
 
+enum ShellRouteAvailabilityStatus { pending, available, unavailable }
+
+class ShellRouteAvailability {
+  const ShellRouteAvailability({required this.status, this.message});
+
+  const ShellRouteAvailability.pending()
+    : status = ShellRouteAvailabilityStatus.pending,
+      message = null;
+
+  const ShellRouteAvailability.available()
+    : status = ShellRouteAvailabilityStatus.available,
+      message = null;
+
+  const ShellRouteAvailability.unavailable([this.message])
+    : status = ShellRouteAvailabilityStatus.unavailable;
+
+  final ShellRouteAvailabilityStatus status;
+  final String? message;
+}
+
 class TopLevelRouteMatch {
   const TopLevelRouteMatch({required this.location, this.data});
 
@@ -80,6 +100,7 @@ class ShellRouteDefinition {
     required this.builder,
     this.section,
     this.requiredRoles = const <String>[],
+    this.availabilityProvider,
     this.showInDrawer = true,
   });
 
@@ -88,6 +109,7 @@ class ShellRouteDefinition {
   final IconData icon;
   final String? section;
   final List<String> requiredRoles;
+  final ProviderListenable<ShellRouteAvailability>? availabilityProvider;
   final bool showInDrawer;
   final WidgetBuilder builder;
 }

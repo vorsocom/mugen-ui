@@ -89,7 +89,7 @@ class _AcpJsonEditorFieldState extends State<AcpJsonEditorField> {
           children: [
             DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppUiPalette.surface,
                 border: Border.all(color: borderColor),
                 borderRadius: BorderRadius.circular(12),
               ),

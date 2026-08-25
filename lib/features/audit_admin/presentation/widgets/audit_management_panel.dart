@@ -1390,7 +1390,7 @@ class _AuditLifecyclePhaseSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppUiPalette.surface,
         border: Border.all(color: AppUiPalette.border),
         borderRadius: BorderRadius.circular(12),
       ),

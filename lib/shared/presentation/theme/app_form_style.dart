@@ -8,13 +8,15 @@ class AppFormPanel extends StatelessWidget {
   const AppFormPanel({
     required this.child,
     super.key,
-    this.margin = const EdgeInsets.all(10),
-    this.padding = const EdgeInsets.all(12),
+    this.margin = EdgeInsets.zero,
+    this.padding = const EdgeInsets.all(20),
+    this.showBorder = true,
   });
 
   final Widget child;
   final EdgeInsetsGeometry margin;
   final EdgeInsetsGeometry padding;
+  final bool showBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -23,8 +25,8 @@ class AppFormPanel extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: AppUiPalette.surface,
-        border: Border.all(color: AppUiPalette.border),
-        borderRadius: BorderRadius.circular(adminRadius),
+        border: showBorder ? Border.all(color: AppUiPalette.border) : null,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: child,
     );
@@ -115,15 +117,16 @@ Future<bool?> showAppConfirmationDialog({
       final theme = Theme.of(dialogContext);
       return Dialog(
         insetPadding: const EdgeInsets.all(24),
-        backgroundColor: AppUiPalette.surfaceMuted,
+        backgroundColor: AppUiPalette.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           side: const BorderSide(color: AppUiPalette.border),
         ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: AppFormPanel(
+            showBorder: false,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -211,17 +214,17 @@ InputDecoration appFormInputDecoration({
     hintText: hintText,
     errorMaxLines: errorMaxLines,
     filled: true,
-    fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    fillColor: AppUiPalette.surface,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     enabledBorder: baseBorder,
     focusedBorder: baseBorder.copyWith(
-      borderSide: const BorderSide(color: AppUiPalette.textMuted),
+      borderSide: const BorderSide(color: AppUiPalette.accent, width: 1.5),
     ),
     errorBorder: baseBorder.copyWith(
-      borderSide: BorderSide(color: Colors.red.shade400),
+      borderSide: const BorderSide(color: AppUiPalette.danger),
     ),
     focusedErrorBorder: baseBorder.copyWith(
-      borderSide: BorderSide(color: Colors.red.shade500),
+      borderSide: const BorderSide(color: AppUiPalette.danger, width: 1.5),
     ),
     suffixIcon: resolvedSuffixIcon,
     suffixIconConstraints: resolvedSuffixIcon == null
@@ -268,9 +271,10 @@ class AppFieldHelpIcon extends StatelessWidget {
       showDuration: const Duration(seconds: 12),
       constraints: const BoxConstraints(maxWidth: 360),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      textStyle: Theme.of(
-        context,
-      ).textTheme.bodySmall?.copyWith(color: Colors.white, height: 1.3),
+      textStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: AppUiPalette.drawerText,
+        height: 1.3,
+      ),
       child: const SizedBox.square(
         dimension: 22,
         child: Center(

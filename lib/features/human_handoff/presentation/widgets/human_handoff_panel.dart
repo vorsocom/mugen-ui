@@ -283,7 +283,7 @@ class _SessionTile extends ConsumerWidget {
         ? Colors.green.shade700
         : AppUiPalette.textMuted;
     return Material(
-      color: selected ? AppUiPalette.surfaceStrong : Colors.white,
+      color: selected ? AppUiPalette.surfaceStrong : AppUiPalette.surface,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -502,10 +502,10 @@ class _ReleaseHandoffDialogState extends State<_ReleaseHandoffDialog> {
   Widget build(BuildContext context) {
     return Dialog(
       insetPadding: const EdgeInsets.all(24),
-      backgroundColor: AppUiPalette.surfaceMuted,
+      backgroundColor: AppUiPalette.surface,
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: AppUiPalette.border),
       ),
       child: ConstrainedBox(
@@ -840,7 +840,7 @@ class _InfoChip extends StatelessWidget {
       visualDensity: VisualDensity.compact,
       label: Text('$label: $text'),
       side: const BorderSide(color: AppUiPalette.border),
-      backgroundColor: Colors.white,
+      backgroundColor: AppUiPalette.surface,
     );
   }
 }

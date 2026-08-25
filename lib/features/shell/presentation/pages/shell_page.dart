@@ -25,7 +25,7 @@ const Key _humanHandoffDrawerStatusKey = Key(
   'shell-human-handoff-status-chips',
 );
 const String _shellSettingsPanelKeyPrefix = 'shell-account-settings-panel';
-const double _shellTopBarHeight = 52;
+const double _shellTopBarHeight = 64;
 
 enum _AccountMenuAction { logout }
 
@@ -219,19 +219,13 @@ class _ShellUserBar extends ConsumerWidget {
 
     return Container(
       height: _shellTopBarHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      decoration: const BoxDecoration(
+        color: AppUiPalette.userBar,
         border: Border(bottom: BorderSide(color: AppUiPalette.border)),
       ),
       child: Row(
         children: [
-          IconButton(
-            tooltip: 'Toggle drawer',
-            icon: const Icon(Icons.menu),
-            onPressed: () {
-              ref.read(shellControllerProvider.notifier).toggleCollapsed();
-            },
-          ),
           Expanded(
             child: Row(
               children: [
@@ -240,7 +234,9 @@ class _ShellUserBar extends ConsumerWidget {
                     routeTitle,
                     key: _shellUserBarTitleKey,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: AppUiPalette.textSecondary,
+                    ),
                   ),
                 ),
                 if (showConnectionIndicator) ...[
@@ -408,8 +404,8 @@ class _ShellAccountMenu extends ConsumerWidget {
           await _handleLogout(ref);
         }
       },
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 10,
       constraints: const BoxConstraints(minWidth: 320, maxWidth: 360),
       itemBuilder: (context) {
         return <PopupMenuEntry<_AccountMenuAction>>[
@@ -452,16 +448,16 @@ class _ShellAccountMenu extends ConsumerWidget {
         ];
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          border: Border.all(color: AppUiPalette.border),
-          borderRadius: BorderRadius.circular(18),
+          color: AppUiPalette.surfaceMuted.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(9),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircleAvatar(
-              radius: 12,
+              radius: 15,
               backgroundColor: AppUiPalette.surfaceStrong,
               child: Text(
                 initials,
@@ -708,7 +704,7 @@ class _AccountSettingsPanelAction extends StatelessWidget {
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppUiPalette.surface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AppUiPalette.border),
           ),
@@ -841,70 +837,68 @@ class _AppDrawer extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return SizedBox(
-      width: isCollapsed ? 72 : 250,
-      child: Drawer(
-        elevation: 0,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-        child: Column(
-          children: [
-            Container(
-              height: _shellTopBarHeight,
-              alignment: isCollapsed ? Alignment.center : Alignment.centerLeft,
-              padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 0 : 12),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: AppUiPalette.border)),
-              ),
-              child: Text(
-                isCollapsed ? 'mG' : config.appName,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
+      width: isCollapsed ? 72 : 264,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(right: BorderSide(color: AppUiPalette.drawerBorder)),
+        ),
+        child: Drawer(
+          backgroundColor: AppUiPalette.drawer,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          child: Column(
+            children: [
+              Container(
+                height: _shellTopBarHeight,
+                padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 16),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: AppUiPalette.drawerBorder),
+                  ),
                 ),
-              ),
-            ),
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
-                children: [
-                  for (final item in primaryItems)
-                    _buildDrawerNavItem(
-                      context: context,
-                      ref: ref,
-                      item: item,
-                      isSelected: !showSettings && activeRoute == item.id,
-                      isCollapsed: isCollapsed,
-                    ),
-                  for (
-                    var index = 0;
-                    index < sectionEntries.length;
-                    index++
-                  ) ...[
-                    if (isCollapsed &&
-                        (index > 0 || primaryItems.isNotEmpty)) ...[
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
-                        child: Divider(
-                          height: 1,
-                          thickness: 1,
-                          color: AppUiPalette.border,
-                        ),
-                      ),
-                    ],
-                    if (!isCollapsed) ...[
-                      if (index > 0 || primaryItems.isNotEmpty)
-                        const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+                child: Row(
+                  mainAxisAlignment: isCollapsed
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.spaceBetween,
+                  children: [
+                    if (!isCollapsed)
+                      Expanded(
                         child: Text(
-                          sectionEntries[index].key,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: AppUiPalette.textSecondary,
+                          config.appName,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: AppUiPalette.drawerText,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 0.35,
+                            letterSpacing: -0.2,
                           ),
                         ),
                       ),
-                    ],
-                    for (final item in sectionEntries[index].value)
+                    IconButton(
+                      tooltip: 'Toggle drawer',
+                      color: AppUiPalette.drawerText,
+                      hoverColor: AppUiPalette.drawerRaised,
+                      focusColor: AppUiPalette.drawerSelected,
+                      icon: Icon(
+                        isCollapsed
+                            ? Icons.menu_open_outlined
+                            : Icons.menu_outlined,
+                        size: 22,
+                      ),
+                      onPressed: () {
+                        ref
+                            .read(shellControllerProvider.notifier)
+                            .toggleCollapsed();
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(10, 12, 10, 16),
+                  children: [
+                    for (final item in primaryItems)
                       _buildDrawerNavItem(
                         context: context,
                         ref: ref,
@@ -912,11 +906,51 @@ class _AppDrawer extends ConsumerWidget {
                         isSelected: !showSettings && activeRoute == item.id,
                         isCollapsed: isCollapsed,
                       ),
+                    for (
+                      var index = 0;
+                      index < sectionEntries.length;
+                      index++
+                    ) ...[
+                      if (isCollapsed &&
+                          (index > 0 || primaryItems.isNotEmpty)) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+                          child: Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: AppUiPalette.drawerBorder,
+                          ),
+                        ),
+                      ],
+                      if (!isCollapsed) ...[
+                        if (index > 0 || primaryItems.isNotEmpty)
+                          const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
+                          child: Text(
+                            sectionEntries[index].key,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: AppUiPalette.drawerTextMuted,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.45,
+                            ),
+                          ),
+                        ),
+                      ],
+                      for (final item in sectionEntries[index].value)
+                        _buildDrawerNavItem(
+                          context: context,
+                          ref: ref,
+                          item: item,
+                          isSelected: !showSettings && activeRoute == item.id,
+                          isCollapsed: isCollapsed,
+                        ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -935,17 +969,33 @@ Widget _buildDrawerNavItem({
       ? const _HumanHandoffDrawerStatusChips()
       : null;
   final tile = Material(
-    color: isSelected ? AppUiPalette.surfaceStrong : Colors.transparent,
-    borderRadius: BorderRadius.circular(14),
+    color: Colors.transparent,
+    borderRadius: BorderRadius.circular(8),
     child: InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(8),
+      hoverColor: AppUiPalette.drawerRaised,
+      focusColor: AppUiPalette.drawerSelected,
+      splashColor: AppUiPalette.accent.withValues(alpha: 0.18),
       onTap: () {
         ref.read(shellControllerProvider.notifier).setRoute(item.id);
       },
-      child: Container(
+      child: AnimatedContainer(
+        key: Key('shell-drawer-item-${item.id}'),
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOut,
         padding: EdgeInsets.symmetric(
-          horizontal: isCollapsed ? 6 : 10,
-          vertical: 8,
+          horizontal: isCollapsed ? 5 : 9,
+          vertical: 6,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? AppUiPalette.drawerSelected : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border(
+            left: BorderSide(
+              color: isSelected ? AppUiPalette.accent : Colors.transparent,
+              width: 3,
+            ),
+          ),
         ),
         child: Row(
           mainAxisAlignment: isCollapsed
@@ -964,6 +1014,9 @@ Widget _buildDrawerNavItem({
                   item.title,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
+                    color: isSelected
+                        ? AppUiPalette.drawerText
+                        : AppUiPalette.drawerTextMuted,
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
@@ -977,7 +1030,7 @@ Widget _buildDrawerNavItem({
   );
 
   return Padding(
-    padding: const EdgeInsets.only(bottom: 6),
+    padding: const EdgeInsets.only(bottom: 4),
     child: isCollapsed ? Tooltip(message: item.title, child: tile) : tile,
   );
 }
@@ -1180,30 +1233,30 @@ class _DrawerStatusChip extends StatelessWidget {
 
 _DrawerStatusColors _drawerStatusColors(_DrawerStatusStyle style) {
   return switch (style) {
-    _DrawerStatusStyle.success => _DrawerStatusColors(
-      foreground: AppUiPalette.success,
-      background: AppUiPalette.success.withValues(alpha: 0.1),
-      border: AppUiPalette.success.withValues(alpha: 0.3),
+    _DrawerStatusStyle.success => const _DrawerStatusColors(
+      foreground: Color(0xFFB8DDC7),
+      background: Color(0xFF304139),
+      border: Color(0xFF50695B),
     ),
-    _DrawerStatusStyle.warning => _DrawerStatusColors(
-      foreground: AppUiPalette.warning,
-      background: AppUiPalette.warningSoft,
-      border: AppUiPalette.warning.withValues(alpha: 0.3),
+    _DrawerStatusStyle.warning => const _DrawerStatusColors(
+      foreground: Color(0xFFE9C99D),
+      background: Color(0xFF443B30),
+      border: Color(0xFF6C5A43),
     ),
-    _DrawerStatusStyle.danger => _DrawerStatusColors(
-      foreground: AppUiPalette.danger,
-      background: AppUiPalette.dangerSoft,
-      border: AppUiPalette.danger.withValues(alpha: 0.3),
+    _DrawerStatusStyle.danger => const _DrawerStatusColors(
+      foreground: Color(0xFFF0B7B2),
+      background: Color(0xFF493534),
+      border: Color(0xFF714C49),
     ),
-    _DrawerStatusStyle.info => _DrawerStatusColors(
-      foreground: AppUiPalette.accent,
-      background: AppUiPalette.accentSoft,
-      border: AppUiPalette.borderStrong,
+    _DrawerStatusStyle.info => const _DrawerStatusColors(
+      foreground: Color(0xFFD2CFFF),
+      background: Color(0xFF3A394D),
+      border: Color(0xFF5B587F),
     ),
     _DrawerStatusStyle.neutral => const _DrawerStatusColors(
-      foreground: AppUiPalette.textSecondary,
-      background: AppUiPalette.surfaceMuted,
-      border: AppUiPalette.border,
+      foreground: AppUiPalette.drawerTextMuted,
+      background: AppUiPalette.drawerRaised,
+      border: AppUiPalette.drawerBorder,
     ),
   };
 }
@@ -1234,16 +1287,22 @@ class _DrawerIconBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final backgroundColor = selected
-        ? AppUiPalette.border
-        : AppUiPalette.surfaceStrong;
+        ? AppUiPalette.accent.withValues(alpha: 0.24)
+        : AppUiPalette.drawerRaised;
     return Container(
       width: compact ? 34 : 30,
       height: compact ? 34 : 30,
-      decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppUiPalette.drawerBorder),
+      ),
       child: Icon(
         icon,
         size: compact ? 19 : 18,
-        color: AppUiPalette.textPrimary,
+        color: selected
+            ? const Color(0xFFD5D2FF)
+            : AppUiPalette.drawerTextMuted,
       ),
     );
   }
@@ -1265,8 +1324,8 @@ class _NoAccessibleRoutesView extends StatelessWidget {
           margin: const EdgeInsets.all(24),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            color: AppUiPalette.surface,
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppUiPalette.border),
           ),
           child: Column(

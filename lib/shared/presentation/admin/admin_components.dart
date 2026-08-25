@@ -6,14 +6,14 @@ import 'package:flutter/material.dart';
 
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
-const double adminPageGutter = 16;
-const double adminSectionGap = 12;
-const double adminControlHeight = 36;
-const double adminInputHeight = 40;
-const double adminRowMinHeight = 44;
-const double adminRowMaxHeight = 52;
-const double adminRadius = 8;
-const double adminCompactRadius = 6;
+const double adminPageGutter = 24;
+const double adminSectionGap = 18;
+const double adminControlHeight = 40;
+const double adminInputHeight = 44;
+const double adminRowMinHeight = 46;
+const double adminRowMaxHeight = 54;
+const double adminRadius = 10;
+const double adminCompactRadius = 7;
 
 class AdminPageHeader extends StatelessWidget {
   const AdminPageHeader({
@@ -46,19 +46,19 @@ class AdminPageHeader extends StatelessWidget {
                 Text(
                   title,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleLarge?.copyWith(
+                  style: theme.textTheme.headlineSmall?.copyWith(
                     color: AppUiPalette.textPrimary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 5),
                 Text(
                   subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
+                  style: theme.textTheme.bodyLarge?.copyWith(
                     color: AppUiPalette.textSecondary,
-                    height: 1.25,
+                    height: 1.35,
                   ),
                 ),
               ],
@@ -150,17 +150,15 @@ class AdminTabs extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: AppUiPalette.border)),
+      ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
-          children: [
-            for (final item in items) ...[
-              _AdminTabButton(item: item),
-              const SizedBox(width: 6),
-            ],
-          ],
+          children: [for (final item in items) _AdminTabButton(item: item)],
         ),
       ),
     );
@@ -176,62 +174,73 @@ class _AdminTabButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final foreground = item.selected
-        ? AppUiPalette.textPrimary
+        ? AppUiPalette.accent
         : AppUiPalette.textSecondary;
-    final child = Material(
-      color: item.selected ? AppUiPalette.accentSoft : Colors.transparent,
-      borderRadius: BorderRadius.circular(adminCompactRadius),
-      child: InkWell(
-        key: item.key,
-        borderRadius: BorderRadius.circular(adminCompactRadius),
-        onTap: item.selected ? null : item.onSelected,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 34),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(adminCompactRadius),
-            border: Border(
-              bottom: BorderSide(
-                color: item.selected ? AppUiPalette.accent : Colors.transparent,
-                width: 2,
+    final child = Semantics(
+      button: true,
+      selected: item.selected,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: item.key,
+          hoverColor: AppUiPalette.surfaceMuted,
+          focusColor: AppUiPalette.accentSoft,
+          splashColor: AppUiPalette.accent.withValues(alpha: 0.08),
+          onTap: item.selected ? null : item.onSelected,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            constraints: const BoxConstraints(minHeight: 46),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: item.selected
+                      ? AppUiPalette.accent
+                      : Colors.transparent,
+                  width: 2,
+                ),
               ),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                item.label,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: foreground,
-                  fontWeight: item.selected ? FontWeight.w700 : FontWeight.w500,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  item.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: foreground,
+                    fontWeight: item.selected
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                  ),
                 ),
-              ),
-              if (item.count != null) ...[
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: item.selected
-                        ? AppUiPalette.surface
-                        : AppUiPalette.surfaceMuted,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: AppUiPalette.border),
-                  ),
-                  child: Text(
-                    '${item.count}',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: AppUiPalette.textSecondary,
-                      fontWeight: FontWeight.w700,
+                if (item.count != null) ...[
+                  const SizedBox(width: 7),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: item.selected
+                          ? AppUiPalette.accentSoft
+                          : AppUiPalette.surfaceMuted,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${item.count}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: item.selected
+                            ? AppUiPalette.accent
+                            : AppUiPalette.textSecondary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -272,7 +281,7 @@ class AdminEmptyState extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -484,9 +493,7 @@ class AdminDataGrid<T> extends StatelessWidget {
                           return AppUiPalette.accentSoft;
                         }
                         if (states.contains(WidgetState.hovered)) {
-                          return AppUiPalette.surfaceMuted.withValues(
-                            alpha: 0.6,
-                          );
+                          return AppUiPalette.userBar;
                         }
                         return null;
                       }),
@@ -618,7 +625,7 @@ class AdminGridFooter extends StatelessWidget {
               height: 32,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppUiPalette.surface,
                   borderRadius: BorderRadius.circular(adminCompactRadius),
                   border: Border.all(color: AppUiPalette.border),
                 ),

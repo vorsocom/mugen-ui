@@ -1291,10 +1291,10 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
     builder: (dialogContext) {
       return Dialog(
         insetPadding: const EdgeInsets.all(24),
-        backgroundColor: AppUiPalette.surfaceMuted,
+        backgroundColor: AppUiPalette.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           side: const BorderSide(color: AppUiPalette.border),
         ),
         child: ConstrainedBox(
@@ -1594,10 +1594,10 @@ Future<void> _handleObjectMutationResult({
       builder: (dialogContext) {
         return Dialog(
           insetPadding: const EdgeInsets.all(24),
-          backgroundColor: AppUiPalette.surfaceMuted,
+          backgroundColor: AppUiPalette.surface,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             side: const BorderSide(color: AppUiPalette.border),
           ),
           child: ConstrainedBox(
@@ -1776,7 +1776,7 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppUiPalette.surface,
           border: Border.all(color: AppUiPalette.border),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -1788,7 +1788,7 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
       constraints: const BoxConstraints(maxHeight: 220),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppUiPalette.surface,
           border: Border.all(color: AppUiPalette.border),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -2220,7 +2220,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     if (field.kind == AcpFieldKind.boolean) {
       return Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppUiPalette.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppUiPalette.border),
         ),

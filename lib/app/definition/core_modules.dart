@@ -286,36 +286,36 @@ Widget _buildResetPasswordPanel(BuildContext context) =>
 Widget _buildChatPage(BuildContext context) => const ChatPage();
 
 Widget _buildHumanHandoffRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: HumanHandoffPanel());
+    const Padding(padding: EdgeInsets.all(24), child: HumanHandoffPanel());
 
 Widget _buildLocalUsersRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: LocalUserPanel());
+    const Padding(padding: EdgeInsets.all(24), child: LocalUserPanel());
 
 Widget _buildTenantManagementRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: TenantManagementPanel());
+    const Padding(padding: EdgeInsets.all(24), child: TenantManagementPanel());
 
 Widget _buildRbacManagementRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: RbacManagementPanel());
+    const Padding(padding: EdgeInsets.all(24), child: RbacManagementPanel());
 
 Widget _buildAuditManagementRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: AuditManagementPanel());
+    const Padding(padding: EdgeInsets.all(24), child: AuditManagementPanel());
 
 Widget _buildRuntimeControlRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: RuntimeControlPanel());
+    const Padding(padding: EdgeInsets.all(24), child: RuntimeControlPanel());
 
 Widget _buildChannelOrchestrationRoute(BuildContext context) => const Padding(
-  padding: EdgeInsets.all(16),
+  padding: EdgeInsets.all(24),
   child: ChannelOrchestrationPanel(),
 );
 
 Widget _buildContextEngineRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: ContextEnginePanel());
+    const Padding(padding: EdgeInsets.all(24), child: ContextEnginePanel());
 
 Widget _buildKnowledgePackRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: KnowledgePackPanel());
+    const Padding(padding: EdgeInsets.all(24), child: KnowledgePackPanel());
 
 Widget _buildAcpConsoleRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: AcpConsolePanel());
+    const Padding(padding: EdgeInsets.all(24), child: AcpConsolePanel());
 
 Widget _buildBillingCatalogRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: BillingCatalogPanel());
+    const Padding(padding: EdgeInsets.all(24), child: BillingCatalogPanel());

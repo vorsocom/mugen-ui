@@ -146,23 +146,22 @@ void main() {
     expect(find.byIcon(Icons.search), findsOneWidget);
   });
 
-  testWidgets('appFieldLabelWithHelp omits tooltip for blank help text', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: appFieldLabelWithHelp(
-            labelText: 'Name',
-            helpText: '  ',
-            helpKey: const Key('name-help'),
-          ),
-        ),
-      ),
+  test('appFormInputDecoration rejects blank help text', () {
+    expect(
+      () => appFormInputDecoration(labelText: 'Name', helpText: '  '),
+      throwsAssertionError,
     );
+  });
 
-    expect(find.text('Name'), findsOneWidget);
-    expect(find.byKey(const Key('name-help')), findsNothing);
+  test('appFieldLabelWithHelp rejects blank help text', () {
+    expect(
+      () => appFieldLabelWithHelp(labelText: 'Name', helpText: '  '),
+      throwsAssertionError,
+    );
+  });
+
+  test('AppFieldHelpIcon rejects blank help text', () {
+    expect(() => AppFieldHelpIcon(message: ''), throwsAssertionError);
   });
 
   testWidgets('appFieldLabelWithHelp renders tooltip for nonblank help text', (

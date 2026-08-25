@@ -46,6 +46,52 @@ String _contextKey(String? owner, String? actionName, String fieldKey) {
 }
 
 const Map<String, String> _fieldHelpByContext = <String, String>{
+  'login::username':
+      'Username for the local account you want to sign in with. Enter the exact account identifier assigned by an administrator.',
+  'login::password':
+      'Current password for this local account. The value is used only to authenticate this sign-in attempt and is not displayed after submission.',
+  'resetpassword::currentpassword':
+      'Existing password for your signed-in account. It confirms your identity before the replacement password is accepted.',
+  'resetpassword::newpassword':
+      'Replacement password for your signed-in account. Use a unique, strong value that meets the backend password policy.',
+  'resetpassword::confirmnewpassword':
+      'Repeat the replacement password exactly. This prevents changing the account password with an unnoticed typing error.',
+  'humanhandoff::tenant':
+      'Tenant whose active handoff queue is displayed. Changing this scope reloads sessions and live updates for that tenant only.',
+  'humanhandoff::status':
+      'Limits the handoff queue to active, inactive, or all sessions. Active sessions can receive operator replies.',
+  'humanhandoff::platform':
+      'Optional exact messaging-platform filter, such as web, whatsapp, or telegram. Submit an empty value to clear the filter.',
+  'humanhandoff::serviceroute':
+      'Optional service-route filter used to narrow the queue to one business workflow, such as support or sales.',
+  'humanhandoff::owner':
+      'Optional owner user ID filter. Use the canonical local user ID assigned to the handoff session, not a display name.',
+  'humanhandoff::reason':
+      'Optional operational explanation recorded when releasing the selected handoff. Include a concise resolution or transfer reason for audit review.',
+  'humanhandoff::reply':
+      'Operator message sent to the selected active handoff session. The draft is preserved when delivery fails so it can be corrected or retried.',
+  'auditadmin::scope':
+      'Chooses whether the audit view reads platform-global events or events belonging to one tenant.',
+  'auditadmin::tenant':
+      'Tenant whose audit events and lifecycle actions are in scope. The global reserved tenant is shown explicitly when available.',
+  'auditadmin::search':
+      'Filters audit events by entity, operation, action, or source. Use stable identifiers for the most precise results.',
+  'billingcatalog::lifecycle':
+      'Chooses active or archived global catalog entries. Archived entries remain available for restore and historical inspection.',
+  'billingcatalog::product':
+      'Limits the Price list to one global Product. This filter never follows the currently selected tenant.',
+  'billingcatalog::search':
+      'Filters the current Product or Price list by its searchable code and descriptive fields.',
+  'rbacadmin::tenant':
+      'Tenant used by tenant-role, tenant-grant, and tenant-membership tabs. Global RBAC tabs do not change scope.',
+  'tenantadmin::tenant':
+      'Tenant whose domains, invitations, and memberships are displayed in the detail tabs.',
+  'acpadmin::scope':
+      'Selects global data or tenant-scoped data for resources that support both. The backend remains authoritative for permitted scopes.',
+  'acpadmin::tenant':
+      'Tenant applied to this ACP resource request. Global resources do not send or depend on this selection.',
+  'acpadmin::search':
+      'Filters the current ACP resource by its configured searchable fields. Use stable codes or identifiers for exact results.',
   'billingproducts::code':
       'Stable global Product code used by the Billing API and downstream integrations. The backend normalizes it and rejects duplicates, so choose a durable catalog identifier.',
   'billingproducts::name':
@@ -152,6 +198,12 @@ const Map<String, String> _fieldHelpByLabel = <String, String>{
 };
 
 const Map<String, String> _fieldHelpByKey = <String, String>{
+  'tenant':
+      'Tenant whose records are displayed or changed. Confirm the tenant before submitting any mutation.',
+  'search':
+      'Filters the current result set using the searchable fields supported by this screen.',
+  'lifecycle':
+      'Lifecycle view used to show active or archived records without changing their stored state.',
   'namespace':
       'ACP namespace that owns the role, permission object, or permission type. Use a stable reverse-DNS style namespace, for example "com.vorsocomputing.mugen.acp".',
   'name':
@@ -164,6 +216,8 @@ const Map<String, String> _fieldHelpByKey = <String, String>{
       'Stable profile identifier within this backend resource. Prefer lowercase key-style values such as "default" or "wa-global-default"; changing it can break downstream references.',
   'displayname':
       'Operator-friendly name shown in admin lists and selectors. Use a concise description such as "WhatsApp Global Default".',
+  'description':
+      'Human-readable explanation shown to operators. Describe the purpose and boundaries of the row without including secrets.',
   'firstname':
       'The user-facing given name stored on the person profile. Use the legal or business-preferred spelling where possible, for example "Ada".',
   'lastname':
@@ -174,6 +228,8 @@ const Map<String, String> _fieldHelpByKey = <String, String>{
       'The contact and recovery email address. Use a reachable mailbox because invitations, password resets, and account notices may depend on it.',
   'password':
       'The initial password for this local account. Use a strong temporary value and require the user to rotate it through the normal account flow.',
+  'currentpassword':
+      'Existing password for the signed-in local account. It is required to authorize a password change.',
   'newpassword':
       'The replacement password for the selected local account. Use a strong temporary value and communicate it through an approved secure channel.',
   'confirmnewpassword':
@@ -188,8 +244,14 @@ const Map<String, String> _fieldHelpByKey = <String, String>{
       'The tenant-scoped role assigned to the invited or selected user. Use a known tenant role such as "member" or an administrator-approved custom role.',
   'user':
       'Local user account being added to this tenant. Search by username, name, or email and avoid adding duplicate memberships.',
+  'userid':
+      'Canonical local user ID receiving this assignment. Select the intended user rather than entering a display name.',
   'role':
       'Role receiving the assignment. Select the narrowest role that needs the access.',
+  'roleid':
+      'Canonical role ID receiving this membership or grant. Select the narrowest applicable role.',
+  'globalroleid':
+      'Canonical global role ID receiving this membership. Global roles apply across tenant boundaries where backend authorization permits.',
   'permissionobject':
       'Protected object type the permission applies to. Use the backend permission object for the resource being guarded, for example an ACP entity set.',
   'permissiontype':
@@ -226,8 +288,12 @@ const Map<String, String> _fieldHelpByKey = <String, String>{
       'Operational reason recorded with the action for audit review. Include the business reason, ticket number, or incident reference when available.',
   'channelkey':
       'Tenant channel identifier used by orchestration and context selection. Keep it stable and business-readable, for example "whatsapp" or "support".',
+  'channel':
+      'Optional messaging-channel constraint for this content or scope. Use the exact backend channel key and leave blank only when the row should apply across channels.',
   'clientprofileid':
       'MessagingClientProfiles row used as the tenant transport account. Backend validation is same-tenant and same-platform; select an active profile whenever possible.',
+  'clientprofilekey':
+      'Optional messaging client-profile key used to narrow context or knowledge selection. Use the stable Profile Key from the intended tenant profile.',
   'serviceroutedefaultkey':
       'Default tenant business surface or workflow family for this channel profile. Use a stable route key such as "support" or leave blank to let downstream rules decide.',
   'routedefaultkey':
@@ -342,6 +408,8 @@ const Map<String, String> _fieldHelpByKey = <String, String>{
       'Fallback mode applied to the conversation when normal routing is unavailable. Use documented backend modes.',
   'fallbackreason':
       'Human-readable explanation for activating fallback handling. Include policy, incident, or operator context.',
+  'isfallbackactive':
+      'Indicates whether the conversation is currently using fallback handling. Change it only when the assigned fallback mode and target are coherent.',
   'keyword':
       'Keyword signal to use when evaluating intake rules for this conversation.',
   'menuoption':
@@ -382,6 +450,8 @@ const Map<String, String> _fieldHelpByKey = <String, String>{
       'Controls whether replay includes metadata in addition to the canonical payload. Include metadata for debugging; omit it for minimal reprocessing.',
   'key':
       'Stable schema key. Use a reverse-DNS or product-scoped key where useful, for example "com.example.work_item".',
+  'policykey':
+      'Stable tenant-scoped identifier for this context policy. Prefer lowercase key-style values such as "default" or "regulated-support".',
   'version':
       'Schema version number. Increment it for breaking contract changes and keep older versions available until consumers migrate.',
   'title':
@@ -438,6 +508,30 @@ const Map<String, String> _fieldHelpByKey = <String, String>{
       'Lease duration in seconds while a worker owns an in-progress idempotency record.',
   'batchsize':
       'Maximum rows to process in one backend action. Use moderate values to keep requests bounded and retryable.',
+  'maxbatches':
+      'Maximum number of batches this action may process before stopping. Use it with Batch Size to keep maintenance work bounded.',
+  'currentversionid':
+      'Knowledge pack version designated as the pack’s current version. Select a version belonging to this pack and use publish actions for governed promotion.',
+  'knowledgepackid':
+      'Tenant knowledge pack that owns this version or entry. Select the canonical pack record rather than copying its display name.',
+  'versionnumber':
+      'Whole-number version within a knowledge pack. Increase it monotonically so operators and governance actions can order versions reliably.',
+  'knowledgepackversionid':
+      'Knowledge pack version that owns or scopes this row. Select the intended tenant version and confirm its lifecycle state before publishing content.',
+  'entrykey':
+      'Stable key for a knowledge entry within its pack. Use a durable, business-readable identifier such as "refund-policy".',
+  'summary':
+      'Concise operator-facing summary of the knowledge entry. Describe its subject and intended use without duplicating the full revision body.',
+  'knowledgeentryid':
+      'Knowledge entry that owns this revision. Select the canonical tenant entry whose governed content is being revised.',
+  'revisionnumber':
+      'Whole-number revision within a knowledge entry. Increase it monotonically so review and publication history remains unambiguous.',
+  'body':
+      'Primary human-readable content for this knowledge revision. Keep it accurate, reviewable, and free of secrets or unsupported markup.',
+  'bodyjson':
+      'Optional structured JSON representation of the knowledge revision body. Use valid backend-supported content and keep it consistent with the human-readable Body.',
+  'knowledgeentryrevisionid':
+      'Published or approved knowledge entry revision selected by this retrieval scope. Choose the exact tenant revision operators intend to expose.',
   'sourceplugin':
       'Plugin that produced the evidence or trace event. Use the backend plugin key so audit filters remain stable.',
   'subjectnamespace':
@@ -468,6 +562,16 @@ const Map<String, String> _fieldHelpByKey = <String, String>{
       'Optional timestamp until which legal hold remains active. Leave blank for indefinite hold when policy allows.',
   'purgeafterdays':
       'Number of days to wait before purging tombstoned evidence. Use whole days and follow retention policy.',
+  'nowoverride':
+      'Optional ISO-8601 timestamp used instead of the server clock when evaluating lifecycle eligibility. Leave blank for normal production runs.',
+  'fromoccurredat':
+      'Optional inclusive start of the audit occurrence window. Use ISO-8601 with timezone and leave blank for no lower bound.',
+  'tooccurredat':
+      'Optional exclusive end of the audit occurrence window. Use ISO-8601 with timezone and leave blank for no upper bound.',
+  'dryrun':
+      'When enabled, calculates eligible audit lifecycle work without mutating records. Keep it enabled for review before a live maintenance run.',
+  'requirecleanchain':
+      'When enabled, the verification request fails if any hash-chain mismatch is found instead of returning a partial clean result.',
   'correlationid':
       'Correlation ID used to connect related ACP or business-trace operations. Use the existing ID when investigating a request chain.',
   'requestid':

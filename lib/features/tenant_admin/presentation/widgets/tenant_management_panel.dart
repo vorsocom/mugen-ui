@@ -444,6 +444,11 @@ class _TenantSelector extends StatelessWidget {
             optionKeyPrefix: 'tenant-management-tenant-option',
             labelText: 'Tenant',
             hintText: 'Search tenants',
+            helpText: acpFieldHelpText(
+              key: 'Tenant',
+              label: 'Tenant',
+              resourceKey: 'TenantAdmin',
+            ),
             options: tenants,
             selectedOptionKey: selectedTenantId,
             optionKey: (tenant) => tenant.id,

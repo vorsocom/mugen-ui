@@ -313,12 +313,13 @@ Future<bool?> showAppConfirmationDialog({
 
 InputDecoration appFormInputDecoration({
   required String labelText,
+  required String helpText,
   Widget? suffixIcon,
   String? hintText,
-  String? helpText,
   Key? helpKey,
   int? errorMaxLines,
 }) {
+  assert(helpText.trim().isNotEmpty, 'helpText must not be blank.');
   final baseBorder = OutlineInputBorder(
     borderRadius: BorderRadius.circular(adminRadius),
     borderSide: const BorderSide(color: AppUiPalette.border),
@@ -356,14 +357,12 @@ InputDecoration appFormInputDecoration({
 
 Widget appFieldLabelWithHelp({
   required String labelText,
-  required String? helpText,
+  required String helpText,
   Key? helpKey,
   TextStyle? style,
 }) {
-  final message = helpText?.trim();
-  if (message == null || message.isEmpty) {
-    return Text(labelText, style: style);
-  }
+  final message = helpText.trim();
+  assert(message.isNotEmpty, 'helpText must not be blank.');
 
   return Row(
     mainAxisSize: MainAxisSize.min,
@@ -378,7 +377,8 @@ Widget appFieldLabelWithHelp({
 }
 
 class AppFieldHelpIcon extends StatelessWidget {
-  const AppFieldHelpIcon({required this.message, super.key, this.helpKey});
+  const AppFieldHelpIcon({required this.message, super.key, this.helpKey})
+    : assert(message != '', 'message must not be blank.');
 
   final String message;
   final Key? helpKey;
@@ -412,13 +412,10 @@ class AppFieldHelpIcon extends StatelessWidget {
 
 Widget? _fieldSuffixIcon({
   required Widget? suffixIcon,
-  required String? helpText,
+  required String helpText,
   required Key? helpKey,
 }) {
-  final message = helpText?.trim();
-  if (message == null || message.isEmpty) {
-    return suffixIcon;
-  }
+  final message = helpText.trim();
 
   final helpIcon = Padding(
     padding: EdgeInsets.only(right: suffixIcon == null ? 6 : 2),

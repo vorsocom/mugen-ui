@@ -5,6 +5,7 @@ import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/tenant_invite/presentation/providers/pending_invite_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -123,6 +124,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         controller: _userNameTextController,
                         decoration: appFormInputDecoration(
                           labelText: 'Username',
+                          helpText: acpFieldHelpText(
+                            key: 'Username',
+                            label: 'Username',
+                            resourceKey: 'Login',
+                          ),
                           errorMaxLines: 2,
                         ),
                         validator: (String? value) {
@@ -140,6 +146,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         obscureText: _obscurePassword,
                         decoration: appFormInputDecoration(
                           labelText: 'Password',
+                          helpText: acpFieldHelpText(
+                            key: 'Password',
+                            label: 'Password',
+                            resourceKey: 'Login',
+                          ),
                           errorMaxLines: 2,
                           suffixIcon: IconButton(
                             splashRadius: 1,

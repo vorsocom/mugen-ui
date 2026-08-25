@@ -11,6 +11,8 @@ import 'package:mugen_ui/features/audit_admin/application/dto/audit_admin_inputs
 import 'package:mugen_ui/features/audit_admin/domain/entities/audit_event_entity.dart';
 import 'package:mugen_ui/features/audit_admin/domain/entities/audit_tenant_option_entity.dart';
 import 'package:mugen_ui/features/audit_admin/presentation/providers/audit_admin_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
@@ -23,6 +25,34 @@ const List<String> _auditLifecyclePhases = <String>[
   'tombstone_expired',
   'purge_due',
 ];
+
+String _auditFieldHelp(
+  String key,
+  String label, {
+  AcpFieldKind kind = AcpFieldKind.text,
+}) {
+  return acpFieldHelpText(
+    key: key,
+    label: label,
+    kind: kind,
+    resourceKey: 'AuditAdmin',
+  );
+}
+
+String _auditLifecyclePhaseHelp(String phase) {
+  return switch (phase) {
+    'seal_backlog' =>
+      'Seals eligible unsealed audit events into the integrity chain in bounded batches.',
+    'redact_due' =>
+      'Processes audit snapshots whose configured redaction time has become due.',
+    'tombstone_expired' =>
+      'Tombstones audit events that have reached the backend retention threshold.',
+    'purge_due' =>
+      'Permanently purges tombstoned audit data that is eligible under retention and legal-hold policy.',
+    _ =>
+      'Runs the backend audit lifecycle phase named "$phase". Review backend policy before enabling it.',
+  };
+}
 
 class AuditManagementPanel extends ConsumerStatefulWidget {
   const AuditManagementPanel({super.key}); // coverage:ignore-line
@@ -116,7 +146,10 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
             key: const Key('audit-management-scope-selector'),
             initialValue: state.scopeMode,
             isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Scope'),
+            decoration: appFormInputDecoration(
+              labelText: 'Scope',
+              helpText: _auditFieldHelp('Scope', 'Scope'),
+            ),
             items: const [
               DropdownMenuItem(
                 value: AuditAdminScopeMode.global,
@@ -144,6 +177,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
               optionKeyPrefix: 'audit-management-tenant-option',
               labelText: 'Tenant',
               hintText: 'Search tenants',
+              helpText: _auditFieldHelp('Tenant', 'Tenant'),
               options: state.tenants,
               selectedOptionKey: state.selectedTenantId,
               optionKey: (tenant) => tenant.id,
@@ -163,9 +197,11 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
           child: TextFormField(
             key: const Key('audit-management-search-field'),
             initialValue: state.searchTerm,
-            decoration: const InputDecoration(
+            decoration: appFormInputDecoration(
+              labelText: 'Search',
               hintText: 'Entity, operation, action, source',
-              prefixIcon: Icon(Icons.search),
+              helpText: _auditFieldHelp('Search', 'Search'),
+              suffixIcon: const Icon(Icons.search),
             ),
             onChanged: (value) {
               _searchDebounce?.cancel();
@@ -229,7 +265,10 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
         fields: [
           TextFormField(
             controller: reasonController,
-            decoration: appFormInputDecoration(labelText: 'Reason'),
+            decoration: appFormInputDecoration(
+              labelText: 'Reason',
+              helpText: _auditFieldHelp('Reason', 'Reason'),
+            ),
             validator: _requiredValidator,
           ),
           const SizedBox(height: 8),
@@ -238,6 +277,11 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
             decoration: appFormInputDecoration(
               labelText: 'Legal Hold Until (optional)',
               hintText: '2026-03-01T00:00:00Z',
+              helpText: _auditFieldHelp(
+                'LegalHoldUntil',
+                'Legal Hold Until',
+                kind: AcpFieldKind.dateTime,
+              ),
             ),
             validator: _optionalDateValidator,
           ),
@@ -340,7 +384,10 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
         fields: [
           TextFormField(
             controller: reasonController,
-            decoration: appFormInputDecoration(labelText: 'Reason'),
+            decoration: appFormInputDecoration(
+              labelText: 'Reason',
+              helpText: _auditFieldHelp('Reason', 'Reason'),
+            ),
             validator: _requiredValidator,
           ),
           const SizedBox(height: 8),
@@ -348,6 +395,11 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
             controller: purgeDaysController,
             decoration: appFormInputDecoration(
               labelText: 'Purge After Days (optional)',
+              helpText: _auditFieldHelp(
+                'PurgeAfterDays',
+                'Purge After Days',
+                kind: AcpFieldKind.integer,
+              ),
             ),
             keyboardType: TextInputType.number,
             validator: _optionalNonNegativeIntValidator,
@@ -415,7 +467,14 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                   key: const Key('audit-run-lifecycle-dry-run-switch'),
                   contentPadding: EdgeInsets.zero,
                   value: dryRun,
-                  title: const Text('Dry run'),
+                  title: appFieldLabelWithHelp(
+                    labelText: 'Dry run',
+                    helpText: _auditFieldHelp(
+                      'DryRun',
+                      'Dry Run',
+                      kind: AcpFieldKind.boolean,
+                    ),
+                  ),
                   subtitle: const Text('Default is enabled for safety.'),
                   onChanged: (value) {
                     setStateDialog(() {
@@ -439,6 +498,11 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                   controller: batchSizeController,
                   decoration: appFormInputDecoration(
                     labelText: 'Batch Size (optional)',
+                    helpText: _auditFieldHelp(
+                      'BatchSize',
+                      'Batch Size',
+                      kind: AcpFieldKind.integer,
+                    ),
                   ),
                   keyboardType: TextInputType.number,
                   validator: _optionalPositiveIntValidator,
@@ -448,6 +512,11 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                   controller: maxBatchesController,
                   decoration: appFormInputDecoration(
                     labelText: 'Max Batches (optional)',
+                    helpText: _auditFieldHelp(
+                      'MaxBatches',
+                      'Max Batches',
+                      kind: AcpFieldKind.integer,
+                    ),
                   ),
                   keyboardType: TextInputType.number,
                   validator: _optionalPositiveIntValidator,
@@ -471,6 +540,11 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                   decoration: appFormInputDecoration(
                     labelText: 'Now Override (optional)',
                     hintText: '2026-03-01T00:00:00Z',
+                    helpText: _auditFieldHelp(
+                      'NowOverride',
+                      'Now Override',
+                      kind: AcpFieldKind.dateTime,
+                    ),
                   ),
                   validator: _optionalDateValidator,
                 ),
@@ -564,6 +638,11 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                   decoration: appFormInputDecoration(
                     labelText: 'From Occurred At (optional)',
                     hintText: '2026-03-01T00:00:00Z',
+                    helpText: _auditFieldHelp(
+                      'FromOccurredAt',
+                      'From Occurred At',
+                      kind: AcpFieldKind.dateTime,
+                    ),
                   ),
                   validator: _optionalDateValidator,
                 ),
@@ -573,6 +652,11 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                   decoration: appFormInputDecoration(
                     labelText: 'To Occurred At (optional)',
                     hintText: '2026-03-10T00:00:00Z',
+                    helpText: _auditFieldHelp(
+                      'ToOccurredAt',
+                      'To Occurred At',
+                      kind: AcpFieldKind.dateTime,
+                    ),
                   ),
                   validator: _optionalDateValidator,
                 ),
@@ -581,6 +665,11 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                   controller: maxRowsController,
                   decoration: appFormInputDecoration(
                     labelText: 'Max Rows (optional)',
+                    helpText: _auditFieldHelp(
+                      'MaxRows',
+                      'Max Rows',
+                      kind: AcpFieldKind.integer,
+                    ),
                   ),
                   keyboardType: TextInputType.number,
                   validator: _optionalPositiveIntValidator,
@@ -588,7 +677,14 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   value: requireClean,
-                  title: const Text('Require clean chain'),
+                  title: appFieldLabelWithHelp(
+                    labelText: 'Require clean chain',
+                    helpText: _auditFieldHelp(
+                      'RequireCleanChain',
+                      'Require Clean Chain',
+                      kind: AcpFieldKind.boolean,
+                    ),
+                  ),
                   subtitle: const Text(
                     'When enabled, mismatches return a conflict.',
                   ),
@@ -649,14 +745,28 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
         fields: [
           TextFormField(
             controller: batchSizeController,
-            decoration: appFormInputDecoration(labelText: 'Batch Size'),
+            decoration: appFormInputDecoration(
+              labelText: 'Batch Size',
+              helpText: _auditFieldHelp(
+                'BatchSize',
+                'Batch Size',
+                kind: AcpFieldKind.integer,
+              ),
+            ),
             keyboardType: TextInputType.number,
             validator: _optionalPositiveIntValidator,
           ),
           const SizedBox(height: 8),
           TextFormField(
             controller: maxBatchesController,
-            decoration: appFormInputDecoration(labelText: 'Max Batches'),
+            decoration: appFormInputDecoration(
+              labelText: 'Max Batches',
+              helpText: _auditFieldHelp(
+                'MaxBatches',
+                'Max Batches',
+                kind: AcpFieldKind.integer,
+              ),
+            ),
             keyboardType: TextInputType.number,
             validator: _optionalPositiveIntValidator,
           ),
@@ -719,7 +829,10 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
         fields: [
           TextFormField(
             controller: reasonController,
-            decoration: appFormInputDecoration(labelText: 'Reason'),
+            decoration: appFormInputDecoration(
+              labelText: 'Reason',
+              helpText: _auditFieldHelp('Reason', 'Reason'),
+            ),
             validator: _requiredValidator,
           ),
         ],
@@ -1398,8 +1511,10 @@ class _AuditLifecyclePhaseSelector extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Phases (optional)',
+          appFieldLabelWithHelp(
+            labelText: 'Phases (optional)',
+            helpText:
+                'Select only the lifecycle phases to run. Leave every phase clear to let the backend apply its default lifecycle sequence.',
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -1411,7 +1526,10 @@ class _AuditLifecyclePhaseSelector extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               dense: true,
               value: selectedPhases.contains(phase),
-              title: Text(phase),
+              title: appFieldLabelWithHelp(
+                labelText: phase,
+                helpText: _auditLifecyclePhaseHelp(phase),
+              ),
               onChanged: (value) => onChanged(phase, value ?? false),
             ),
         ],

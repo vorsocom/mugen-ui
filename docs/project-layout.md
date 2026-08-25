@@ -108,6 +108,17 @@ Form surfaces and overlays use the shared primitives in
    scrolling implementation.
 7. The architecture check rejects raw `Dialog`, `AlertDialog`, and
    `SimpleDialog` construction outside the shared dialog primitives.
+8. Build labeled text and select controls with `appFormInputDecoration`, and
+   supply concise, nonblank `helpText` that explains the field's purpose,
+   accepted format, scope, and important side effects. `AppSearchableSelectField`
+   and `AcpJsonEditorField` enforce the same guidance contract.
+9. Resolve descriptor-driven guidance with `acpFieldHelpText`, passing the
+   resource/entity/action context whenever a repeated field key has different
+   meanings. Do not merely restate the label, and do not use a tooltip as a
+   substitute for inline validation or error text.
+10. Add widget coverage that verifies every hand-authored form exposes its
+    field guidance, and include new built-in ACP descriptors in the catalog-wide
+    explicit-guidance test.
 
 ### Replace a Built-In Feature Downstream
 

@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Completed contextual information tooltips across built-in form surfaces and
+  made nonblank field guidance a required shared form-control contract.
 - Replaced warm beige-gray surfaces, outlines, and supporting text with a
   consistent neutral grayscale while retaining graphite-blue interactions.
 - Unified the admin interaction palette around graphite blue, bundled explicit

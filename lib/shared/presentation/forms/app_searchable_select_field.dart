@@ -15,21 +15,21 @@ class AppSearchableSelectField<T> extends StatefulWidget {
     required this.optionSubtitle,
     required this.optionSearchText,
     required this.onSelected,
+    required this.helpText,
     this.hintText,
     this.helpKey,
-    this.helpText,
     this.suffixIcon = Icons.manage_search_outlined,
     this.emptyMessage = 'No matching options found.',
     this.enabled = true,
     super.key,
-  });
+  }) : assert(helpText != '', 'helpText must not be blank.');
 
   final Key fieldKey;
   final String optionKeyPrefix;
   final String labelText;
   final String? hintText;
   final Key? helpKey;
-  final String? helpText;
+  final String helpText;
   final IconData suffixIcon;
   final List<T> options;
   final String? selectedOptionKey;

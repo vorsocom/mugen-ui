@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/providers/human_handoff_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -135,7 +136,14 @@ class _QueuePane extends ConsumerWidget {
                   ),
                   initialValue: state.selectedTenantId,
                   isExpanded: true,
-                  decoration: appFormInputDecoration(labelText: 'Tenant'),
+                  decoration: appFormInputDecoration(
+                    labelText: 'Tenant',
+                    helpText: acpFieldHelpText(
+                      key: 'Tenant',
+                      label: 'Tenant',
+                      resourceKey: 'HumanHandoff',
+                    ),
+                  ),
                   items: state.tenants
                       .map(
                         (tenant) => DropdownMenuItem<String>(
@@ -173,7 +181,14 @@ class _QueuePane extends ConsumerWidget {
                   ),
                   initialValue: state.statusFilter,
                   isExpanded: true,
-                  decoration: appFormInputDecoration(labelText: 'Status'),
+                  decoration: appFormInputDecoration(
+                    labelText: 'Status',
+                    helpText: acpFieldHelpText(
+                      key: 'Status',
+                      label: 'Status',
+                      resourceKey: 'HumanHandoff',
+                    ),
+                  ),
                   items: const <DropdownMenuItem<String>>[
                     DropdownMenuItem<String>(
                       value: 'active',
@@ -197,7 +212,14 @@ class _QueuePane extends ConsumerWidget {
                 child: TextField(
                   key: _platformFilterKey,
                   controller: platformController,
-                  decoration: appFormInputDecoration(labelText: 'Platform'),
+                  decoration: appFormInputDecoration(
+                    labelText: 'Platform',
+                    helpText: acpFieldHelpText(
+                      key: 'Platform',
+                      label: 'Platform',
+                      resourceKey: 'HumanHandoff',
+                    ),
+                  ),
                   textInputAction: TextInputAction.search,
                   onSubmitted: controller.setPlatformFilter,
                 ),
@@ -213,6 +235,11 @@ class _QueuePane extends ConsumerWidget {
                   controller: serviceRouteController,
                   decoration: appFormInputDecoration(
                     labelText: 'Service Route',
+                    helpText: acpFieldHelpText(
+                      key: 'ServiceRoute',
+                      label: 'Service Route',
+                      resourceKey: 'HumanHandoff',
+                    ),
                   ),
                   textInputAction: TextInputAction.search,
                   onSubmitted: controller.setServiceRouteFilter,
@@ -223,7 +250,14 @@ class _QueuePane extends ConsumerWidget {
                 child: TextField(
                   key: _ownerFilterKey,
                   controller: ownerController,
-                  decoration: appFormInputDecoration(labelText: 'Owner'),
+                  decoration: appFormInputDecoration(
+                    labelText: 'Owner',
+                    helpText: acpFieldHelpText(
+                      key: 'Owner',
+                      label: 'Owner',
+                      resourceKey: 'HumanHandoff',
+                    ),
+                  ),
                   textInputAction: TextInputAction.search,
                   onSubmitted: controller.setOwnerFilter,
                 ),
@@ -508,7 +542,14 @@ class _ReleaseHandoffDialogState extends State<_ReleaseHandoffDialog> {
         controller: _reasonController,
         minLines: 3,
         maxLines: 5,
-        decoration: appFormInputDecoration(labelText: 'Reason'),
+        decoration: appFormInputDecoration(
+          labelText: 'Reason',
+          helpText: acpFieldHelpText(
+            key: 'Reason',
+            label: 'Reason',
+            resourceKey: 'HumanHandoff',
+          ),
+        ),
       ),
       actions: [
         TextButton(
@@ -625,6 +666,11 @@ class _ReplyComposer extends ConsumerWidget {
           enabled: active && !state.isReplying && !state.isReleasing,
           decoration: appFormInputDecoration(
             labelText: active ? 'Human Reply' : 'Composer disabled',
+            helpText: acpFieldHelpText(
+              key: 'Reply',
+              label: 'Human Reply',
+              resourceKey: 'HumanHandoff',
+            ),
           ),
           onChanged: controller.updateDraft,
         ),

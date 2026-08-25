@@ -625,11 +625,18 @@ class _CatalogToolbarState extends ConsumerState<_CatalogToolbar> {
     return AdminToolbar(
       children: [
         SizedBox(
-          width: 190,
+          width: 200,
           child: DropdownButtonFormField<BillingCatalogLifecycleView>(
             key: const Key('billing-catalog-lifecycle-filter'),
             initialValue: state.lifecycleView,
-            decoration: appFormInputDecoration(labelText: 'Lifecycle'),
+            decoration: appFormInputDecoration(
+              labelText: 'Lifecycle',
+              helpText: acpFieldHelpText(
+                key: 'Lifecycle',
+                label: 'Lifecycle',
+                resourceKey: 'BillingCatalog',
+              ),
+            ),
             items: const [
               DropdownMenuItem(
                 value: BillingCatalogLifecycleView.active,
@@ -659,6 +666,11 @@ class _CatalogToolbarState extends ConsumerState<_CatalogToolbar> {
               optionKeyPrefix: 'billing-catalog-price-product-filter-option',
               labelText: 'Product',
               hintText: 'Filter by Product',
+              helpText: acpFieldHelpText(
+                key: 'Product',
+                label: 'Product',
+                resourceKey: 'BillingCatalog',
+              ),
               options: state.productOptions,
               selectedOptionKey: state.selectedProductId,
               optionKey: (item) => item.id,
@@ -687,6 +699,11 @@ class _CatalogToolbarState extends ConsumerState<_CatalogToolbar> {
             controller: _searchController,
             decoration: appFormInputDecoration(
               labelText: 'Search',
+              helpText: acpFieldHelpText(
+                key: 'Search',
+                label: 'Search',
+                resourceKey: 'BillingCatalog',
+              ),
               hintText: state.activeTab == BillingCatalogTab.products
                   ? 'Code, name, or description'
                   : 'Code, type, currency, or meter',

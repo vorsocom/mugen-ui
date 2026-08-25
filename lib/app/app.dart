@@ -142,7 +142,7 @@ class MugenApp extends ConsumerWidget {
         drawerTheme: const DrawerThemeData(
           backgroundColor: AppUiPalette.drawer,
           surfaceTintColor: Colors.transparent,
-          scrimColor: Color(0x8F252427),
+          scrimColor: Color(0x8F262626),
           elevation: 0,
         ),
         dialogTheme: DialogThemeData(

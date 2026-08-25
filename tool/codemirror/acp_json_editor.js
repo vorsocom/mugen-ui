@@ -7,7 +7,7 @@ import { containEditorWheel } from './acp_json_editor_scroll.mjs';
 const acpJsonEditorTheme = EditorView.theme({
   '&': {
     backgroundColor: '#ffffff',
-    color: '#252427',
+    color: '#262626',
     fontSize: '13px',
     height: '100%',
   },
@@ -29,19 +29,19 @@ const acpJsonEditorTheme = EditorView.theme({
     padding: '0 10px',
   },
   '.cm-gutters': {
-    backgroundColor: '#f0ece5',
-    borderRight: '1px solid #d8d1c7',
-    color: '#706b68',
+    backgroundColor: '#f5f5f5',
+    borderRight: '1px solid #d4d4d4',
+    color: '#737373',
   },
   '.cm-activeLine': {
-    backgroundColor: '#f0ece5',
+    backgroundColor: '#f5f5f5',
   },
   '.cm-activeLineGutter': {
     backgroundColor: '#e8edf2',
     color: '#40546a',
   },
   '.cm-placeholder': {
-    color: '#918b85',
+    color: '#a3a3a3',
   },
   '.cm-cursor, .cm-dropCursor': {
     borderLeftColor: '#40546a',

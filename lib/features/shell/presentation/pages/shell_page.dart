@@ -833,7 +833,11 @@ class _AppDrawer extends ConsumerWidget {
           .putIfAbsent(sectionName, () => <ShellRouteDefinition>[])
           .add(item);
     }
-    final sectionEntries = sectionedItems.entries.toList(growable: false);
+    final sectionEntries = sectionedItems.entries
+        .map(
+          (entry) => (name: entry.key, groups: _groupDrawerItems(entry.value)),
+        )
+        .toList(growable: false);
     final theme = Theme.of(context);
 
     return SizedBox(
@@ -928,7 +932,10 @@ class _AppDrawer extends ConsumerWidget {
                         Padding(
                           padding: const EdgeInsets.fromLTRB(10, 0, 10, 6),
                           child: Text(
-                            sectionEntries[index].key,
+                            sectionEntries[index].name,
+                            key: Key(
+                              'shell-drawer-section-${sectionEntries[index].name}',
+                            ),
                             style: theme.textTheme.labelSmall?.copyWith(
                               color: AppUiPalette.drawerTextMuted,
                               fontWeight: FontWeight.w600,
@@ -937,14 +944,45 @@ class _AppDrawer extends ConsumerWidget {
                           ),
                         ),
                       ],
-                      for (final item in sectionEntries[index].value)
-                        _buildDrawerNavItem(
-                          context: context,
-                          ref: ref,
-                          item: item,
-                          isSelected: !showSettings && activeRoute == item.id,
-                          isCollapsed: isCollapsed,
-                        ),
+                      for (
+                        var groupIndex = 0;
+                        groupIndex < sectionEntries[index].groups.length;
+                        groupIndex++
+                      ) ...[
+                        if (isCollapsed && groupIndex > 0)
+                          const SizedBox(height: 6),
+                        if (!isCollapsed &&
+                            sectionEntries[index].groups[groupIndex].name !=
+                                null)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              18,
+                              groupIndex == 0 ? 2 : 8,
+                              10,
+                              4,
+                            ),
+                            child: Text(
+                              sectionEntries[index].groups[groupIndex].name!,
+                              key: Key(
+                                'shell-drawer-group-${sectionEntries[index].name}-${sectionEntries[index].groups[groupIndex].name}',
+                              ),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: AppUiPalette.drawerTextMuted,
+                                fontWeight: FontWeight.w500,
+                                letterSpacing: 0.25,
+                              ),
+                            ),
+                          ),
+                        for (final item
+                            in sectionEntries[index].groups[groupIndex].items)
+                          _buildDrawerNavItem(
+                            context: context,
+                            ref: ref,
+                            item: item,
+                            isSelected: !showSettings && activeRoute == item.id,
+                            isCollapsed: isCollapsed,
+                          ),
+                      ],
                     ],
                   ],
                 ),
@@ -955,6 +993,24 @@ class _AppDrawer extends ConsumerWidget {
       ),
     );
   }
+}
+
+typedef _DrawerItemGroup = ({String? name, List<ShellRouteDefinition> items});
+
+List<_DrawerItemGroup> _groupDrawerItems(List<ShellRouteDefinition> items) {
+  final groupedItems = <String?, List<ShellRouteDefinition>>{};
+  for (final item in items) {
+    final trimmedGroup = item.group?.trim();
+    final groupName = trimmedGroup == null || trimmedGroup.isEmpty
+        ? null
+        : trimmedGroup;
+    groupedItems
+        .putIfAbsent(groupName, () => <ShellRouteDefinition>[])
+        .add(item);
+  }
+  return groupedItems.entries
+      .map((entry) => (name: entry.key, items: entry.value))
+      .toList(growable: false);
 }
 
 Widget _buildDrawerNavItem({

@@ -141,6 +141,7 @@ Fields:
 - `title`
 - `icon`
 - `section`
+- `group`
 - `requiredRoles`
 - `showInDrawer`
 - `builder`
@@ -154,6 +155,13 @@ The shell registry is the single source of truth for:
 - locked-out empty state handling
 
 Unknown shell route ids still render the existing unknown-route placeholder.
+
+Use `section` for the drawer's top-level administrative region and `group` for
+an optional task-oriented heading within that section. Group headings are
+derived after role and runtime-availability filtering, so empty groups are not
+shown. A grouped route must provide a non-empty parent `section`. Preserve
+coherent task order in module assembly instead of relying on alphabetical
+sorting.
 
 ## Top-Level Routes
 

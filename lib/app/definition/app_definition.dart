@@ -99,15 +99,20 @@ class ShellRouteDefinition {
     required this.icon,
     required this.builder,
     this.section,
+    this.group,
     this.requiredRoles = const <String>[],
     this.availabilityProvider,
     this.showInDrawer = true,
-  });
+  }) : assert(
+         group == null || (section != null && section != ''),
+         'A shell route group requires a non-empty section.',
+       );
 
   final String id;
   final String title;
   final IconData icon;
   final String? section;
+  final String? group;
   final List<String> requiredRoles;
   final ProviderListenable<ShellRouteAvailability>? availabilityProvider;
   final bool showInDrawer;

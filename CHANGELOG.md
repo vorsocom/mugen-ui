@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Grouped Platform Configuration destinations into Identity & Access,
+  Platform Capabilities, Operations & Governance, and Developer drawer
+  groups with extension-ready nested navigation metadata.
 - Consolidated tenant discovery into one backend-searchable selector with
   incremental result loading, refresh-on-open behavior, and stable,
   non-shifting loading feedback.

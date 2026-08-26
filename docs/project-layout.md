@@ -67,7 +67,8 @@ Infrastructure maps these modes to the web plugin structured multipart contract 
 
 ### Add a New Shell Route
 
-1. Define a `ShellRouteDefinition` in a core or downstream `MugenUiModule`.
+1. Define a `ShellRouteDefinition` in a core or downstream `MugenUiModule`,
+   using `section` and optional `group` metadata for drawer organization.
 2. Assemble that module in `lib/extension/app_definition.dart`.
 3. If the route should be the shell landing page, set `defaultShellRouteId` to the new route id.
 4. Validate drawer behavior, role gating, and route switching in shell widget/provider tests.

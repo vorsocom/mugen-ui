@@ -26,6 +26,7 @@ void main() {
 
     expect(find.text('Chat route'), findsOneWidget);
     expect(find.text('Billing Catalog'), findsNothing);
+    expect(find.text('Platform Capabilities'), findsNothing);
 
     fixture.availability.set(
       const ShellRouteAvailability.unavailable(
@@ -38,6 +39,7 @@ void main() {
     fixture.availability.set(const ShellRouteAvailability.available());
     await tester.pumpAndSettle();
     expect(find.text('Billing Catalog'), findsOneWidget);
+    expect(find.text('Platform Capabilities'), findsOneWidget);
   });
 
   testWidgets('direct pending route redirects when Billing is unavailable', (
@@ -117,6 +119,7 @@ Future<_ShellFixture> _pumpShell(
       title: 'Billing Catalog',
       icon: Icons.payments_outlined,
       section: 'Platform Configuration',
+      group: 'Platform Capabilities',
       availabilityProvider: _billingAvailabilityProvider,
       builder: _buildBillingRoute,
     ),

@@ -327,9 +327,13 @@ void main() {
     expect(find.text('AD'), findsOneWidget);
   });
 
-  testWidgets('drawer shows Platform Configuration section for admin tools', (
+  testWidgets('drawer groups Platform Configuration tools by admin task', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final config = AppConfig.defaults();
     final shellController = _TestShellController(
       initialState: const ShellState(
@@ -394,11 +398,34 @@ void main() {
       greaterThan(tester.getTopLeft(aiAssistInDrawer).dy),
     );
     expect(find.text('Platform Configuration'), findsOneWidget);
+    expect(find.text('Identity & Access'), findsOneWidget);
+    expect(find.text('Platform Capabilities'), findsOneWidget);
+    expect(find.text('Operations & Governance'), findsOneWidget);
+    expect(find.text('Developer'), findsOneWidget);
     expect(find.text('Local Users'), findsOneWidget);
     expect(find.text('Tenants'), findsOneWidget);
     expect(find.text('Roles & Permissions'), findsOneWidget);
     expect(find.text('Audit Events'), findsOneWidget);
+    expect(find.text('Runtime Control'), findsOneWidget);
+    expect(find.text('Channel Orchestration'), findsOneWidget);
+    expect(find.text('Context Engine'), findsOneWidget);
     expect(find.text('Knowledge Packs'), findsOneWidget);
+    expect(find.text('ACP Console'), findsOneWidget);
+
+    double topOf(String label) => tester.getTopLeft(find.text(label)).dy;
+    expect(topOf('Identity & Access'), lessThan(topOf('Tenants')));
+    expect(topOf('Tenants'), lessThan(topOf('Local Users')));
+    expect(topOf('Local Users'), lessThan(topOf('Roles & Permissions')));
+    expect(
+      topOf('Identity & Access'),
+      lessThan(topOf('Platform Capabilities')),
+    );
+    expect(
+      topOf('Platform Capabilities'),
+      lessThan(topOf('Operations & Governance')),
+    );
+    expect(topOf('Operations & Governance'), lessThan(topOf('Developer')));
+    expect(topOf('Runtime Control'), lessThan(topOf('Audit Events')));
   });
 
   testWidgets('drawer shows Knowledge Packs for configurator permission', (
@@ -457,6 +484,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Platform Configuration'), findsOneWidget);
+    expect(find.text('Platform Capabilities'), findsOneWidget);
+    expect(find.text('Identity & Access'), findsNothing);
+    expect(find.text('Operations & Governance'), findsNothing);
+    expect(find.text('Developer'), findsNothing);
     expect(find.text('Knowledge Packs'), findsOneWidget);
     expect(find.text('Local Users'), findsNothing);
     expect(find.text('Tenants'), findsNothing);
@@ -1831,6 +1862,15 @@ void main() {
           title: 'Local Users',
           icon: Icons.groups_outlined,
           section: 'Platform Configuration',
+          group: 'Identity & Access',
+          builder: _buildPlaceholderShellPage,
+        ),
+        ShellRouteDefinition(
+          id: RouteIds.acpConsole,
+          title: 'ACP Console',
+          icon: Icons.data_object_outlined,
+          section: 'Platform Configuration',
+          group: 'Developer',
           builder: _buildPlaceholderShellPage,
         ),
       ],
@@ -1873,6 +1913,9 @@ void main() {
 
     expect(find.byType(Divider), findsWidgets);
     expect(find.byTooltip('Local Users'), findsOneWidget);
+    expect(find.byTooltip('ACP Console'), findsOneWidget);
+    expect(find.text('Identity & Access'), findsNothing);
+    expect(find.text('Developer'), findsNothing);
   });
 
   testWidgets(

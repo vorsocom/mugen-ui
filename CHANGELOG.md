@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.13.0] - 2026-08-26
+
+### Added
+
 - Added a configurable public muGen portal with responsive landing, production
   login, Terms of Use, and Privacy Policy screens, official brand assets, and
   a fail-closed optional WhatsApp Embedded Signup launcher contract.

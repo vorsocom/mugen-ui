@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.12.0] - 2026-08-26
+
+### Added
+
 - Added an extension-aware global Billing Catalog under Platform Configuration
   with Product and Price management, read-only access, lifecycle actions, and
   guarded navigation based on runtime Billing availability and catalog read

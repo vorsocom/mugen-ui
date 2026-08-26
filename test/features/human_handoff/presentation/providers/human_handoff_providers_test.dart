@@ -13,6 +13,7 @@ import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tr
 import 'package:mugen_ui/features/human_handoff/domain/repositories/human_handoff_repository.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/providers/human_handoff_providers.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
+import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 
@@ -104,6 +105,43 @@ void main() {
       expect(repository.transcriptQueries.last.afterSequenceNo, 2);
     },
   );
+
+  test('transient live failure enters reconnecting state', () async {
+    final repository = _FakeHumanHandoffRepository();
+    final container = _buildContainer(repository);
+    addTearDown(container.dispose);
+
+    await container
+        .read(humanHandoffControllerProvider.notifier)
+        .loadInitialData();
+    repository.eventController.add(
+      const Result<HumanHandoffEventEntity>.failure(
+        NetworkFailure('Temporary stream interruption.'),
+      ),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(humanHandoffControllerProvider);
+    expect(state.liveStatus, HumanHandoffLiveStatus.reconnecting);
+    expect(state.isLiveListening, isFalse);
+    expect(state.liveErrorMessage, 'Temporary stream interruption.');
+  });
+
+  test('uncaught live stream errors enter reconnecting state', () async {
+    final repository = _FakeHumanHandoffRepository();
+    final container = _buildContainer(repository);
+    addTearDown(container.dispose);
+
+    await container
+        .read(humanHandoffControllerProvider.notifier)
+        .loadInitialData();
+    repository.eventController.addError(StateError('socket closed'));
+    await Future<void>.delayed(Duration.zero);
+
+    final state = container.read(humanHandoffControllerProvider);
+    expect(state.liveStatus, HumanHandoffLiveStatus.reconnecting);
+    expect(state.liveErrorMessage, 'Handoff event stream disconnected.');
+  });
 
   test('failed delivery preserves draft and retry reuses message id', () async {
     final repository = _FakeHumanHandoffRepository(
@@ -257,9 +295,11 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
 
   @override
   Stream<Result<HumanHandoffEventEntity>> streamEvents(
-    HumanHandoffEventStreamQuery query,
-  ) {
+    HumanHandoffEventStreamQuery query, {
+    void Function()? onConnected,
+  }) {
     eventStreamQueries.add(query);
+    onConnected?.call();
     return eventController.stream;
   }
 

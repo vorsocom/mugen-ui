@@ -10,6 +10,7 @@ class ChannelOrchestrationPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return AcpAdminPanel<OrchestrationAdminController>(
       controllerProvider: orchestrationAdminControllerProvider,
+      title: 'Channel Orchestration',
       description:
           'Configure channel intake, routing, throttling, moderation, operational state, and replayable work items.',
     );

@@ -10,6 +10,7 @@ class RuntimeControlPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return AcpAdminPanel<RuntimeAdminController>(
       controllerProvider: runtimeAdminControllerProvider,
+      title: 'Runtime Control',
       description:
           'Manage runtime client profiles, runtime defaults, key lifecycles, and platform reload controls.',
     );

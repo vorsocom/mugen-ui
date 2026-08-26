@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/providers/human_handoff_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -135,7 +136,14 @@ class _QueuePane extends ConsumerWidget {
                   ),
                   initialValue: state.selectedTenantId,
                   isExpanded: true,
-                  decoration: appFormInputDecoration(labelText: 'Tenant'),
+                  decoration: appFormInputDecoration(
+                    labelText: 'Tenant',
+                    helpText: acpFieldHelpText(
+                      key: 'Tenant',
+                      label: 'Tenant',
+                      resourceKey: 'HumanHandoff',
+                    ),
+                  ),
                   items: state.tenants
                       .map(
                         (tenant) => DropdownMenuItem<String>(
@@ -173,7 +181,14 @@ class _QueuePane extends ConsumerWidget {
                   ),
                   initialValue: state.statusFilter,
                   isExpanded: true,
-                  decoration: appFormInputDecoration(labelText: 'Status'),
+                  decoration: appFormInputDecoration(
+                    labelText: 'Status',
+                    helpText: acpFieldHelpText(
+                      key: 'Status',
+                      label: 'Status',
+                      resourceKey: 'HumanHandoff',
+                    ),
+                  ),
                   items: const <DropdownMenuItem<String>>[
                     DropdownMenuItem<String>(
                       value: 'active',
@@ -197,7 +212,14 @@ class _QueuePane extends ConsumerWidget {
                 child: TextField(
                   key: _platformFilterKey,
                   controller: platformController,
-                  decoration: appFormInputDecoration(labelText: 'Platform'),
+                  decoration: appFormInputDecoration(
+                    labelText: 'Platform',
+                    helpText: acpFieldHelpText(
+                      key: 'Platform',
+                      label: 'Platform',
+                      resourceKey: 'HumanHandoff',
+                    ),
+                  ),
                   textInputAction: TextInputAction.search,
                   onSubmitted: controller.setPlatformFilter,
                 ),
@@ -213,6 +235,11 @@ class _QueuePane extends ConsumerWidget {
                   controller: serviceRouteController,
                   decoration: appFormInputDecoration(
                     labelText: 'Service Route',
+                    helpText: acpFieldHelpText(
+                      key: 'ServiceRoute',
+                      label: 'Service Route',
+                      resourceKey: 'HumanHandoff',
+                    ),
                   ),
                   textInputAction: TextInputAction.search,
                   onSubmitted: controller.setServiceRouteFilter,
@@ -223,7 +250,14 @@ class _QueuePane extends ConsumerWidget {
                 child: TextField(
                   key: _ownerFilterKey,
                   controller: ownerController,
-                  decoration: appFormInputDecoration(labelText: 'Owner'),
+                  decoration: appFormInputDecoration(
+                    labelText: 'Owner',
+                    helpText: acpFieldHelpText(
+                      key: 'Owner',
+                      label: 'Owner',
+                      resourceKey: 'HumanHandoff',
+                    ),
+                  ),
                   textInputAction: TextInputAction.search,
                   onSubmitted: controller.setOwnerFilter,
                 ),
@@ -283,7 +317,7 @@ class _SessionTile extends ConsumerWidget {
         ? Colors.green.shade700
         : AppUiPalette.textMuted;
     return Material(
-      color: selected ? AppUiPalette.surfaceStrong : Colors.white,
+      color: selected ? AppUiPalette.surfaceStrong : AppUiPalette.surface,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
@@ -500,58 +534,35 @@ class _ReleaseHandoffDialogState extends State<_ReleaseHandoffDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      insetPadding: const EdgeInsets.all(24),
-      backgroundColor: AppUiPalette.surfaceMuted,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppUiPalette.border),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: AppFormPanel(
-          margin: EdgeInsets.zero,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Release handoff',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                key: _releaseReasonFieldKey,
-                controller: _reasonController,
-                minLines: 3,
-                maxLines: 5,
-                decoration: appFormInputDecoration(labelText: 'Reason'),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton.icon(
-                    key: _confirmReleaseButtonKey,
-                    onPressed: () =>
-                        Navigator.of(context).pop(_reasonController.text),
-                    icon: const Icon(Icons.logout_outlined),
-                    label: const Text('Release'),
-                  ),
-                ],
-              ),
-            ],
+    return AppFormDialog(
+      title: 'Release handoff',
+      maxWidth: 520,
+      body: TextField(
+        key: _releaseReasonFieldKey,
+        controller: _reasonController,
+        minLines: 3,
+        maxLines: 5,
+        decoration: appFormInputDecoration(
+          labelText: 'Reason',
+          helpText: acpFieldHelpText(
+            key: 'Reason',
+            label: 'Reason',
+            resourceKey: 'HumanHandoff',
           ),
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          key: _confirmReleaseButtonKey,
+          onPressed: () => Navigator.of(context).pop(_reasonController.text),
+          icon: const Icon(Icons.logout_outlined),
+          label: const Text('Release'),
+        ),
+      ],
     );
   }
 }
@@ -655,6 +666,11 @@ class _ReplyComposer extends ConsumerWidget {
           enabled: active && !state.isReplying && !state.isReleasing,
           decoration: appFormInputDecoration(
             labelText: active ? 'Human Reply' : 'Composer disabled',
+            helpText: acpFieldHelpText(
+              key: 'Reply',
+              label: 'Human Reply',
+              resourceKey: 'HumanHandoff',
+            ),
           ),
           onChanged: controller.updateDraft,
         ),
@@ -730,17 +746,26 @@ class _LiveStatusLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final error = state.liveErrorMessage?.trim();
-    final color = error != null && error.isNotEmpty
-        ? AppUiPalette.warning
-        : state.isLiveListening
-        ? AppUiPalette.success
-        : AppUiPalette.textMuted;
-    final label = error != null && error.isNotEmpty
-        ? 'Live updates paused'
-        : state.isLiveListening
-        ? 'Live updates on'
-        : 'Live updates off';
-    return Row(
+    final (color, label) = switch (state.liveStatus) {
+      HumanHandoffLiveStatus.offline => (
+        AppUiPalette.textMuted,
+        'Live updates off',
+      ),
+      HumanHandoffLiveStatus.connecting => (
+        AppUiPalette.textMuted,
+        'Live updates connecting',
+      ),
+      HumanHandoffLiveStatus.live => (AppUiPalette.success, 'Live updates on'),
+      HumanHandoffLiveStatus.reconnecting => (
+        AppUiPalette.warning,
+        'Live updates reconnecting',
+      ),
+      HumanHandoffLiveStatus.unavailable => (
+        AppUiPalette.warning,
+        'Live updates unavailable',
+      ),
+    };
+    final statusLine = Row(
       children: [
         Icon(Icons.circle, size: 9, color: color),
         const SizedBox(width: 6),
@@ -756,6 +781,9 @@ class _LiveStatusLine extends StatelessWidget {
         ),
       ],
     );
+    return error == null || error.isEmpty
+        ? statusLine
+        : Tooltip(message: error, child: statusLine);
   }
 }
 
@@ -840,7 +868,7 @@ class _InfoChip extends StatelessWidget {
       visualDensity: VisualDensity.compact,
       label: Text('$label: $text'),
       side: const BorderSide(color: AppUiPalette.border),
-      backgroundColor: Colors.white,
+      backgroundColor: AppUiPalette.surface,
     );
   }
 }

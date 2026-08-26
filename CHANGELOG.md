@@ -19,6 +19,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.12.0] - 2026-08-26
+
+### Added
+
+- Added an extension-aware global Billing Catalog under Platform Configuration
+  with Product and Price management, read-only access, lifecycle actions, and
+  guarded navigation based on runtime Billing availability and catalog read
+  permission.
+
+### Changed
+
+- Grouped Platform Configuration destinations into Identity & Access,
+  Platform Capabilities, Operations & Governance, and Developer drawer
+  groups with extension-ready nested navigation metadata.
+- Consolidated tenant discovery into one backend-searchable selector with
+  incremental result loading, refresh-on-open behavior, and stable,
+  non-shifting loading feedback.
+- Completed contextual information tooltips across built-in form surfaces and
+  made nonblank field guidance a required shared form-control contract.
+- Replaced warm beige-gray surfaces, outlines, and supporting text with a
+  consistent neutral grayscale while retaining graphite-blue interactions.
+- Unified the admin interaction palette around graphite blue, bundled explicit
+  Inter font weights for crisp navigation and action labels, and added shared
+  safe plain-text normalization for JSON, HTML, and plain API errors.
+- Updated Billing Product and Price forms with contextual field help and the
+  shared JSON editor, including independently contained editor scrolling.
+- Consolidated dialog-hosted forms on a responsive shared base with a uniform
+  closeable header, section dividers, pinned action footer, and a body that
+  shrink-wraps short content or scrolls within the available viewport.
+- Redesigned the web admin console with a graphite navigation drawer,
+  neutral-gray borders around clean white workspace and dialog surfaces,
+  graphite-blue interaction states and primary actions, refined typography,
+  underlined count-bearing screen tabs, and denser enterprise controls and
+  tables.
+- Changed descriptor-driven admin consoles to use shared operational headers,
+  resource tabs with counts, grid footers, contextual empty states, and row
+  detail drawers.
+- Changed Local Users to use the shared admin header, toolbar, data grid,
+  status chips, row actions, grid footer, and contextual empty states.
+- Changed Tenants to use the shared admin header, toolbar, tabs, pagination
+  footer, empty states, status chips, and row action sizing.
+- Changed Roles & Permissions to use the shared admin header, toolbar, tabs,
+  data grid, pagination footer, empty states, split permission columns, and
+  clearer lifecycle actions.
+- Changed Audit Events to use the shared admin header, toolbar, data grid,
+  pagination footer, selected-row highlighting, status chips, copyable detail
+  metadata, and contextual empty states.
+- Changed the Human Handoff drawer item to show compact status chips for live
+  handoff workload and attention states.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed transient Human Handoff stream reconnects being reported as live
+  incidents, and consolidated the drawer status into one compact badge so the
+  navigation label remains stable.
+- Fixed rounded table surfaces so header backgrounds remain clipped inside
+  their borders.
+- Fixed administrative page headers so subtitle copy uses the available width
+  beside primary actions instead of wrapping within an arbitrary fixed cap.
+- Fixed searchable Tenant and Product selectors so their scrollable option
+  menus open in anchored overlays without expanding the surrounding layout.
+
+### Security
+
 ## [0.11.1] - 2026-06-21
 
 ### Added

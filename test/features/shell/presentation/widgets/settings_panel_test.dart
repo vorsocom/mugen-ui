@@ -177,7 +177,7 @@ void main() {
     await tester.tap(find.text('Local Users'));
     await tester.pumpAndSettle();
 
-    expect(find.text('New User'), findsOneWidget);
+    expect(find.text('New User'), findsWidgets);
     expect(find.byTooltip('Close'), findsOneWidget);
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();

@@ -31,6 +31,34 @@ void main() {
       expect(find.text('Saved successfully'), findsOneWidget);
     },
   );
+
+  testWidgets('SnackBarDispatcher strips HTML from downstream messages', (
+    WidgetTester tester,
+  ) async {
+    final dispatcher = const SnackBarDispatcher();
+    late BuildContext context;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (value) {
+              context = value;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      ),
+    );
+
+    dispatcher.showInContext(
+      context,
+      '<html><h1>Gateway failed</h1><p>Try again.</p></html>',
+    );
+    await tester.pump();
+
+    expect(find.text('Gateway failed: Try again.'), findsOneWidget);
+    expect(find.textContaining('<html>'), findsNothing);
+  });
 }
 
 class _ContextNavigator extends AppNavigator {

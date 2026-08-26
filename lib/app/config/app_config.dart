@@ -21,6 +21,7 @@ class ApiEndpointsConfig {
     required this.authResetPasswordAdmin,
     required this.authUpdateProfile,
     required this.authUpdateRolesAdmin,
+    required this.runtimeExtensions,
     required this.tenant,
     required this.tenantActionDeactivate,
     required this.tenantActionReactivate,
@@ -70,6 +71,7 @@ class ApiEndpointsConfig {
   final String authResetPasswordAdmin;
   final String authUpdateProfile;
   final String authUpdateRolesAdmin;
+  final String runtimeExtensions;
   final String tenant;
   final String tenantActionDeactivate;
   final String tenantActionReactivate;
@@ -127,6 +129,7 @@ class ApiEndpointsConfig {
       authUpdateProfile: override.authUpdateProfile ?? authUpdateProfile,
       authUpdateRolesAdmin:
           override.authUpdateRolesAdmin ?? authUpdateRolesAdmin,
+      runtimeExtensions: override.runtimeExtensions ?? runtimeExtensions,
       tenant: override.tenant ?? tenant,
       tenantActionDeactivate:
           override.tenantActionDeactivate ?? tenantActionDeactivate,
@@ -207,6 +210,7 @@ class ApiEndpointsOverride {
     this.authResetPasswordAdmin,
     this.authUpdateProfile,
     this.authUpdateRolesAdmin,
+    this.runtimeExtensions,
     this.tenant,
     this.tenantActionDeactivate,
     this.tenantActionReactivate,
@@ -256,6 +260,7 @@ class ApiEndpointsOverride {
   final String? authResetPasswordAdmin;
   final String? authUpdateProfile;
   final String? authUpdateRolesAdmin;
+  final String? runtimeExtensions;
   final String? tenant;
   final String? tenantActionDeactivate;
   final String? tenantActionReactivate;
@@ -372,6 +377,7 @@ class AppConfig {
               'core/acp/v1/Users/{user_id}/\$action/updateprofile',
           authUpdateRolesAdmin:
               'core/acp/v1/Users/{user_id}/\$action/updateroles',
+          runtimeExtensions: 'core/acp/v1/runtime/extensions',
           tenant: 'core/acp/v1/Tenants',
           tenantActionDeactivate:
               'core/acp/v1/Tenants/{tenant_id}/\$action/deactivate',

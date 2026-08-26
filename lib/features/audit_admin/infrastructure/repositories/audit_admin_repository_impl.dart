@@ -10,6 +10,7 @@ import 'package:mugen_ui/features/audit_admin/domain/entities/audit_lifecycle_su
 import 'package:mugen_ui/features/audit_admin/domain/entities/audit_seal_backlog_summary_entity.dart';
 import 'package:mugen_ui/features/audit_admin/domain/entities/audit_tenant_option_entity.dart';
 import 'package:mugen_ui/features/audit_admin/domain/repositories/audit_admin_repository.dart';
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -517,39 +518,8 @@ class AuditAdminRepositoryImpl implements AuditAdminRepository {
   ApiFailure _mapApiFailure(AuthenticatedResponse response) {
     return ApiFailure(
       response.response.statusCode,
-      _extractApiMessage(response.response.body),
+      normalizeApiErrorMessage(response.response.body),
     );
-  }
-
-  String _extractApiMessage(String body) {
-    final trimmed = body.trim();
-    if (trimmed.isEmpty) {
-      return 'API error.';
-    }
-
-    try {
-      final decoded = jsonDecode(trimmed);
-      if (decoded is Map<String, dynamic>) {
-        for (final key in const ['message', 'detail', 'error', 'description']) {
-          final value = decoded[key]?.toString().trim() ?? '';
-          if (value.isNotEmpty) {
-            return value;
-          }
-        }
-      }
-    } catch (_) {
-      // Fall through to text fallback.
-    }
-
-    if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
-      return 'API error.';
-    }
-
-    if (trimmed.length > 220) {
-      return 'API error.';
-    }
-
-    return trimmed;
   }
 
   AuditEventEntity _mapAuditEvent(Map<String, dynamic> raw) {

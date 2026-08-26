@@ -16,20 +16,20 @@ class AcpJsonEditorField extends StatefulWidget {
   const AcpJsonEditorField({
     required this.controller,
     required this.labelText,
+    required this.helpText,
     super.key,
     this.editorKey,
     this.helpKey,
-    this.helpText,
     this.hintText,
     this.maxLines = 10,
     this.minLines = 6,
     this.validator,
-  });
+  }) : assert(helpText != '', 'helpText must not be blank.');
 
   final TextEditingController controller;
   final Key? editorKey;
   final Key? helpKey;
-  final String? helpText;
+  final String helpText;
   final String? hintText;
   final String labelText;
   final int maxLines;
@@ -89,7 +89,7 @@ class _AcpJsonEditorFieldState extends State<AcpJsonEditorField> {
           children: [
             DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppUiPalette.surface,
                 border: Border.all(color: borderColor),
                 borderRadius: BorderRadius.circular(12),
               ),

@@ -17,6 +17,7 @@ import 'package:mugen_ui/features/human_handoff/presentation/widgets/human_hando
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
   testWidgets('HumanHandoffPanel renders inbox and sends reply', (
@@ -29,6 +30,13 @@ void main() {
     expect(find.text('web:room:user'), findsWidgets);
     expect(find.text('hello'), findsOneWidget);
     expect(find.text('Human Reply'), findsWidgets);
+    final guidance = _fieldGuidance(tester);
+    expect(guidance, anyElement(contains('handoff queue is displayed')));
+    expect(guidance, anyElement(contains('active, inactive, or all')));
+    expect(guidance, anyElement(contains('messaging-platform filter')));
+    expect(guidance, anyElement(contains('business workflow')));
+    expect(guidance, anyElement(contains('canonical local user ID')));
+    expect(guidance, anyElement(contains('draft is preserved')));
 
     await tester.enterText(
       find.byKey(const Key('human-handoff-reply-field')),
@@ -117,12 +125,23 @@ void main() {
 
     await tester.tap(find.widgetWithText(TextButton, 'Release'));
     await tester.pumpAndSettle();
+    expect(
+      _fieldGuidance(tester),
+      anyElement(contains('resolution or transfer reason')),
+    );
     await tester.enterText(find.byType(TextField).last, 'resolved');
     await tester.tap(find.widgetWithText(FilledButton, 'Release'));
     await tester.pumpAndSettle();
 
     expect(repository.deactivateInputs.single.reason, 'resolved');
   });
+}
+
+List<String> _fieldGuidance(WidgetTester tester) {
+  return tester
+      .widgetList<AppFieldHelpIcon>(find.byType(AppFieldHelpIcon))
+      .map((icon) => icon.message)
+      .toList(growable: false);
 }
 
 Future<void> _pumpPanel(
@@ -226,8 +245,10 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
 
   @override
   Stream<Result<HumanHandoffEventEntity>> streamEvents(
-    HumanHandoffEventStreamQuery query,
-  ) {
+    HumanHandoffEventStreamQuery query, {
+    void Function()? onConnected,
+  }) {
+    onConnected?.call();
     return eventController.stream;
   }
 

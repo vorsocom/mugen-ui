@@ -67,7 +67,8 @@ Infrastructure maps these modes to the web plugin structured multipart contract 
 
 ### Add a New Shell Route
 
-1. Define a `ShellRouteDefinition` in a core or downstream `MugenUiModule`.
+1. Define a `ShellRouteDefinition` in a core or downstream `MugenUiModule`,
+   using `section` and optional `group` metadata for drawer organization.
 2. Assemble that module in `lib/extension/app_definition.dart`.
 3. If the route should be the shell landing page, set `defaultShellRouteId` to the new route id.
 4. Validate drawer behavior, role gating, and route switching in shell widget/provider tests.
@@ -85,6 +86,45 @@ Infrastructure maps these modes to the web plugin structured multipart contract 
 2. Assemble that module in `lib/extension/app_definition.dart`.
 3. Supply a typed builder and any required dialog sizing/header options.
 4. Ensure role gating and rendering behavior are covered by widget tests.
+
+### Add a Form or Dialog
+
+Form surfaces and overlays use the shared primitives in
+`lib/shared/presentation/theme/app_form_style.dart`:
+
+1. Use `AppFormPanel` for inline forms rendered within a page.
+2. Use `AppFormDialog` for every dialog-hosted form. Supply its `title`, `body`,
+   and ordered `actions`; the base owns the closeable header, header and footer
+   dividers, responsive scrolling body, and right-aligned action footer.
+3. Use `AppResponsiveDialog` only for non-form overlays that need the same
+   responsive viewport constraints.
+4. Do not compose a form from a raw `Dialog`, a fixed-height `SizedBox`, or an
+   `Expanded` body. Those patterns either overflow short viewports or force
+   short forms to occupy their maximum height.
+5. Do not rebuild the title, close control, dividers, or footer inside the form
+   body. Keep stateful submit and cancel buttons in `actions`; they remain
+   visible while a long body scrolls.
+6. Add widget coverage for both a standard viewport and a constrained-height
+   viewport. Only set `scrollable: false` when the body supplies its own bounded
+   scrolling implementation.
+7. The architecture check rejects raw `Dialog`, `AlertDialog`, and
+   `SimpleDialog` construction outside the shared dialog primitives.
+8. Build labeled text and select controls with `appFormInputDecoration`, and
+   supply concise, nonblank `helpText` that explains the field's purpose,
+   accepted format, scope, and important side effects. `AppSearchableSelectField`
+   and `AcpJsonEditorField` enforce the same guidance contract.
+9. Resolve descriptor-driven guidance with `acpFieldHelpText`, passing the
+   resource/entity/action context whenever a repeated field key has different
+   meanings. Do not merely restate the label, and do not use a tooltip as a
+   substitute for inline validation or error text.
+10. Add widget coverage that verifies every hand-authored form exposes its
+    field guidance, and include new built-in ACP descriptors in the catalog-wide
+    explicit-guidance test.
+11. For server-backed selectors, use `AppSearchableSelectField` remote-search
+    and incremental-loading callbacks instead of placing a separate search box
+    or pagination footer beside the selector. Refresh remote options when the
+    menu opens, and keep the committed selection stable while remote options
+    are loading or temporarily filtered out.
 
 ### Replace a Built-In Feature Downstream
 

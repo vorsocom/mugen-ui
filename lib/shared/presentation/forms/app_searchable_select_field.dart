@@ -15,19 +15,27 @@ class AppSearchableSelectField<T> extends StatefulWidget {
     required this.optionSubtitle,
     required this.optionSearchText,
     required this.onSelected,
+    required this.helpText,
     this.hintText,
-    this.helpText,
+    this.helpKey,
     this.suffixIcon = Icons.manage_search_outlined,
     this.emptyMessage = 'No matching options found.',
     this.enabled = true,
+    this.selectedOptionTitle,
+    this.onSearchChanged,
+    this.isLoading = false,
+    this.hasMoreOptions = false,
+    this.onLoadMore,
+    this.onOpened,
     super.key,
-  });
+  }) : assert(helpText != '', 'helpText must not be blank.');
 
   final Key fieldKey;
   final String optionKeyPrefix;
   final String labelText;
   final String? hintText;
-  final String? helpText;
+  final Key? helpKey;
+  final String helpText;
   final IconData suffixIcon;
   final List<T> options;
   final String? selectedOptionKey;
@@ -38,6 +46,12 @@ class AppSearchableSelectField<T> extends StatefulWidget {
   final ValueChanged<T> onSelected;
   final String emptyMessage;
   final bool enabled;
+  final String? selectedOptionTitle;
+  final ValueChanged<String>? onSearchChanged;
+  final bool isLoading;
+  final bool hasMoreOptions;
+  final VoidCallback? onLoadMore;
+  final VoidCallback? onOpened;
 
   @override
   State<AppSearchableSelectField<T>> createState() =>
@@ -46,8 +60,12 @@ class AppSearchableSelectField<T> extends StatefulWidget {
 
 class _AppSearchableSelectFieldState<T>
     extends State<AppSearchableSelectField<T>> {
+  static const double _resultsMaxHeight = 264;
+  static const double _resultTileHeight = 64;
+
   final TextEditingController _controller = TextEditingController();
-  bool _showResults = false;
+  final MenuController _menuController = MenuController();
+  String _committedText = '';
   bool _showAllResults = false;
 
   @override
@@ -60,7 +78,13 @@ class _AppSearchableSelectFieldState<T>
   void didUpdateWidget(covariant AppSearchableSelectField<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.selectedOptionKey != widget.selectedOptionKey ||
+        oldWidget.selectedOptionTitle != widget.selectedOptionTitle ||
         oldWidget.options != widget.options) {
+      if (_menuController.isOpen &&
+          widget.onSearchChanged != null &&
+          oldWidget.selectedOptionKey == widget.selectedOptionKey) {
+        return;
+      }
       _syncControllerWithSelection();
     }
   }
@@ -73,89 +97,151 @@ class _AppSearchableSelectFieldState<T>
 
   @override
   Widget build(BuildContext context) {
-    final enabled = widget.enabled && widget.options.isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        TextFormField(
-          key: widget.fieldKey,
-          controller: _controller,
-          enabled: enabled,
-          decoration: appFormInputDecoration(
-            labelText: widget.labelText,
-            hintText: widget.hintText,
-            helpText: widget.helpText,
-            suffixIcon: Icon(widget.suffixIcon),
+    final enabled =
+        widget.enabled &&
+        (widget.options.isNotEmpty || widget.onSearchChanged != null);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return MenuAnchor(
+          controller: _menuController,
+          useRootOverlay: true,
+          consumeOutsideTap: false,
+          onClose: _handleMenuClosed,
+          alignmentOffset: const Offset(0, 6),
+          style: MenuStyle(
+            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+            elevation: const WidgetStatePropertyAll(8),
+            shadowColor: WidgetStatePropertyAll(
+              AppUiPalette.drawer.withValues(alpha: 0.16),
+            ),
           ),
-          onTap: enabled
-              ? () {
-                  setState(() {
-                    _showResults = true;
-                    _showAllResults = true;
-                  });
-                }
-              : null,
-          onChanged: enabled
-              ? (_) {
-                  setState(() {
-                    _showResults = true;
-                    _showAllResults = false;
-                  });
-                }
-              : null,
-        ),
-        if (_showResults && enabled) ...[
-          const SizedBox(height: 8),
-          _buildResults(),
-        ],
-      ],
+          menuChildren: [
+            SizedBox(
+              key: Key('${widget.optionKeyPrefix}-results'),
+              width: constraints.maxWidth,
+              child: _buildResults(),
+            ),
+          ],
+          builder: (context, menuController, child) {
+            return TextFormField(
+              key: widget.fieldKey,
+              controller: _controller,
+              enabled: enabled,
+              decoration: appFormInputDecoration(
+                labelText: widget.labelText,
+                hintText: widget.hintText,
+                helpKey: widget.helpKey,
+                helpText: widget.helpText,
+                suffixIcon: IconButton(
+                  tooltip: 'Show ${widget.labelText} options',
+                  onPressed: enabled ? _toggleMenu : null,
+                  icon: widget.isLoading
+                      ? SizedBox.square(
+                          key: Key('${widget.optionKeyPrefix}-field-loading'),
+                          dimension: 18,
+                          child: const CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Icon(widget.suffixIcon),
+                ),
+              ),
+              onTap: enabled ? _showAllOptions : null,
+              onChanged: enabled ? (_) => _filterOptions() : null,
+            );
+          },
+        );
+      },
     );
   }
 
   Widget _buildResults() {
     final results = _filteredOptions();
     if (results.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppUiPalette.border),
-          borderRadius: BorderRadius.circular(8),
+      return SizedBox(
+        height: _resultTileHeight,
+        child: Center(
+          child: widget.isLoading
+              ? const SizedBox.square(
+                  key: Key('app-searchable-select-loading'),
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(widget.emptyMessage),
+                ),
         ),
-        child: Text(widget.emptyMessage),
       );
     }
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 220),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppUiPalette.border),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: ListView.separated(
-          shrinkWrap: true,
-          itemCount: results.length,
-          separatorBuilder: (_, _) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final option = results[index];
-            final optionKey = widget.optionKey(option);
-            final isSelected = optionKey == widget.selectedOptionKey;
-            return ListTile(
-              key: Key('${widget.optionKeyPrefix}-$optionKey'),
-              selected: isSelected,
-              leading: Icon(
-                isSelected
-                    ? Icons.check_circle_outline
-                    : Icons.manage_search_outlined,
+    final footerHeight = widget.hasMoreOptions ? 44.0 : 0.0;
+    final progressHeight = widget.isLoading ? 3.0 : 0.0;
+    final resultsHeight =
+        (results.length * _resultTileHeight + footerHeight + progressHeight)
+            .clamp(_resultTileHeight, _resultsMaxHeight);
+    return SizedBox(
+      height: resultsHeight,
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView.separated(
+              primary: false,
+              padding: EdgeInsets.zero,
+              itemCount: results.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final option = results[index];
+                final optionKey = widget.optionKey(option);
+                final optionTitle = widget.optionTitle(option);
+                final optionSubtitle = widget.optionSubtitle(option);
+                final isSelected = optionKey == widget.selectedOptionKey;
+                return Tooltip(
+                  message: '$optionTitle\n$optionSubtitle',
+                  waitDuration: const Duration(milliseconds: 400),
+                  child: ListTile(
+                    key: Key('${widget.optionKeyPrefix}-$optionKey'),
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    horizontalTitleGap: 10,
+                    selected: isSelected,
+                    leading: Icon(
+                      isSelected
+                          ? Icons.check_circle_outline
+                          : Icons.manage_search_outlined,
+                    ),
+                    title: Text(
+                      optionTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      optionSubtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () => _select(option),
+                  ),
+                );
+              },
+            ),
+          ),
+          if (widget.isLoading)
+            const LinearProgressIndicator(
+              key: Key('app-searchable-select-loading-more'),
+              minHeight: 3,
+            ),
+          if (widget.hasMoreOptions)
+            SizedBox(
+              height: footerHeight,
+              child: TextButton.icon(
+                key: Key('${widget.optionKeyPrefix}-load-more'),
+                onPressed: widget.isLoading ? null : widget.onLoadMore,
+                icon: const Icon(Icons.expand_more),
+                label: const Text('Load more'),
               ),
-              title: Text(widget.optionTitle(option)),
-              subtitle: Text(widget.optionSubtitle(option)),
-              onTap: () => _select(option),
-            );
-          },
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -184,30 +270,69 @@ class _AppSearchableSelectFieldState<T>
   }
 
   void _select(T option) {
+    _committedText = widget.optionTitle(option);
+    _controller.text = _committedText;
+    _showAllResults = false;
+    _menuController.close();
+    widget.onSelected(option);
+  }
+
+  void _showAllOptions() {
     setState(() {
-      _controller.text = widget.optionTitle(option);
-      _showResults = false;
+      _showAllResults = true;
+    });
+    if (!_menuController.isOpen) {
+      _menuController.open();
+      widget.onOpened?.call();
+    }
+    widget.onSearchChanged?.call('');
+  }
+
+  void _filterOptions() {
+    setState(() {
       _showAllResults = false;
     });
-    widget.onSelected(option);
+    if (!_menuController.isOpen) {
+      _menuController.open();
+    }
+    widget.onSearchChanged?.call(_controller.text);
+  }
+
+  void _toggleMenu() {
+    if (_menuController.isOpen) {
+      _menuController.close();
+      return;
+    }
+    _showAllOptions();
+  }
+
+  void _handleMenuClosed() {
+    _showAllResults = false;
+    _controller.text = _committedText;
+    widget.onSearchChanged?.call('');
   }
 
   void _syncControllerWithSelection() {
     final selectedKey = widget.selectedOptionKey;
     if (selectedKey == null || selectedKey.trim().isEmpty) {
+      _committedText = '';
       _controller.clear();
-      _showResults = false;
       _showAllResults = false;
       return;
     }
 
     for (final option in widget.options) {
       if (widget.optionKey(option) == selectedKey) {
-        _controller.text = widget.optionTitle(option);
-        _showResults = false;
+        _committedText = widget.optionTitle(option);
+        _controller.text = _committedText;
         _showAllResults = false;
         return;
       }
     }
+
+    final selectedTitle = widget.selectedOptionTitle?.trim() ?? '';
+    _committedText = selectedTitle;
+    _controller.text = selectedTitle;
+    _showAllResults = false;
   }
 }

@@ -6,19 +6,30 @@ class ShellRouteAccess {
     required this.requestedRouteDefinition,
     required this.allowedRoutes,
     required this.fallbackRoute,
+    required this.routeAvailabilities,
+    required this.sessionRoles,
   });
 
   final String requestedRoute;
   final ShellRouteDefinition? requestedRouteDefinition;
   final List<ShellRouteDefinition> allowedRoutes;
   final ShellRouteDefinition? fallbackRoute;
+  final Map<String, ShellRouteAvailability> routeAvailabilities;
 
   bool get isKnownRoute => requestedRouteDefinition != null;
 
-  bool get isAllowedRoute =>
-      isKnownRoute && allowedRoutes.any((route) => route.id == requestedRoute);
+  bool get isAllowedRoute => isKnownRoute && _isRouteAllowed(requestedRoute);
 
-  bool get isUnauthorizedKnownRoute => isKnownRoute && !isAllowedRoute;
+  bool get isPendingKnownRoute {
+    if (!isKnownRoute || !_hasRequiredRolesForRequestedRoute) {
+      return false;
+    }
+    return routeAvailabilities[requestedRoute]?.status ==
+        ShellRouteAvailabilityStatus.pending;
+  }
+
+  bool get isUnauthorizedKnownRoute =>
+      isKnownRoute && !isAllowedRoute && !isPendingKnownRoute;
 
   bool get shouldRedirect =>
       isUnauthorizedKnownRoute &&
@@ -27,6 +38,13 @@ class ShellRouteAccess {
 
   bool get showLockedOutState =>
       isUnauthorizedKnownRoute && fallbackRoute == null;
+
+  String? get denialMessage {
+    if (!isUnauthorizedKnownRoute) {
+      return null;
+    }
+    return routeAvailabilities[requestedRoute]?.message;
+  }
 
   String get canonicalRouteId => isUnauthorizedKnownRoute
       ? (fallbackRoute?.id ?? requestedRoute)
@@ -47,6 +65,20 @@ class ShellRouteAccess {
   Set<String> get allowedRouteIds {
     return allowedRoutes.map((route) => route.id).toSet();
   }
+
+  bool get _hasRequiredRolesForRequestedRoute {
+    final route = requestedRouteDefinition;
+    if (route == null) {
+      return false;
+    }
+    return route.requiredRoles.every(sessionRoles.contains);
+  }
+
+  bool _isRouteAllowed(String routeId) {
+    return allowedRoutes.any((route) => route.id == routeId);
+  }
+
+  final List<String> sessionRoles;
 }
 
 ShellRouteAccess resolveShellRouteAccess({
@@ -54,10 +86,22 @@ ShellRouteAccess resolveShellRouteAccess({
   required String defaultShellRouteId,
   required List<String> sessionRoles,
   required String requestedRoute,
+  Map<String, ShellRouteAvailability> routeAvailabilities =
+      const <String, ShellRouteAvailability>{},
 }) {
   final requestedRouteDefinition = _findShellRoute(shellRoutes, requestedRoute);
   final allowedRoutes = shellRoutes
       .where((route) => _hasRequiredRoles(sessionRoles, route.requiredRoles))
+      .where(
+        (route) =>
+            routeAvailabilities[route.id]?.status !=
+            ShellRouteAvailabilityStatus.unavailable,
+      )
+      .where(
+        (route) =>
+            routeAvailabilities[route.id]?.status !=
+            ShellRouteAvailabilityStatus.pending,
+      )
       .toList(growable: false);
   final fallbackRoute = _resolveFallbackRoute(
     shellRoutes: shellRoutes,
@@ -70,6 +114,8 @@ ShellRouteAccess resolveShellRouteAccess({
     requestedRouteDefinition: requestedRouteDefinition,
     allowedRoutes: allowedRoutes,
     fallbackRoute: fallbackRoute,
+    routeAvailabilities: routeAvailabilities,
+    sessionRoles: sessionRoles,
   );
 }
 

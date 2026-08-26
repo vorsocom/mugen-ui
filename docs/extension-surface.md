@@ -141,6 +141,7 @@ Fields:
 - `title`
 - `icon`
 - `section`
+- `group`
 - `requiredRoles`
 - `showInDrawer`
 - `builder`
@@ -154,6 +155,13 @@ The shell registry is the single source of truth for:
 - locked-out empty state handling
 
 Unknown shell route ids still render the existing unknown-route placeholder.
+
+Use `section` for the drawer's top-level administrative region and `group` for
+an optional task-oriented heading within that section. Group headings are
+derived after role and runtime-availability filtering, so empty groups are not
+shown. A grouped route must provide a non-empty parent `section`. Preserve
+coherent task order in module assembly instead of relying on alphabetical
+sorting.
 
 ## Top-Level Routes
 
@@ -224,6 +232,26 @@ changing behavior:
 2. invite route shape and parser assumptions (`/invite/{tenant_id}/{invitation_id}`)
 3. ACP payload/field casing expected by backend endpoints
 4. auth refresh/logout behavior tied to the configured endpoint paths
+
+## Shared Presentation Contracts
+
+Downstream modules should use the host presentation primitives so overlays and
+request failures remain consistent with built-in features:
+
+- Use `AppFormDialog` for dialog-hosted forms. Use `AppResponsiveDialog` only
+  for non-form overlays that need the same responsive viewport constraints.
+- Use `appFormInputDecoration`, `AppSearchableSelectField`, and
+  `AcpJsonEditorField` for form controls, and provide nonblank field guidance
+  that explains purpose, format, scope, and consequential behavior. For
+  descriptor-driven forms, call `acpFieldHelpText` with resource/entity/action
+  context so repeated field names retain their backend-specific meaning.
+- Use `AppErrorAlert` for page-, form-, and dialog-level failures. It converts
+  untrusted JSON, HTML, or plain API error text into safe selectable plain text.
+- Use `normalizeApiErrorMessage` before storing an API response body in a
+  `Failure` or showing it in a non-alert surface. Never render a raw response
+  body or HTML directly.
+- Keep field validation inline and reserve snackbars for brief operation
+  confirmations rather than persistent request failures.
 
 ## ACP Console Note
 

@@ -5,6 +5,7 @@ import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/application/dto/update_own_profile_input.dart';
 import 'package:mugen_ui/features/auth/domain/entities/own_profile_entity.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -205,13 +206,19 @@ class _EditProfilePanelState extends ConsumerState<EditProfilePanel> {
       children: [
         TextFormField(
           controller: _firstNameController,
-          decoration: appFormInputDecoration(labelText: 'First Name'),
+          decoration: appFormInputDecoration(
+            labelText: 'First Name',
+            helpText: acpFieldHelpText(key: 'FirstName', label: 'First Name'),
+          ),
           validator: _required,
         ),
         const SizedBox(height: 12),
         TextFormField(
           controller: _lastNameController,
-          decoration: appFormInputDecoration(labelText: 'Last Name'),
+          decoration: appFormInputDecoration(
+            labelText: 'Last Name',
+            helpText: acpFieldHelpText(key: 'LastName', label: 'Last Name'),
+          ),
           validator: _required,
         ),
         const SizedBox(height: 16),

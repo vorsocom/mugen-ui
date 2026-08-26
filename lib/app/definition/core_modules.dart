@@ -9,6 +9,8 @@ import 'package:mugen_ui/features/auth/presentation/pages/login_page.dart';
 import 'package:mugen_ui/features/auth/presentation/widgets/auth_guard.dart';
 import 'package:mugen_ui/features/auth/presentation/widgets/edit_profile_panel.dart';
 import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel.dart';
+import 'package:mugen_ui/features/billing_catalog/presentation/providers/billing_catalog_providers.dart';
+import 'package:mugen_ui/features/billing_catalog/presentation/widgets/billing_catalog_panel.dart';
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
 import 'package:mugen_ui/features/context_admin/presentation/widgets/context_engine_panel.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/widgets/human_handoff_panel.dart';
@@ -29,14 +31,15 @@ MugenUiAppDefinition buildDefaultAppDefinition() {
       _coreAuthModule,
       _coreShellModule,
       _coreHumanHandoffModule,
-      _coreLocalUsersModule,
       _coreTenantModule,
+      _coreLocalUsersModule,
       _coreRbacModule,
-      _coreAuditModule,
-      _coreRuntimeModule,
+      _coreBillingCatalogModule,
       _coreChannelOrchestrationModule,
       _coreContextEngineModule,
       _coreKnowledgePackModule,
+      _coreRuntimeModule,
+      _coreAuditModule,
       _coreAcpConsoleModule,
       _coreTenantInviteModule,
     ],
@@ -124,9 +127,10 @@ final MugenUiModule _coreLocalUsersModule = MugenUiModule(
   shellRoutes: const <ShellRouteDefinition>[
     ShellRouteDefinition(
       id: CoreShellRouteIds.localUsers,
-      title: 'LocalUsers',
+      title: 'Local Users',
       icon: Icons.groups_outlined,
       section: 'Platform Configuration',
+      group: 'Identity & Access',
       requiredRoles: <String>['$acpNamespace:administrator'],
       builder: _buildLocalUsersRoute,
     ),
@@ -141,6 +145,7 @@ final MugenUiModule _coreTenantModule = MugenUiModule(
       title: 'Tenants',
       icon: Icons.apartment_outlined,
       section: 'Platform Configuration',
+      group: 'Identity & Access',
       requiredRoles: <String>['$acpNamespace:administrator'],
       builder: _buildTenantManagementRoute,
     ),
@@ -155,6 +160,7 @@ final MugenUiModule _coreRbacModule = MugenUiModule(
       title: 'Roles & Permissions',
       icon: Icons.admin_panel_settings_outlined,
       section: 'Platform Configuration',
+      group: 'Identity & Access',
       requiredRoles: <String>['$acpNamespace:administrator'],
       builder: _buildRbacManagementRoute,
     ),
@@ -169,6 +175,7 @@ final MugenUiModule _coreAuditModule = MugenUiModule(
       title: 'Audit Events',
       icon: Icons.fact_check_outlined,
       section: 'Platform Configuration',
+      group: 'Operations & Governance',
       requiredRoles: <String>['$acpNamespace:administrator'],
       builder: _buildAuditManagementRoute,
     ),
@@ -183,6 +190,7 @@ final MugenUiModule _coreRuntimeModule = MugenUiModule(
       title: 'Runtime Control',
       icon: Icons.settings_input_component_outlined,
       section: 'Platform Configuration',
+      group: 'Operations & Governance',
       requiredRoles: <String>['$acpNamespace:administrator'],
       builder: _buildRuntimeControlRoute,
     ),
@@ -197,6 +205,7 @@ final MugenUiModule _coreChannelOrchestrationModule = MugenUiModule(
       title: 'Channel Orchestration',
       icon: Icons.alt_route_outlined,
       section: 'Platform Configuration',
+      group: 'Platform Capabilities',
       requiredRoles: <String>['$acpNamespace:administrator'],
       builder: _buildChannelOrchestrationRoute,
     ),
@@ -211,6 +220,7 @@ final MugenUiModule _coreContextEngineModule = MugenUiModule(
       title: 'Context Engine',
       icon: Icons.hub_outlined,
       section: 'Platform Configuration',
+      group: 'Platform Capabilities',
       requiredRoles: <String>['$acpNamespace:administrator'],
       builder: _buildContextEngineRoute,
     ),
@@ -225,6 +235,7 @@ final MugenUiModule _coreKnowledgePackModule = MugenUiModule(
       title: 'Knowledge Packs',
       icon: Icons.library_books_outlined,
       section: 'Platform Configuration',
+      group: 'Platform Capabilities',
       requiredRoles: <String>[knowledgePackConfiguratorRole],
       builder: _buildKnowledgePackRoute,
     ),
@@ -239,8 +250,24 @@ final MugenUiModule _coreAcpConsoleModule = MugenUiModule(
       title: 'ACP Console',
       icon: Icons.data_object_outlined,
       section: 'Platform Configuration',
+      group: 'Developer',
       requiredRoles: <String>['$acpNamespace:administrator'],
       builder: _buildAcpConsoleRoute,
+    ),
+  ],
+);
+
+final MugenUiModule _coreBillingCatalogModule = MugenUiModule(
+  id: 'core.billing_catalog',
+  shellRoutes: <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.billingCatalog,
+      title: 'Billing Catalog',
+      icon: Icons.payments_outlined,
+      section: 'Platform Configuration',
+      group: 'Platform Capabilities',
+      availabilityProvider: billingCatalogShellAvailabilityProvider,
+      builder: _buildBillingCatalogRoute,
     ),
   ],
 );
@@ -269,33 +296,36 @@ Widget _buildResetPasswordPanel(BuildContext context) =>
 Widget _buildChatPage(BuildContext context) => const ChatPage();
 
 Widget _buildHumanHandoffRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: HumanHandoffPanel());
+    const Padding(padding: EdgeInsets.all(24), child: HumanHandoffPanel());
 
 Widget _buildLocalUsersRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: LocalUserPanel());
+    const Padding(padding: EdgeInsets.all(24), child: LocalUserPanel());
 
 Widget _buildTenantManagementRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: TenantManagementPanel());
+    const Padding(padding: EdgeInsets.all(24), child: TenantManagementPanel());
 
 Widget _buildRbacManagementRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: RbacManagementPanel());
+    const Padding(padding: EdgeInsets.all(24), child: RbacManagementPanel());
 
 Widget _buildAuditManagementRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: AuditManagementPanel());
+    const Padding(padding: EdgeInsets.all(24), child: AuditManagementPanel());
 
 Widget _buildRuntimeControlRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: RuntimeControlPanel());
+    const Padding(padding: EdgeInsets.all(24), child: RuntimeControlPanel());
 
 Widget _buildChannelOrchestrationRoute(BuildContext context) => const Padding(
-  padding: EdgeInsets.all(16),
+  padding: EdgeInsets.all(24),
   child: ChannelOrchestrationPanel(),
 );
 
 Widget _buildContextEngineRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: ContextEnginePanel());
+    const Padding(padding: EdgeInsets.all(24), child: ContextEnginePanel());
 
 Widget _buildKnowledgePackRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: KnowledgePackPanel());
+    const Padding(padding: EdgeInsets.all(24), child: KnowledgePackPanel());
 
 Widget _buildAcpConsoleRoute(BuildContext context) =>
-    const Padding(padding: EdgeInsets.all(16), child: AcpConsolePanel());
+    const Padding(padding: EdgeInsets.all(24), child: AcpConsolePanel());
+
+Widget _buildBillingCatalogRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(24), child: BillingCatalogPanel());

@@ -35,14 +35,25 @@ void main() {
       await _pumpPanel(tester, repository);
       await tester.pumpAndSettle();
 
+      expect(find.text('Local Users'), findsOneWidget);
+      expect(find.textContaining('Manage local accounts'), findsOneWidget);
       expect(find.text('alice'), findsOneWidget);
+      expect(find.text('Active'), findsWidgets);
+      expect(find.text('Disabled'), findsOneWidget);
+      expect(find.text('15 of 60'), findsOneWidget);
       expect(repository.fetchUsersQueries, isNotEmpty);
       final userTable = tester.widget<DataTable>(find.byType(DataTable).first);
+      expect(userTable.columns, hasLength(6));
       expect(userTable.columns[0].columnWidth, isA<FlexColumnWidth>());
       expect(userTable.columns[1].columnWidth, isA<FlexColumnWidth>());
       expect(userTable.columns[2].columnWidth, isA<FlexColumnWidth>());
       expect(userTable.columns[3].columnWidth, isA<FlexColumnWidth>());
-      expect(userTable.columns[4].columnWidth, isA<FixedColumnWidth>());
+      expect(userTable.columns[4].columnWidth, isA<FlexColumnWidth>());
+      expect(userTable.columns[5].columnWidth, isA<FixedColumnWidth>());
+
+      await tester.tap(find.text('Refresh'));
+      await tester.pumpAndSettle();
+      expect(repository.fetchUsersQueries, hasLength(greaterThanOrEqualTo(2)));
 
       await tester.tap(find.byTooltip('Next page'));
       await tester.pumpAndSettle();
@@ -90,7 +101,14 @@ void main() {
 
     final tableFinder = find.byType(DataTable).first;
     final tableViewport = find
-        .ancestor(of: tableFinder, matching: find.byType(ClipRRect))
+        .ancestor(
+          of: tableFinder,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is SingleChildScrollView &&
+                widget.scrollDirection == Axis.vertical,
+          ),
+        )
         .first;
     final tableBottom = tester.getBottomLeft(tableViewport).dy;
     final targetRow = find.text('user50').first;
@@ -102,6 +120,39 @@ void main() {
 
     final scrolledTargetY = tester.getTopLeft(targetRow).dy;
     expect(scrolledTargetY, lessThan(tableBottom));
+  });
+
+  testWidgets('LocalUserPanel shows contextual empty states', (
+    WidgetTester tester,
+  ) async {
+    final emptyRepository = _FakeUserAdminRepository()..emptyUsers = true;
+
+    await _pumpPanel(tester, emptyRepository);
+    await tester.pumpAndSettle();
+
+    expect(find.text('No local users yet.'), findsOneWidget);
+    expect(find.textContaining('Create a local user'), findsOneWidget);
+
+    final filteredRepository = _FakeUserAdminRepository();
+    await _pumpPanel(tester, filteredRepository);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).first, 'not-a-user');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No matching users.'), findsOneWidget);
+    expect(find.text('Clear the search or adjust filters.'), findsOneWidget);
+  });
+
+  testWidgets('LocalUserPanel shows load errors', (WidgetTester tester) async {
+    final repository = _FakeUserAdminRepository()
+      ..fetchRolesShouldSucceed = false;
+
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    expect(find.text('roles failed'), findsOneWidget);
   });
 
   testWidgets('register dialog validates input and submits success/failure', (
@@ -317,7 +368,7 @@ void main() {
     await tester.tap(find.byTooltip('Sessions').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('sessions failed'), findsOneWidget);
+    expect(find.text('sessions failed'), findsWidgets);
   });
 
   testWidgets('sessions dialog renders empty-state copy', (
@@ -347,6 +398,12 @@ void main() {
     await tester.pump();
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     await tester.pumpAndSettle();
+
+    await tester.tap(find.text('New User'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.text('Add New User'), findsNothing);
 
     await tester.tap(find.text('New User'));
     await tester.pumpAndSettle();
@@ -628,6 +685,8 @@ class _FakeUserAdminRepository implements UserAdminRepository {
   bool disableShouldSucceed = true;
   bool enableShouldSucceed = true;
   bool deleteShouldSucceed = true;
+  bool fetchRolesShouldSucceed = true;
+  bool emptyUsers = false;
   bool fetchSessionsShouldSucceed = true;
   bool emptySessions = false;
   bool revokeSessionShouldSucceed = true;
@@ -676,6 +735,11 @@ class _FakeUserAdminRepository implements UserAdminRepository {
 
   @override
   Future<Result<List<UserRoleEntity>>> fetchRoles() async {
+    if (!fetchRolesShouldSucceed) {
+      return const Result<List<UserRoleEntity>>.failure(
+        UnexpectedFailure('roles failed'),
+      );
+    }
     return Result<List<UserRoleEntity>>.success(_roles);
   }
 
@@ -718,7 +782,8 @@ class _FakeUserAdminRepository implements UserAdminRepository {
     fetchUsersQueries.add(query);
 
     final term = query.searchTerm?.toLowerCase().trim() ?? '';
-    final filtered = _users
+    final users = emptyUsers ? const <UserEntity>[] : _users;
+    final filtered = users
         .where((user) {
           if (query.excludeUserName != null &&
               user.userName == query.excludeUserName) {

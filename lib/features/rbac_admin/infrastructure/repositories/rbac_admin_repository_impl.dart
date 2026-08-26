@@ -12,6 +12,7 @@ import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_role_entity.da
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_member_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_summary_entity.dart';
 import 'package:mugen_ui/features/rbac_admin/domain/repositories/rbac_admin_repository.dart';
+import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/auth/cookie_store.dart';
@@ -759,39 +760,8 @@ class RbacAdminRepositoryImpl implements RbacAdminRepository {
   ApiFailure _mapApiFailure(AuthenticatedResponse response) {
     return ApiFailure(
       response.response.statusCode,
-      _extractApiMessage(response.response.body),
+      normalizeApiErrorMessage(response.response.body),
     );
-  }
-
-  String _extractApiMessage(String body) {
-    final trimmed = body.trim();
-    if (trimmed.isEmpty) {
-      return 'API error.';
-    }
-
-    try {
-      final decoded = jsonDecode(trimmed);
-      if (decoded is Map<String, dynamic>) {
-        for (final key in const ['message', 'detail', 'error', 'description']) {
-          final value = decoded[key]?.toString().trim() ?? '';
-          if (value.isNotEmpty) {
-            return value;
-          }
-        }
-      }
-    } catch (_) {
-      // Fallback to textual response below.
-    }
-
-    if (trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
-      return 'API error.';
-    }
-
-    if (trimmed.length > 220) {
-      return 'API error.';
-    }
-
-    return trimmed;
   }
 
   List<T> _mapList<T>(

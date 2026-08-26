@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
@@ -11,6 +14,14 @@ import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel
 import 'package:mugen_ui/features/chat/domain/entities/chat_composition_mode.dart';
 import 'package:mugen_ui/features/chat/domain/entities/chat_message_entity.dart';
 import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dart';
+import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_delivery_result_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_event_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tenant_option_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/repositories/human_handoff_repository.dart';
+import 'package:mugen_ui/features/human_handoff/presentation/providers/human_handoff_providers.dart';
 import 'package:mugen_ui/features/shell/presentation/pages/shell_page.dart';
 import 'package:mugen_ui/features/shell/presentation/providers/shell_providers.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
@@ -28,9 +39,11 @@ import 'package:mugen_ui/features/user_admin/presentation/providers/user_admin_p
 import 'package:mugen_ui/features/user_admin/presentation/widgets/local_user_panel.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
+import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
+import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const String _reportsRoute = 'reports';
 const Key _shellNoAccessibleRoutesKey = Key('shell-no-access-routes');
@@ -45,6 +58,9 @@ const Key _shellAccountSettingsPanelResetPasswordKey = Key(
 );
 const Key _shellAccountSettingsPanelUsersKey = Key(
   'shell-account-settings-panel-test.settings.local_users',
+);
+const Key _humanHandoffDrawerStatusKey = Key(
+  'shell-human-handoff-status-chips',
 );
 const List<String> _webAccessRoles = <String>[webPlatformAccessRole];
 const List<String> _authenticatedWebAccessRoles = <String>[
@@ -102,6 +118,17 @@ void main() {
 
       expect(find.text('Redcell'), findsOneWidget);
       expect(find.text('Redcell Wargaming Console'), findsNothing);
+      final drawer = tester.widget<Drawer>(find.byType(Drawer));
+      expect(drawer.backgroundColor, AppUiPalette.drawer);
+      final activeItem = tester.widget<AnimatedContainer>(
+        find.byKey(const Key('shell-drawer-item-reports')),
+      );
+      final activeDecoration = activeItem.decoration! as BoxDecoration;
+      expect(activeDecoration.color, AppUiPalette.drawerSelected);
+      expect(
+        (activeDecoration.border! as Border).left.color,
+        AppUiPalette.accent,
+      );
     },
   );
 
@@ -300,9 +327,13 @@ void main() {
     expect(find.text('AD'), findsOneWidget);
   });
 
-  testWidgets('drawer shows Platform Configuration section for admin tools', (
+  testWidgets('drawer groups Platform Configuration tools by admin task', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1440, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final config = AppConfig.defaults();
     final shellController = _TestShellController(
       initialState: const ShellState(
@@ -367,11 +398,34 @@ void main() {
       greaterThan(tester.getTopLeft(aiAssistInDrawer).dy),
     );
     expect(find.text('Platform Configuration'), findsOneWidget);
-    expect(find.text('LocalUsers'), findsOneWidget);
+    expect(find.text('Identity & Access'), findsOneWidget);
+    expect(find.text('Platform Capabilities'), findsOneWidget);
+    expect(find.text('Operations & Governance'), findsOneWidget);
+    expect(find.text('Developer'), findsOneWidget);
+    expect(find.text('Local Users'), findsOneWidget);
     expect(find.text('Tenants'), findsOneWidget);
     expect(find.text('Roles & Permissions'), findsOneWidget);
     expect(find.text('Audit Events'), findsOneWidget);
+    expect(find.text('Runtime Control'), findsOneWidget);
+    expect(find.text('Channel Orchestration'), findsOneWidget);
+    expect(find.text('Context Engine'), findsOneWidget);
     expect(find.text('Knowledge Packs'), findsOneWidget);
+    expect(find.text('ACP Console'), findsOneWidget);
+
+    double topOf(String label) => tester.getTopLeft(find.text(label)).dy;
+    expect(topOf('Identity & Access'), lessThan(topOf('Tenants')));
+    expect(topOf('Tenants'), lessThan(topOf('Local Users')));
+    expect(topOf('Local Users'), lessThan(topOf('Roles & Permissions')));
+    expect(
+      topOf('Identity & Access'),
+      lessThan(topOf('Platform Capabilities')),
+    );
+    expect(
+      topOf('Platform Capabilities'),
+      lessThan(topOf('Operations & Governance')),
+    );
+    expect(topOf('Operations & Governance'), lessThan(topOf('Developer')));
+    expect(topOf('Runtime Control'), lessThan(topOf('Audit Events')));
   });
 
   testWidgets('drawer shows Knowledge Packs for configurator permission', (
@@ -420,6 +474,9 @@ void main() {
           shellControllerProvider.overrideWith(() => shellController),
           authControllerProvider.overrideWith(() => authController),
           chatControllerProvider.overrideWith(() => chatController),
+          humanHandoffRepositoryProvider.overrideWithValue(
+            _FakeHumanHandoffRepository(),
+          ),
         ],
         child: const MaterialApp(home: ShellPage()),
       ),
@@ -427,8 +484,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Platform Configuration'), findsOneWidget);
+    expect(find.text('Platform Capabilities'), findsOneWidget);
+    expect(find.text('Identity & Access'), findsNothing);
+    expect(find.text('Operations & Governance'), findsNothing);
+    expect(find.text('Developer'), findsNothing);
     expect(find.text('Knowledge Packs'), findsOneWidget);
-    expect(find.text('LocalUsers'), findsNothing);
+    expect(find.text('Local Users'), findsNothing);
     expect(find.text('Tenants'), findsNothing);
     expect(find.text('Roles & Permissions'), findsNothing);
     expect(find.text('Audit Events'), findsNothing);
@@ -481,6 +542,9 @@ void main() {
           shellControllerProvider.overrideWith(() => shellController),
           authControllerProvider.overrideWith(() => authController),
           chatControllerProvider.overrideWith(() => chatController),
+          humanHandoffRepositoryProvider.overrideWithValue(
+            _FakeHumanHandoffRepository(),
+          ),
         ],
         child: const MaterialApp(home: ShellPage()),
       ),
@@ -488,11 +552,156 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Human Handoff'), findsOneWidget);
+    expect(find.byKey(_humanHandoffDrawerStatusKey), findsOneWidget);
+    expect(find.text('New 1'), findsOneWidget);
+    expect(find.text('Open 2'), findsNothing);
     expect(find.text('Platform Configuration'), findsNothing);
-    expect(find.text('LocalUsers'), findsNothing);
+    expect(find.text('Local Users'), findsNothing);
     expect(find.text('Tenants'), findsNothing);
     expect(find.text('Roles & Permissions'), findsNothing);
     expect(find.text('Audit Events'), findsNothing);
+  });
+
+  testWidgets('Human Handoff drawer chips show quiet live status', (
+    tester,
+  ) async {
+    await _pumpHumanHandoffDrawer(
+      tester,
+      repository: _FakeHumanHandoffRepository(
+        sessions: _buildDrawerHandoffSessions(hasNewActivity: false),
+      ),
+    );
+
+    expect(find.byKey(_humanHandoffDrawerStatusKey), findsOneWidget);
+    expect(find.text('Open 2'), findsOneWidget);
+    expect(find.text('Live'), findsNothing);
+  });
+
+  testWidgets('Human Handoff drawer tooltip shows reconnecting stream status', (
+    tester,
+  ) async {
+    await _pumpHumanHandoffDrawer(
+      tester,
+      repository: _FakeHumanHandoffRepository(
+        completeLiveStream: true,
+        sessions: _buildDrawerHandoffSessions(hasNewActivity: false),
+      ),
+    );
+
+    expect(find.byKey(_humanHandoffDrawerStatusKey), findsOneWidget);
+    expect(find.text('Open 2'), findsOneWidget);
+    expect(find.text('Offline'), findsNothing);
+    final tooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(_humanHandoffDrawerStatusKey),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(tooltip.message, contains('live updates reconnecting'));
+  });
+
+  testWidgets('Human Handoff drawer chips prioritize failed deliveries', (
+    tester,
+  ) async {
+    await _pumpHumanHandoffDrawer(
+      tester,
+      repository: _FakeHumanHandoffRepository(
+        sessions: _buildDrawerHandoffSessions(
+          hasNewActivity: false,
+          hasFailure: true,
+        ),
+      ),
+    );
+
+    expect(find.byKey(_humanHandoffDrawerStatusKey), findsOneWidget);
+    expect(find.text('Fail 1'), findsOneWidget);
+    expect(find.text('Open 2'), findsNothing);
+  });
+
+  testWidgets('Human Handoff drawer suppresses transient stream issues', (
+    tester,
+  ) async {
+    await _pumpHumanHandoffDrawer(
+      tester,
+      repository: _FakeHumanHandoffRepository(
+        liveStreamFailuresBeforeSuccess: 1,
+        sessions: _buildDrawerHandoffSessions(hasNewActivity: false),
+      ),
+    );
+
+    expect(find.byKey(_humanHandoffDrawerStatusKey), findsOneWidget);
+    expect(find.text('Issue'), findsNothing);
+    expect(find.text('Open 2'), findsOneWidget);
+    var tooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(_humanHandoffDrawerStatusKey),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(tooltip.message, contains('live updates reconnecting'));
+    expect(tooltip.message, contains('Last error: Live stream unavailable.'));
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+
+    expect(find.text('Issue'), findsNothing);
+    expect(find.text('Open 2'), findsOneWidget);
+    tooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(_humanHandoffDrawerStatusKey),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(tooltip.message, contains('live updates live'));
+    expect(tooltip.message, isNot(contains('Last error:')));
+  });
+
+  testWidgets('Human Handoff drawer shows one compact persistent issue badge', (
+    tester,
+  ) async {
+    final longLiveError = 'Live stream unavailable. ${'detail ' * 30}';
+    await _pumpHumanHandoffDrawer(
+      tester,
+      repository: _FakeHumanHandoffRepository(
+        liveStreamFailuresBeforeSuccess: 3,
+        liveStreamFailureMessage: longLiveError,
+        sessions: _buildDrawerHandoffSessions(hasNewActivity: false),
+      ),
+    );
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+
+    expect(find.text('Issue'), findsOneWidget);
+    expect(find.text('Open 2'), findsNothing);
+    expect(find.text('Clear'), findsNothing);
+    final tooltip = tester.widget<Tooltip>(
+      find.ancestor(
+        of: find.byKey(_humanHandoffDrawerStatusKey),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(tooltip.message, contains('live updates unavailable'));
+    expect(tooltip.message, contains('Last error: Live stream unavailable.'));
+    expect(tooltip.message, endsWith('…'));
+    expect(tooltip.message, isNot(contains(longLiveError)));
+    final statusSize = tester.getSize(find.byKey(_humanHandoffDrawerStatusKey));
+    expect(statusSize.height, lessThanOrEqualTo(24));
+    final title = tester.renderObject<RenderParagraph>(
+      find.text('Human Handoff'),
+    );
+    final tileSize = tester.getSize(
+      find.byKey(Key('shell-drawer-item-${RouteIds.humanHandoff}')),
+    );
+    expect(
+      title.didExceedMaxLines,
+      isFalse,
+      reason:
+          'title=${title.size}, intrinsic=${title.getMaxIntrinsicWidth(double.infinity)}, '
+          'status=$statusSize, tile=$tileSize',
+    );
   });
 
   testWidgets('drawer hides tenant admin routes for non-admin users', (
@@ -544,7 +753,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Human Handoff'), findsNothing);
-    expect(find.text('LocalUsers'), findsNothing);
+    expect(find.text('Local Users'), findsNothing);
     expect(find.text('Tenants'), findsNothing);
     expect(find.text('Roles & Permissions'), findsNothing);
     expect(find.text('Audit Events'), findsNothing);
@@ -1079,7 +1288,7 @@ void main() {
         ),
         ShellRouteDefinition(
           id: RouteIds.localUsers,
-          title: 'LocalUsers',
+          title: 'Local Users',
           icon: Icons.groups_outlined,
           section: 'Platform Configuration',
           builder: _buildPlaceholderShellPage,
@@ -1122,7 +1331,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('LocalUsers'));
+    await tester.tap(find.text('Local Users'));
     await tester.pump();
     expect(shellController.lastRoute, RouteIds.localUsers);
 
@@ -1383,7 +1592,7 @@ void main() {
       final initialTitle = tester.widget<Text>(
         find.byKey(const Key('shell-user-bar-title')),
       );
-      expect(initialTitle.data, 'LocalUsers');
+      expect(initialTitle.data, 'Local Users');
 
       authController.setSession(
         const AuthSession(
@@ -1650,9 +1859,18 @@ void main() {
         ),
         ShellRouteDefinition(
           id: RouteIds.localUsers,
-          title: 'LocalUsers',
+          title: 'Local Users',
           icon: Icons.groups_outlined,
           section: 'Platform Configuration',
+          group: 'Identity & Access',
+          builder: _buildPlaceholderShellPage,
+        ),
+        ShellRouteDefinition(
+          id: RouteIds.acpConsole,
+          title: 'ACP Console',
+          icon: Icons.data_object_outlined,
+          section: 'Platform Configuration',
+          group: 'Developer',
           builder: _buildPlaceholderShellPage,
         ),
       ],
@@ -1694,7 +1912,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(Divider), findsWidgets);
-    expect(find.byTooltip('LocalUsers'), findsOneWidget);
+    expect(find.byTooltip('Local Users'), findsOneWidget);
+    expect(find.byTooltip('ACP Console'), findsOneWidget);
+    expect(find.text('Identity & Access'), findsNothing);
+    expect(find.text('Developer'), findsNothing);
   });
 
   testWidgets(
@@ -1768,6 +1989,62 @@ void main() {
   );
 }
 
+Future<void> _pumpHumanHandoffDrawer(
+  WidgetTester tester, {
+  required _FakeHumanHandoffRepository repository,
+}) async {
+  final config = AppConfig.defaults();
+  final shellController = _TestShellController(
+    initialState: const ShellState(
+      isDrawerCollapsed: false,
+      showSettings: false,
+      activeRoute: RouteIds.chat,
+    ),
+  );
+  final authController = _RoleAwareAuthController(
+    initialState: const AuthControllerState(
+      isLoading: false,
+      session: AuthSession(
+        accessToken: 'token',
+        refreshToken: 'refresh',
+        userId: 'operator-1',
+        username: 'Operator One',
+        roles: <String>[
+          'com.vorsocomputing.mugen.acp:authenticated',
+          'com.vorsocomputing.mugen.human_handoff:operator',
+          webPlatformAccessRole,
+        ],
+      ),
+    ),
+  );
+  final chatController = _TestChatController(
+    initialState: ChatControllerState(
+      conversationId: 'conv-test',
+      messages: <ChatMessageEntity>[],
+      mediaResources: <String, ChatMediaResourceState>{},
+      attachments: const <ChatAttachmentDraft>[],
+      compositionMode: ChatCompositionMode.messageWithAttachments,
+      isConnected: true,
+      isConnecting: false,
+      isSending: false,
+    ),
+  );
+
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: <Override>[
+        appConfigProvider.overrideWith((ref) => config),
+        shellControllerProvider.overrideWith(() => shellController),
+        authControllerProvider.overrideWith(() => authController),
+        chatControllerProvider.overrideWith(() => chatController),
+        humanHandoffRepositoryProvider.overrideWithValue(repository),
+      ],
+      child: const MaterialApp(home: ShellPage()),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 MugenUiAppDefinition _buildShellTestDefinition({
   AppConfig? config,
   String defaultShellRouteId = RouteIds.chat,
@@ -1800,7 +2077,7 @@ MugenUiAppDefinition _buildShellTestDefinition({
               ),
               ShellRouteDefinition(
                 id: RouteIds.localUsers,
-                title: 'LocalUsers',
+                title: 'Local Users',
                 icon: Icons.groups_outlined,
                 section: 'Platform Configuration',
                 requiredRoles: <String>[
@@ -1981,6 +2258,128 @@ class _TestChatController extends ChatController {
 
   @override
   void ensureStreaming() {}
+}
+
+class _FakeHumanHandoffRepository implements HumanHandoffRepository {
+  _FakeHumanHandoffRepository({
+    List<HumanHandoffSessionEntity>? sessions,
+    this.completeLiveStream = false,
+    this.liveStreamFailuresBeforeSuccess = 0,
+    this.liveStreamFailureMessage = 'Live stream unavailable.',
+  }) : sessions = sessions ?? _buildDrawerHandoffSessions();
+
+  final List<HumanHandoffSessionEntity> sessions;
+  final bool completeLiveStream;
+  final int liveStreamFailuresBeforeSuccess;
+  final String liveStreamFailureMessage;
+  int _liveStreamAttempts = 0;
+  final StreamController<Result<HumanHandoffEventEntity>> eventController =
+      StreamController<Result<HumanHandoffEventEntity>>.broadcast();
+
+  @override
+  Future<Result<List<HumanHandoffTenantOptionEntity>>> fetchTenants({
+    int top = 200,
+  }) async {
+    return const Result<List<HumanHandoffTenantOptionEntity>>.success(
+      <HumanHandoffTenantOptionEntity>[
+        HumanHandoffTenantOptionEntity(id: 'tenant-1', name: 'Tenant One'),
+      ],
+    );
+  }
+
+  @override
+  Future<Result<PageResult<HumanHandoffSessionEntity>>> fetchSessions(
+    HumanHandoffSessionListQuery query,
+  ) async {
+    return Result<PageResult<HumanHandoffSessionEntity>>.success(
+      PageResult<HumanHandoffSessionEntity>(
+        items: sessions,
+        total: sessions.length,
+        page: query.pageRequest.page,
+        pageSize: query.pageRequest.pageSize,
+      ),
+    );
+  }
+
+  @override
+  Future<Result<HumanHandoffTranscriptResultEntity>> listTranscript(
+    HumanHandoffTranscriptQuery query,
+  ) async {
+    return const Result<HumanHandoffTranscriptResultEntity>.success(
+      HumanHandoffTranscriptResultEntity(
+        items: <HumanHandoffTranscriptItemEntity>[],
+        count: 0,
+        hasMore: false,
+      ),
+    );
+  }
+
+  @override
+  Stream<Result<HumanHandoffEventEntity>> streamEvents(
+    HumanHandoffEventStreamQuery query, {
+    void Function()? onConnected,
+  }) {
+    _liveStreamAttempts += 1;
+    if (_liveStreamAttempts <= liveStreamFailuresBeforeSuccess) {
+      return Stream<Result<HumanHandoffEventEntity>>.value(
+        Result<HumanHandoffEventEntity>.failure(
+          NetworkFailure(liveStreamFailureMessage),
+        ),
+      );
+    }
+    onConnected?.call();
+    if (completeLiveStream) {
+      return const Stream<Result<HumanHandoffEventEntity>>.empty();
+    }
+    return eventController.stream;
+  }
+
+  @override
+  Future<Result<HumanHandoffDeliveryResultEntity>> sendReply(
+    HumanHandoffReplyInput input,
+  ) async {
+    return const Result<HumanHandoffDeliveryResultEntity>.success(
+      HumanHandoffDeliveryResultEntity(
+        decision: 'sent',
+        deliveryStatus: 'sent',
+      ),
+    );
+  }
+
+  @override
+  Future<Result<void>> deactivate(HumanHandoffDeactivateInput input) async {
+    return const Result<void>.success(null);
+  }
+}
+
+List<HumanHandoffSessionEntity> _buildDrawerHandoffSessions({
+  bool hasNewActivity = true,
+  bool hasFailure = false,
+}) {
+  final now = DateTime.utc(2026, 7, 4, 12);
+  return <HumanHandoffSessionEntity>[
+    HumanHandoffSessionEntity(
+      id: 'handoff-1',
+      tenantId: 'tenant-1',
+      scopeKey: 'tenant:tenant-1',
+      platform: 'whatsapp',
+      status: 'active',
+      lastHumanReplyAt: now.subtract(const Duration(minutes: 5)),
+      lastUserMessageAt: hasNewActivity
+          ? now
+          : now.subtract(const Duration(minutes: 10)),
+    ),
+    HumanHandoffSessionEntity(
+      id: 'handoff-2',
+      tenantId: 'tenant-1',
+      scopeKey: 'tenant:tenant-1',
+      platform: 'web',
+      status: 'active',
+      lastHumanReplyAt: now,
+      lastUserMessageAt: now.subtract(const Duration(minutes: 3)),
+      lastDeliveryStatus: hasFailure ? 'failed' : null,
+    ),
+  ];
 }
 
 class _NoopUserAdminRepository implements UserAdminRepository {

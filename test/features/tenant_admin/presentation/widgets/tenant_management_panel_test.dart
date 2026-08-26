@@ -35,73 +35,64 @@ import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
-  testWidgets(
-    'TenantManagementPanel renders tenants and supports search + paging',
-    (WidgetTester tester) async {
-      final repository = _FakeTenantAdminRepository();
-      await _pumpPanel(tester, repository);
-      await tester.pumpAndSettle();
+  testWidgets('TenantManagementPanel uses one remote-search tenant selector', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeTenantAdminRepository();
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
 
-      expect(find.text('Tenant 1 (tenant-1) - Active'), findsOneWidget);
-      expect(
-        find.byKey(const Key('tenant-management-tenant-selector')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('tenant-management-selected-tenant-actions')),
-        findsOneWidget,
-      );
-      expect(find.byTooltip('Deactivate tenant'), findsOneWidget);
-      expect(find.byTooltip('Reactivate tenant'), findsNothing);
-      expect(
-        _tabTooltipMessage(
-          tester,
-          const Key('tenant-management-tab-domains-info'),
-        ),
-        'Verified tenant domains used to identify tenant-owned traffic.',
-      );
-      expect(
-        _tabTooltipMessage(
-          tester,
-          const Key('tenant-management-tab-invitations-info'),
-        ),
-        'Pending invitations for adding users to this tenant.',
-      );
-      expect(
-        _tabTooltipMessage(
-          tester,
-          const Key('tenant-management-tab-memberships-info'),
-        ),
-        'Users assigned to this tenant and their tenant roles.',
-      );
+    expect(find.text('Tenant 1 (tenant-1) - Active'), findsOneWidget);
+    expect(
+      find.byKey(const Key('tenant-management-tenant-selector')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('tenant-management-selected-tenant-actions')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Deactivate tenant'), findsOneWidget);
+    expect(find.byTooltip('Reactivate tenant'), findsNothing);
+    expect(find.text('Domains'), findsOneWidget);
+    expect(find.text('Invitations'), findsOneWidget);
+    expect(find.text('Memberships'), findsOneWidget);
+    expect(
+      find.byKey(const Key('tenant-management-search-field')),
+      findsNothing,
+    );
+    expect(find.byTooltip('Next page'), findsNothing);
+    expect(
+      find.byKey(const Key('tenant-management-refresh-button')),
+      findsNothing,
+    );
 
-      await tester.tap(find.byTooltip('Next page'));
-      await tester.pumpAndSettle();
-      expect(repository.lastTenantQuery?.pageRequest.page, 2);
+    final selector = find.byKey(const Key('tenant-management-tenant-selector'));
+    await tester.tap(selector);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('tenant-management-tenant-option-load-more')),
+    );
+    await tester.pumpAndSettle();
+    expect(repository.lastTenantQuery?.pageRequest.page, 2);
 
-      await tester.tap(find.byTooltip('Previous page'));
-      await tester.pumpAndSettle();
-      expect(repository.lastTenantQuery?.pageRequest.page, 1);
+    await tester.enterText(selector, 'tenant 32');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(repository.lastTenantQuery?.searchTerm, 'tenant 32');
+    expect(
+      find.byKey(const Key('tenant-management-tenant-option-t-32')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Deactivate tenant'), findsOneWidget);
+    expect(find.text('tenant1.example.com'), findsOneWidget);
 
-      await tester.tap(find.byType(DropdownButton<int>).first);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('25').last);
-      await tester.pumpAndSettle();
-      expect(repository.lastTenantQuery?.pageRequest.pageSize, 25);
-
-      await _selectTenant(tester, 'Tenant 2 (tenant-2) - Inactive');
-      expect(find.byTooltip('Deactivate tenant'), findsNothing);
-      expect(find.byTooltip('Reactivate tenant'), findsOneWidget);
-
-      await tester.enterText(
-        find.byKey(const Key('tenant-management-search-field')),
-        'tenant 2',
-      );
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      expect(repository.lastTenantQuery?.searchTerm, 'tenant 2');
-    },
-  );
+    await tester.tap(
+      find.byKey(const Key('tenant-management-tenant-option-t-32')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Deactivate tenant'), findsNothing);
+    expect(find.byTooltip('Reactivate tenant'), findsOneWidget);
+  });
 
   testWidgets('TenantManagementPanel renders load errors as copyable alerts', (
     WidgetTester tester,
@@ -115,6 +106,12 @@ void main() {
     expect(find.byType(AppErrorAlert), findsOneWidget);
     expect(find.text('tenant list failed'), findsOneWidget);
     expect(find.byTooltip('Copy error details'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'New Tenant').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Create Tenant'), findsWidgets);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('TenantManagementPanel create/edit/lifecycle actions', (
@@ -399,7 +396,7 @@ void main() {
   );
 
   testWidgets(
-    'TenantManagementPanel covers refresh, loading, and cancel paths',
+    'TenantManagementPanel covers selector refresh, loading, and cancel paths',
     (WidgetTester tester) async {
       final repository = _FakeTenantAdminRepository()
         ..fetchTenantsDelay = const Duration(milliseconds: 500)
@@ -407,17 +404,22 @@ void main() {
         ..returnEmptyDetails = true;
       await _pumpPanel(tester, repository);
       await tester.pump();
-      expect(find.byType(LinearProgressIndicator), findsOneWidget);
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.widgetWithText(TextButton, 'Refresh'));
-      await tester.pump();
+      expect(
+        find.byKey(const Key('tenant-management-tenant-option-field-loading')),
+        findsOneWidget,
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(
         find.byKey(const Key('tenant-management-tenant-selector')),
       );
+      await tester.pump();
+      expect(
+        find.byKey(const Key('tenant-management-tenant-option-field-loading')),
+        findsOneWidget,
+      );
       await tester.pumpAndSettle();
+
       await tester.tap(
         find.byKey(const Key('tenant-management-tenant-option-t-2')),
       );
@@ -464,11 +466,6 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
-}
-
-String? _tabTooltipMessage(WidgetTester tester, Key tabKey) {
-  final tooltip = tester.widget<Tooltip>(find.byKey(tabKey));
-  return tooltip.message;
 }
 
 Future<void> _pumpPanel(

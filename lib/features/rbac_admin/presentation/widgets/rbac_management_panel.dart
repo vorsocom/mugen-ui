@@ -1,5 +1,6 @@
 // coverage:ignore-file
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,68 +19,12 @@ import 'package:mugen_ui/features/rbac_admin/domain/entities/rbac_tenant_summary
 import 'package:mugen_ui/features/rbac_admin/presentation/providers/rbac_admin_providers.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
+import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
 const double _formDialogPanelWidth = 520;
-
-class _RbacTabChip extends StatelessWidget {
-  const _RbacTabChip({
-    required this.chipKey,
-    required this.label,
-    required this.tooltip,
-    required this.tooltipKey,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final Key chipKey;
-  final String label;
-  final String tooltip;
-  final Key tooltipKey;
-  final bool selected;
-  final ValueChanged<bool> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.centerRight,
-      children: [
-        ChoiceChip(
-          key: chipKey,
-          label: Padding(
-            padding: const EdgeInsets.only(right: 24),
-            child: Text(label),
-          ),
-          selected: selected,
-          onSelected: onSelected,
-        ),
-        Positioned(
-          right: 6,
-          top: 0,
-          bottom: 0,
-          child: Center(
-            child: Tooltip(
-              key: tooltipKey,
-              message: tooltip,
-              child: const SizedBox.square(
-                dimension: 18,
-                child: Center(
-                  child: Icon(
-                    Icons.info_outline,
-                    size: 16,
-                    color: AppUiPalette.textSecondary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class RbacManagementPanel extends ConsumerStatefulWidget {
   const RbacManagementPanel({super.key}); // coverage:ignore-line
@@ -106,21 +51,25 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
+        const AdminPageHeader(
+          title: 'Roles & Permissions',
+          subtitle:
+              'Manage RBAC roles, permission catalogs, grants, and memberships.',
+        ),
+        AdminToolbar(
           children: [
-            TextButton.icon(
-              key: const Key('rbac-management-refresh-button'),
-              onPressed: () => controller.refresh(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh'),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
+            SizedBox(
+              width: 360,
               child: AppSearchableSelectField<RbacTenantSummaryEntity>(
                 fieldKey: const Key('rbac-management-tenant-selector'),
                 optionKeyPrefix: 'rbac-management-tenant-option',
                 labelText: 'Tenant',
                 hintText: 'Search tenants',
+                helpText: acpFieldHelpText(
+                  key: 'Tenant',
+                  label: 'Tenant',
+                  resourceKey: 'RbacAdmin',
+                ),
                 options: state.tenants,
                 selectedOptionKey: state.selectedTenantId,
                 optionKey: (tenant) => tenant.id,
@@ -135,115 +84,29 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
                 },
               ),
             ),
+            TextButton.icon(
+              key: const Key('rbac-management-refresh-button'),
+              onPressed: controller.refresh,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+            ),
           ],
         ),
         if (state.isLoadingGlobal ||
             state.isLoadingTenantScoped ||
             state.isMutating)
           const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: LinearProgressIndicator(),
+            padding: EdgeInsets.only(bottom: 8),
+            child: LinearProgressIndicator(minHeight: 2),
           ),
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(bottom: 8),
             child: AppErrorAlert(message: state.errorMessage!),
           ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            _RbacTabChip(
-              chipKey: const Key('rbac-management-tab-permission-objects'),
-              label: 'Permission Objects',
-              tooltip:
-                  'Protected object types that permissions can be granted on.',
-              tooltipKey: const Key(
-                'rbac-management-tab-permission-objects-info',
-              ),
-              selected: state.activeTab == RbacAdminTab.permissionObjects,
-              onSelected: (_) =>
-                  controller.setActiveTab(RbacAdminTab.permissionObjects),
-            ),
-            _RbacTabChip(
-              chipKey: const Key('rbac-management-tab-permission-types'),
-              label: 'Permission Types',
-              tooltip:
-                  'Actions that can be allowed or denied for permission objects.',
-              tooltipKey: const Key(
-                'rbac-management-tab-permission-types-info',
-              ),
-              selected: state.activeTab == RbacAdminTab.permissionTypes,
-              onSelected: (_) =>
-                  controller.setActiveTab(RbacAdminTab.permissionTypes),
-            ),
-            _RbacTabChip(
-              chipKey: const Key('rbac-management-tab-global-roles'),
-              label: 'Global Roles',
-              tooltip:
-                  'Platform-wide roles that can be granted outside a tenant.',
-              tooltipKey: const Key('rbac-management-tab-global-roles-info'),
-              selected: state.activeTab == RbacAdminTab.globalRoles,
-              onSelected: (_) =>
-                  controller.setActiveTab(RbacAdminTab.globalRoles),
-            ),
-            _RbacTabChip(
-              chipKey: const Key('rbac-management-tab-global-grants'),
-              label: 'Global Grants',
-              tooltip:
-                  'Global role permissions that apply without tenant scope.',
-              tooltipKey: const Key('rbac-management-tab-global-grants-info'),
-              selected: state.activeTab == RbacAdminTab.globalGrants,
-              onSelected: (_) =>
-                  controller.setActiveTab(RbacAdminTab.globalGrants),
-            ),
-            _RbacTabChip(
-              chipKey: const Key('rbac-management-tab-global-role-memberships'),
-              label: 'Global Role Memberships',
-              tooltip: 'Users assigned to global roles outside tenant scope.',
-              tooltipKey: const Key(
-                'rbac-management-tab-global-role-memberships-info',
-              ),
-              selected: state.activeTab == RbacAdminTab.globalRoleMemberships,
-              onSelected: (_) =>
-                  controller.setActiveTab(RbacAdminTab.globalRoleMemberships),
-            ),
-            _RbacTabChip(
-              chipKey: const Key('rbac-management-tab-tenant-roles'),
-              label: 'Tenant Roles',
-              tooltip: 'Roles available only within the selected tenant.',
-              tooltipKey: const Key('rbac-management-tab-tenant-roles-info'),
-              selected: state.activeTab == RbacAdminTab.tenantRoles,
-              onSelected: (_) =>
-                  controller.setActiveTab(RbacAdminTab.tenantRoles),
-            ),
-            _RbacTabChip(
-              chipKey: const Key('rbac-management-tab-tenant-grants'),
-              label: 'Tenant Grants',
-              tooltip:
-                  'Permissions assigned to tenant roles in the selected tenant.',
-              tooltipKey: const Key('rbac-management-tab-tenant-grants-info'),
-              selected: state.activeTab == RbacAdminTab.tenantGrants,
-              onSelected: (_) =>
-                  controller.setActiveTab(RbacAdminTab.tenantGrants),
-            ),
-            _RbacTabChip(
-              chipKey: const Key('rbac-management-tab-role-memberships'),
-              label: 'Tenant Role Memberships',
-              tooltip: 'Users assigned to tenant roles in the selected tenant.',
-              tooltipKey: const Key(
-                'rbac-management-tab-role-memberships-info',
-              ),
-              selected: state.activeTab == RbacAdminTab.tenantRoleMemberships,
-              onSelected: (_) =>
-                  controller.setActiveTab(RbacAdminTab.tenantRoleMemberships),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
+        AdminTabs(items: _buildTabItems(state, controller)),
         Expanded(
-          child: AppFormPanel(
-            margin: EdgeInsets.zero,
+          child: AdminSurface(
             child: switch (state.activeTab) {
               RbacAdminTab.permissionObjects => _buildPermissionObjectsTab(
                 state,
@@ -264,272 +127,396 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     );
   }
 
+  List<AdminTabItem> _buildTabItems(
+    RbacAdminState state,
+    RbacAdminController controller,
+  ) {
+    return [
+      AdminTabItem(
+        key: const Key('rbac-management-tab-permission-objects'),
+        label: 'Permission Objects',
+        count: state.permissionObjects.length,
+        selected: state.activeTab == RbacAdminTab.permissionObjects,
+        onSelected: () =>
+            controller.setActiveTab(RbacAdminTab.permissionObjects),
+      ),
+      AdminTabItem(
+        key: const Key('rbac-management-tab-permission-types'),
+        label: 'Permission Types',
+        count: state.permissionTypes.length,
+        selected: state.activeTab == RbacAdminTab.permissionTypes,
+        onSelected: () => controller.setActiveTab(RbacAdminTab.permissionTypes),
+      ),
+      AdminTabItem(
+        key: const Key('rbac-management-tab-global-roles'),
+        label: 'Global Roles',
+        count: state.globalRoles.length,
+        selected: state.activeTab == RbacAdminTab.globalRoles,
+        onSelected: () => controller.setActiveTab(RbacAdminTab.globalRoles),
+      ),
+      AdminTabItem(
+        key: const Key('rbac-management-tab-global-grants'),
+        label: 'Global Grants',
+        count: state.globalPermissionEntries.length,
+        selected: state.activeTab == RbacAdminTab.globalGrants,
+        onSelected: () => controller.setActiveTab(RbacAdminTab.globalGrants),
+      ),
+      AdminTabItem(
+        key: const Key('rbac-management-tab-global-role-memberships'),
+        label: 'Global Role Memberships',
+        count: state.globalRoleMemberships.length,
+        selected: state.activeTab == RbacAdminTab.globalRoleMemberships,
+        onSelected: () =>
+            controller.setActiveTab(RbacAdminTab.globalRoleMemberships),
+      ),
+      AdminTabItem(
+        key: const Key('rbac-management-tab-tenant-roles'),
+        label: 'Tenant Roles',
+        count: state.tenantRoles.length,
+        selected: state.activeTab == RbacAdminTab.tenantRoles,
+        onSelected: () => controller.setActiveTab(RbacAdminTab.tenantRoles),
+      ),
+      AdminTabItem(
+        key: const Key('rbac-management-tab-tenant-grants'),
+        label: 'Tenant Grants',
+        count: state.tenantPermissionEntries.length,
+        selected: state.activeTab == RbacAdminTab.tenantGrants,
+        onSelected: () => controller.setActiveTab(RbacAdminTab.tenantGrants),
+      ),
+      AdminTabItem(
+        key: const Key('rbac-management-tab-role-memberships'),
+        label: 'Tenant Role Memberships',
+        count: state.tenantRoleMemberships.length,
+        selected: state.activeTab == RbacAdminTab.tenantRoleMemberships,
+        onSelected: () =>
+            controller.setActiveTab(RbacAdminTab.tenantRoleMemberships),
+      ),
+    ];
+  }
+
   Widget _buildGlobalRolesTab(RbacAdminState state) {
-    return _RbacListSection(
+    return _RbacGridSection<RbacRoleEntity>(
       key: const ValueKey<String>('rbac-global-roles-section'),
       createButtonKey: const Key('rbac-global-role-create-button'),
       createLabel: 'New Global Role',
       searchFieldKey: const Key('rbac-global-roles-search-field'),
       searchHint: 'Search global roles',
       onCreate: _showCreateGlobalRoleDialog,
-      emptyMessage: 'No global roles found.',
-      items: state.globalRoles
-          .map(
-            (role) => _RbacSearchItem(
-              searchText: _joinSearchText([
-                role.displayName,
-                role.key,
-                role.namespace,
-                role.name,
-                role.status,
-              ]),
-              child: ListTile(
-                title: Text(role.displayName),
-                subtitle: Text('${role.key}  |  ${role.status}'),
-                trailing: _ActionIcon(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit global role',
-                  onPressed: () => _showEditGlobalRoleDialog(role),
-                ),
-              ),
-            ),
-          )
-          .toList(growable: false),
+      emptyTitle: 'No global roles yet.',
+      emptyMessage:
+          'Create a global role to grant platform-wide permissions outside tenant scope.',
+      rows: state.globalRoles,
+      rowKey: (role) => role.id,
+      searchText: _roleSearchText,
+      columns: [
+        AdminGridColumn<RbacRoleEntity>(
+          key: 'role',
+          label: 'Role',
+          flex: 2,
+          cell: (_, role) => AdminCellText(role.displayName),
+        ),
+        AdminGridColumn<RbacRoleEntity>(
+          key: 'namespace',
+          label: 'Namespace',
+          cell: (_, role) => AdminCellText(role.namespace),
+        ),
+        AdminGridColumn<RbacRoleEntity>(
+          key: 'name',
+          label: 'Name',
+          cell: (_, role) => AdminCellText(role.name),
+        ),
+        AdminGridColumn<RbacRoleEntity>(
+          key: 'status',
+          label: 'Status',
+          width: 128,
+          cell: (_, role) => AdminStatusChip(label: role.status),
+        ),
+      ],
+      actions: [
+        AdminGridAction<RbacRoleEntity>(
+          icon: Icons.edit_outlined,
+          tooltip: 'Edit global role',
+          onPressed: (role) =>
+              () => _showEditGlobalRoleDialog(role),
+        ),
+      ],
     );
   }
 
   Widget _buildPermissionObjectsTab(RbacAdminState state) {
-    return _RbacListSection(
+    return _RbacGridSection<RbacPermissionObjectEntity>(
       key: const ValueKey<String>('rbac-permission-objects-section'),
       createButtonKey: const Key('rbac-permission-object-create-button'),
       createLabel: 'New Permission Object',
       searchFieldKey: const Key('rbac-permission-objects-search-field'),
       searchHint: 'Search permission objects',
       onCreate: _showCreatePermissionObjectDialog,
-      emptyMessage: 'No permission objects found.',
-      items: state.permissionObjects
-          .map(
-            (permissionObject) => _RbacSearchItem(
-              searchText: _joinSearchText([
-                permissionObject.key,
-                permissionObject.namespace,
-                permissionObject.name,
-                permissionObject.status,
-              ]),
-              child: ListTile(
-                title: Text(permissionObject.key),
-                subtitle: Text(permissionObject.status),
-                trailing: _ActionIcon(
-                  icon: _isDeprecatedStatus(permissionObject.status)
-                      ? Icons.play_circle_outline
-                      : Icons.pause_circle_outline,
-                  tooltip: _isDeprecatedStatus(permissionObject.status)
-                      ? 'Reactivate permission object'
-                      : 'Deprecate permission object',
-                  onPressed: () => _runPermissionObjectLifecycle(
-                    permissionObject,
-                    deprecate: !_isDeprecatedStatus(permissionObject.status),
-                  ),
-                ),
+      emptyTitle: 'No permission objects yet.',
+      emptyMessage:
+          'Create a permission object before attaching actions to roles or grants.',
+      rows: state.permissionObjects,
+      rowKey: (permissionObject) => permissionObject.id,
+      searchText: _permissionObjectSearchText,
+      columns: [
+        AdminGridColumn<RbacPermissionObjectEntity>(
+          key: 'namespace',
+          label: 'Namespace',
+          flex: 2,
+          cell: (_, permissionObject) =>
+              AdminCellText(permissionObject.namespace),
+        ),
+        AdminGridColumn<RbacPermissionObjectEntity>(
+          key: 'object',
+          label: 'Object',
+          flex: 2,
+          cell: (_, permissionObject) => AdminCellText(permissionObject.name),
+        ),
+        AdminGridColumn<RbacPermissionObjectEntity>(
+          key: 'status',
+          label: 'Status',
+          width: 128,
+          cell: (_, permissionObject) =>
+              AdminStatusChip(label: permissionObject.status),
+        ),
+      ],
+      actionsBuilder: (_, permissionObject) {
+        final isDeprecated = _isDeprecatedStatus(permissionObject.status);
+        return _RbacInlineActions(
+          children: [
+            AdminIconButton(
+              icon: isDeprecated
+                  ? Icons.restore_outlined
+                  : Icons.archive_outlined,
+              tooltip: isDeprecated
+                  ? 'Reactivate permission object'
+                  : 'Deprecate permission object',
+              onPressed: () => _runPermissionObjectLifecycle(
+                permissionObject,
+                deprecate: !isDeprecated,
               ),
             ),
-          )
-          .toList(growable: false),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildPermissionTypesTab(RbacAdminState state) {
-    return _RbacListSection(
+    return _RbacGridSection<RbacPermissionTypeEntity>(
       key: const ValueKey<String>('rbac-permission-types-section'),
       createButtonKey: const Key('rbac-permission-type-create-button'),
       createLabel: 'New Permission Type',
       searchFieldKey: const Key('rbac-permission-types-search-field'),
       searchHint: 'Search permission types',
       onCreate: _showCreatePermissionTypeDialog,
-      emptyMessage: 'No permission types found.',
-      items: state.permissionTypes
-          .map(
-            (permissionType) => _RbacSearchItem(
-              searchText: _joinSearchText([
-                permissionType.key,
-                permissionType.namespace,
-                permissionType.name,
-                permissionType.status,
-              ]),
-              child: ListTile(
-                title: Text(permissionType.key),
-                subtitle: Text(permissionType.status),
-                trailing: _ActionIcon(
-                  icon: _isDeprecatedStatus(permissionType.status)
-                      ? Icons.play_circle_outline
-                      : Icons.pause_circle_outline,
-                  tooltip: _isDeprecatedStatus(permissionType.status)
-                      ? 'Reactivate permission type'
-                      : 'Deprecate permission type',
-                  onPressed: () => _runPermissionTypeLifecycle(
-                    permissionType,
-                    deprecate: !_isDeprecatedStatus(permissionType.status),
-                  ),
-                ),
+      emptyTitle: 'No permission types yet.',
+      emptyMessage:
+          'Create a permission type to define the actions that can be granted.',
+      rows: state.permissionTypes,
+      rowKey: (permissionType) => permissionType.id,
+      searchText: _permissionTypeSearchText,
+      columns: [
+        AdminGridColumn<RbacPermissionTypeEntity>(
+          key: 'namespace',
+          label: 'Namespace',
+          flex: 2,
+          cell: (_, permissionType) => AdminCellText(permissionType.namespace),
+        ),
+        AdminGridColumn<RbacPermissionTypeEntity>(
+          key: 'action',
+          label: 'Action',
+          flex: 2,
+          cell: (_, permissionType) => AdminCellText(permissionType.name),
+        ),
+        AdminGridColumn<RbacPermissionTypeEntity>(
+          key: 'status',
+          label: 'Status',
+          width: 128,
+          cell: (_, permissionType) =>
+              AdminStatusChip(label: permissionType.status),
+        ),
+      ],
+      actionsBuilder: (_, permissionType) {
+        final isDeprecated = _isDeprecatedStatus(permissionType.status);
+        return _RbacInlineActions(
+          children: [
+            AdminIconButton(
+              icon: isDeprecated
+                  ? Icons.restore_outlined
+                  : Icons.archive_outlined,
+              tooltip: isDeprecated
+                  ? 'Reactivate permission type'
+                  : 'Deprecate permission type',
+              onPressed: () => _runPermissionTypeLifecycle(
+                permissionType,
+                deprecate: !isDeprecated,
               ),
             ),
-          )
-          .toList(growable: false),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildGlobalGrantsTab(RbacAdminState state) {
-    return _RbacListSection(
+    return _RbacGridSection<RbacPermissionEntryEntity>(
       key: const ValueKey<String>('rbac-global-grants-section'),
       createButtonKey: const Key('rbac-global-grant-create-button'),
       createLabel: 'New Global Grant',
       searchFieldKey: const Key('rbac-global-grants-search-field'),
       searchHint: 'Search global grants',
       onCreate: _showCreateGlobalGrantDialog,
-      emptyMessage: 'No global grants found.',
-      items: state.globalPermissionEntries
-          .map(
-            (entry) => _RbacSearchItem(
-              searchText: _permissionEntrySearchText(entry),
-              child: ListTile(
-                title: Text(entry.roleDisplayName),
-                subtitle: Text(
-                  '${entry.permissionObjectDisplayName}  |  ${entry.permissionTypeDisplayName}',
-                ),
-                trailing: Wrap(
-                  spacing: 4,
-                  children: [
-                    _ActionIcon(
-                      icon: entry.permitted
-                          ? Icons.toggle_on_outlined
-                          : Icons.toggle_off_outlined,
-                      tooltip: entry.permitted ? 'Set denied' : 'Set permitted',
-                      onPressed: () => _toggleGlobalGrant(entry),
-                    ),
-                    _ActionIcon(
-                      icon: Icons.delete_outline,
-                      tooltip: 'Delete global grant',
-                      onPressed: () => _deleteGlobalGrant(entry),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          )
-          .toList(growable: false),
+      emptyTitle: 'No global grants yet.',
+      emptyMessage:
+          'Create a global grant to allow or deny an action for a platform role.',
+      rows: state.globalPermissionEntries,
+      rowKey: (entry) => entry.id,
+      searchText: _permissionEntrySearchText,
+      columns: _permissionEntryColumns(),
+      actionsWidth: 112,
+      actionsBuilder: (_, entry) => _RbacInlineActions(
+        children: [
+          AdminIconButton(
+            icon: entry.permitted
+                ? Icons.toggle_on_outlined
+                : Icons.toggle_off_outlined,
+            tooltip: entry.permitted ? 'Set denied' : 'Set permitted',
+            onPressed: () => _toggleGlobalGrant(entry),
+          ),
+          AdminIconButton(
+            icon: Icons.delete_outline,
+            tooltip: 'Delete global grant',
+            destructive: true,
+            onPressed: () => _deleteGlobalGrant(entry),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildTenantRolesTab(RbacAdminState state) {
     final tenantId = state.selectedTenantId;
     if (tenantId == null || tenantId.isEmpty) {
-      return const Center(
-        child: Text('Select a tenant to manage tenant roles.'),
+      return const AdminEmptyState(
+        data: AdminEmptyStateData(
+          title: 'Tenant required.',
+          message: 'Select a tenant to manage tenant roles.',
+        ),
       );
     }
 
-    return _RbacListSection(
+    return _RbacGridSection<RbacRoleEntity>(
       key: const ValueKey<String>('rbac-tenant-roles-section'),
       createButtonKey: const Key('rbac-tenant-role-create-button'),
       createLabel: 'New Tenant Role',
       searchFieldKey: const Key('rbac-tenant-roles-search-field'),
       searchHint: 'Search tenant roles',
       onCreate: () => _showCreateTenantRoleDialog(tenantId),
-      emptyMessage: 'No tenant roles found.',
-      items: state.tenantRoles
-          .map(
-            (role) => _RbacSearchItem(
-              searchText: _joinSearchText([
-                role.displayName,
-                role.key,
-                role.namespace,
-                role.name,
-                role.status,
-              ]),
-              child: ListTile(
-                title: Text(role.displayName),
-                subtitle: Text('${role.key}  |  ${role.status}'),
-                trailing: Wrap(
-                  spacing: 4,
-                  children: [
-                    _ActionIcon(
-                      icon: Icons.edit_outlined,
-                      tooltip: 'Edit tenant role',
-                      onPressed: () => _showEditTenantRoleDialog(
-                        tenantId: tenantId,
-                        role: role,
-                      ),
-                    ),
-                    _ActionIcon(
-                      icon: _isDeprecatedStatus(role.status)
-                          ? Icons.play_circle_outline
-                          : Icons.pause_circle_outline,
-                      tooltip: _isDeprecatedStatus(role.status)
-                          ? 'Reactivate tenant role'
-                          : 'Deprecate tenant role',
-                      onPressed: () => _runTenantRoleLifecycle(
-                        tenantId: tenantId,
-                        role: role,
-                        deprecate: !_isDeprecatedStatus(role.status),
-                      ),
-                    ),
-                  ],
-                ),
+      emptyTitle: 'No tenant roles yet.',
+      emptyMessage:
+          'Create a tenant role before assigning tenant-scoped grants or memberships.',
+      rows: state.tenantRoles,
+      rowKey: (role) => role.id,
+      searchText: _roleSearchText,
+      columns: [
+        AdminGridColumn<RbacRoleEntity>(
+          key: 'role',
+          label: 'Role',
+          flex: 2,
+          cell: (_, role) => AdminCellText(role.displayName),
+        ),
+        AdminGridColumn<RbacRoleEntity>(
+          key: 'namespace',
+          label: 'Namespace',
+          cell: (_, role) => AdminCellText(role.namespace),
+        ),
+        AdminGridColumn<RbacRoleEntity>(
+          key: 'name',
+          label: 'Name',
+          cell: (_, role) => AdminCellText(role.name),
+        ),
+        AdminGridColumn<RbacRoleEntity>(
+          key: 'status',
+          label: 'Status',
+          width: 128,
+          cell: (_, role) => AdminStatusChip(label: role.status),
+        ),
+      ],
+      actionsWidth: 112,
+      actionsBuilder: (_, role) {
+        final isDeprecated = _isDeprecatedStatus(role.status);
+        return _RbacInlineActions(
+          children: [
+            AdminIconButton(
+              icon: Icons.edit_outlined,
+              tooltip: 'Edit tenant role',
+              onPressed: () =>
+                  _showEditTenantRoleDialog(tenantId: tenantId, role: role),
+            ),
+            AdminIconButton(
+              icon: isDeprecated
+                  ? Icons.restore_outlined
+                  : Icons.archive_outlined,
+              tooltip: isDeprecated
+                  ? 'Reactivate tenant role'
+                  : 'Deprecate tenant role',
+              onPressed: () => _runTenantRoleLifecycle(
+                tenantId: tenantId,
+                role: role,
+                deprecate: !isDeprecated,
               ),
             ),
-          )
-          .toList(growable: false),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildTenantGrantsTab(RbacAdminState state) {
     final tenantId = state.selectedTenantId;
     if (tenantId == null || tenantId.isEmpty) {
-      return const Center(
-        child: Text('Select a tenant to manage tenant grants.'),
+      return const AdminEmptyState(
+        data: AdminEmptyStateData(
+          title: 'Tenant required.',
+          message: 'Select a tenant to manage tenant grants.',
+        ),
       );
     }
 
-    return _RbacListSection(
+    return _RbacGridSection<RbacPermissionEntryEntity>(
       key: const ValueKey<String>('rbac-tenant-grants-section'),
       createButtonKey: const Key('rbac-tenant-grant-create-button'),
       createLabel: 'New Tenant Grant',
       searchFieldKey: const Key('rbac-tenant-grants-search-field'),
       searchHint: 'Search tenant grants',
       onCreate: () => _showCreateTenantGrantDialog(tenantId),
-      emptyMessage: 'No tenant grants found.',
-      items: state.tenantPermissionEntries
-          .map(
-            (entry) => _RbacSearchItem(
-              searchText: _permissionEntrySearchText(entry),
-              child: ListTile(
-                title: Text(entry.roleDisplayName),
-                subtitle: Text(
-                  '${entry.permissionObjectDisplayName}  |  ${entry.permissionTypeDisplayName}',
-                ),
-                trailing: Wrap(
-                  spacing: 4,
-                  children: [
-                    _ActionIcon(
-                      icon: entry.permitted
-                          ? Icons.toggle_on_outlined
-                          : Icons.toggle_off_outlined,
-                      tooltip: entry.permitted ? 'Set denied' : 'Set permitted',
-                      onPressed: () =>
-                          _toggleTenantGrant(tenantId: tenantId, entry: entry),
-                    ),
-                    _ActionIcon(
-                      icon: Icons.delete_outline,
-                      tooltip: 'Delete tenant grant',
-                      onPressed: () =>
-                          _deleteTenantGrant(tenantId: tenantId, entry: entry),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          )
-          .toList(growable: false),
+      emptyTitle: 'No tenant grants yet.',
+      emptyMessage:
+          'Create a tenant grant to allow or deny a permission for a tenant role.',
+      rows: state.tenantPermissionEntries,
+      rowKey: (entry) => entry.id,
+      searchText: _permissionEntrySearchText,
+      columns: _permissionEntryColumns(),
+      actionsWidth: 112,
+      actionsBuilder: (_, entry) => _RbacInlineActions(
+        children: [
+          AdminIconButton(
+            icon: entry.permitted
+                ? Icons.toggle_on_outlined
+                : Icons.toggle_off_outlined,
+            tooltip: entry.permitted ? 'Set denied' : 'Set permitted',
+            onPressed: () =>
+                _toggleTenantGrant(tenantId: tenantId, entry: entry),
+          ),
+          AdminIconButton(
+            icon: Icons.delete_outline,
+            tooltip: 'Delete tenant grant',
+            destructive: true,
+            onPressed: () =>
+                _deleteTenantGrant(tenantId: tenantId, entry: entry),
+          ),
+        ],
+      ),
     );
   }
 
@@ -537,15 +524,12 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 8),
-          child: Text(
-            'Users may need to sign out and back in for route and session claims to refresh.',
-            style: TextStyle(color: AppUiPalette.textSecondary),
-          ),
+        const _RbacSectionNote(
+          message:
+              'Users may need to sign out and back in for route and session claims to refresh.',
         ),
         Expanded(
-          child: _RbacListSection(
+          child: _RbacGridSection<RbacRoleMembershipEntity>(
             key: const ValueKey<String>('rbac-global-role-memberships-section'),
             createButtonKey: const Key(
               'rbac-global-role-membership-create-button',
@@ -556,26 +540,22 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
             ),
             searchHint: 'Search global role memberships',
             onCreate: _showCreateGlobalRoleMembershipDialog,
-            emptyMessage: 'No global role memberships found.',
-            items: state.globalRoleMemberships
-                .map(
-                  (membership) => _RbacSearchItem(
-                    searchText: _roleMembershipSearchText(membership),
-                    child: ListTile(
-                      title: Text(membership.userDisplayName),
-                      subtitle: Text(
-                        '${membership.roleDisplayName}  |  ${membership.roleKey}',
-                      ),
-                      trailing: _ActionIcon(
-                        icon: Icons.delete_outline,
-                        tooltip: 'Delete global role membership',
-                        onPressed: () =>
-                            _deleteGlobalRoleMembership(membership: membership),
-                      ),
-                    ),
-                  ),
-                )
-                .toList(growable: false),
+            emptyTitle: 'No global role memberships yet.',
+            emptyMessage:
+                'Assign a user to a global role to grant platform-wide access.',
+            rows: state.globalRoleMemberships,
+            rowKey: (membership) => membership.id,
+            searchText: _roleMembershipSearchText,
+            columns: _roleMembershipColumns(),
+            actions: [
+              AdminGridAction<RbacRoleMembershipEntity>(
+                icon: Icons.delete_outline,
+                tooltip: 'Delete global role membership',
+                style: AdminGridActionStyle.destructive,
+                onPressed: (membership) =>
+                    () => _deleteGlobalRoleMembership(membership: membership),
+              ),
+            ],
           ),
         ),
       ],
@@ -585,51 +565,48 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
   Widget _buildTenantRoleMembershipsTab(RbacAdminState state) {
     final tenantId = state.selectedTenantId;
     if (tenantId == null || tenantId.isEmpty) {
-      return const Center(
-        child: Text('Select a tenant to manage tenant role memberships.'),
+      return const AdminEmptyState(
+        data: AdminEmptyStateData(
+          title: 'Tenant required.',
+          message: 'Select a tenant to manage tenant role memberships.',
+        ),
       );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(bottom: 8),
-          child: Text(
-            'Users may need to sign out and back in for route and session claims to refresh.',
-            style: TextStyle(color: AppUiPalette.textSecondary),
-          ),
+        const _RbacSectionNote(
+          message:
+              'Users may need to sign out and back in for route and session claims to refresh.',
         ),
         Expanded(
-          child: _RbacListSection(
+          child: _RbacGridSection<RbacRoleMembershipEntity>(
             key: const ValueKey<String>('rbac-role-memberships-section'),
             createButtonKey: const Key('rbac-role-membership-create-button'),
             createLabel: 'New Tenant Role Membership',
             searchFieldKey: const Key('rbac-role-memberships-search-field'),
             searchHint: 'Search tenant role memberships',
             onCreate: () => _showCreateTenantRoleMembershipDialog(tenantId),
-            emptyMessage: 'No tenant role memberships found.',
-            items: state.tenantRoleMemberships
-                .map(
-                  (membership) => _RbacSearchItem(
-                    searchText: _roleMembershipSearchText(membership),
-                    child: ListTile(
-                      title: Text(membership.userDisplayName),
-                      subtitle: Text(
-                        '${membership.roleDisplayName}  |  ${membership.roleKey}',
-                      ),
-                      trailing: _ActionIcon(
-                        icon: Icons.delete_outline,
-                        tooltip: 'Delete tenant role membership',
-                        onPressed: () => _deleteTenantRoleMembership(
-                          tenantId: tenantId,
-                          membership: membership,
-                        ),
-                      ),
+            emptyTitle: 'No tenant role memberships yet.',
+            emptyMessage:
+                'Assign a tenant member to a role to grant tenant-scoped access.',
+            rows: state.tenantRoleMemberships,
+            rowKey: (membership) => membership.id,
+            searchText: _roleMembershipSearchText,
+            columns: _roleMembershipColumns(),
+            actions: [
+              AdminGridAction<RbacRoleMembershipEntity>(
+                icon: Icons.delete_outline,
+                tooltip: 'Delete tenant role membership',
+                style: AdminGridActionStyle.destructive,
+                onPressed: (membership) =>
+                    () => _deleteTenantRoleMembership(
+                      tenantId: tenantId,
+                      membership: membership,
                     ),
-                  ),
-                )
-                .toList(growable: false),
+              ),
+            ],
           ),
         ),
       ],
@@ -644,83 +621,79 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildDialogTitle('Create Global Role'),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: namespaceController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Namespace',
-                      helpText: acpFieldHelpText(
-                        key: 'Namespace',
-                        label: 'Namespace',
-                      ),
-                    ),
-                    validator: _requiredValidator,
+      builder: (_) => AppFormDialog(
+        title: 'Create Global Role',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: namespaceController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Namespace',
+                  helpText: acpFieldHelpText(
+                    key: 'Namespace',
+                    label: 'Namespace',
                   ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: nameController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Name',
-                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
-                    ),
-                    validator: _requiredValidator,
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: displayNameController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Display Name',
-                      helpText: acpFieldHelpText(
-                        key: 'DisplayName',
-                        label: 'Display Name',
-                      ),
-                    ),
-                    validator: _requiredValidator,
-                  ),
-                  const SizedBox(height: 14),
-                  _DialogActions(
-                    submitLabel: 'Create Global Role',
-                    onSubmit: () async {
-                      final isValid = formKey.currentState?.validate() ?? false;
-                      if (!isValid) {
-                        return;
-                      }
-
-                      final success = await ref
-                          .read(rbacAdminControllerProvider.notifier)
-                          .createGlobalRole(
-                            RbacCreateGlobalRoleInput(
-                              namespace: namespaceController.text.trim(),
-                              name: nameController.text.trim(),
-                              displayName: displayNameController.text.trim(),
-                            ),
-                          );
-                      _showMutationResult(
-                        successMessage: 'Global role created.',
-                        failureMessage: 'Global role create failed.',
-                        success: success,
-                      );
-
-                      if (success && mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
-                ],
+                ),
+                validator: _requiredValidator,
               ),
-            ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: nameController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Name',
+                  helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                ),
+                validator: _requiredValidator,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: displayNameController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Display Name',
+                  helpText: acpFieldHelpText(
+                    key: 'DisplayName',
+                    label: 'Display Name',
+                  ),
+                ),
+                validator: _requiredValidator,
+              ),
+            ],
           ),
         ),
+        actions: [
+          _DialogActions(
+            submitLabel: 'Create Global Role',
+            onSubmit: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final success = await ref
+                  .read(rbacAdminControllerProvider.notifier)
+                  .createGlobalRole(
+                    RbacCreateGlobalRoleInput(
+                      namespace: namespaceController.text.trim(),
+                      name: nameController.text.trim(),
+                      displayName: displayNameController.text.trim(),
+                    ),
+                  );
+              _showMutationResult(
+                successMessage: 'Global role created.',
+                failureMessage: 'Global role create failed.',
+                success: success,
+              );
+
+              if (success && mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -731,62 +704,58 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildDialogTitle('Edit Global Role'),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: displayNameController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Display Name',
-                      helpText: acpFieldHelpText(
-                        key: 'DisplayName',
-                        label: 'Display Name',
-                      ),
-                    ),
-                    validator: _requiredValidator,
+      builder: (_) => AppFormDialog(
+        title: 'Edit Global Role',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: displayNameController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Display Name',
+                  helpText: acpFieldHelpText(
+                    key: 'DisplayName',
+                    label: 'Display Name',
                   ),
-                  const SizedBox(height: 14),
-                  _DialogActions(
-                    submitLabel: 'Save Changes',
-                    onSubmit: () async {
-                      final isValid = formKey.currentState?.validate() ?? false;
-                      if (!isValid) {
-                        return;
-                      }
-
-                      final success = await ref
-                          .read(rbacAdminControllerProvider.notifier)
-                          .updateGlobalRole(
-                            RbacUpdateGlobalRoleInput(
-                              roleId: role.id,
-                              displayName: displayNameController.text.trim(),
-                              rowVersion: role.rowVersion,
-                            ),
-                          );
-                      _showMutationResult(
-                        successMessage: 'Global role updated.',
-                        failureMessage: 'Global role update failed.',
-                        success: success,
-                      );
-
-                      if (success && mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
-                ],
+                ),
+                validator: _requiredValidator,
               ),
-            ),
+            ],
           ),
         ),
+        actions: [
+          _DialogActions(
+            submitLabel: 'Save Changes',
+            onSubmit: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final success = await ref
+                  .read(rbacAdminControllerProvider.notifier)
+                  .updateGlobalRole(
+                    RbacUpdateGlobalRoleInput(
+                      roleId: role.id,
+                      displayName: displayNameController.text.trim(),
+                      rowVersion: role.rowVersion,
+                    ),
+                  );
+              _showMutationResult(
+                successMessage: 'Global role updated.',
+                failureMessage: 'Global role update failed.',
+                success: success,
+              );
+
+              if (success && mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -799,84 +768,80 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildDialogTitle('Create Tenant Role'),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: namespaceController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Namespace',
-                      helpText: acpFieldHelpText(
-                        key: 'Namespace',
-                        label: 'Namespace',
-                      ),
-                    ),
-                    validator: _requiredValidator,
+      builder: (_) => AppFormDialog(
+        title: 'Create Tenant Role',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: namespaceController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Namespace',
+                  helpText: acpFieldHelpText(
+                    key: 'Namespace',
+                    label: 'Namespace',
                   ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: nameController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Name',
-                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
-                    ),
-                    validator: _requiredValidator,
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: displayNameController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Display Name',
-                      helpText: acpFieldHelpText(
-                        key: 'DisplayName',
-                        label: 'Display Name',
-                      ),
-                    ),
-                    validator: _requiredValidator,
-                  ),
-                  const SizedBox(height: 14),
-                  _DialogActions(
-                    submitLabel: 'Create Tenant Role',
-                    onSubmit: () async {
-                      final isValid = formKey.currentState?.validate() ?? false;
-                      if (!isValid) {
-                        return;
-                      }
-
-                      final success = await ref
-                          .read(rbacAdminControllerProvider.notifier)
-                          .createTenantRole(
-                            RbacCreateTenantRoleInput(
-                              tenantId: tenantId,
-                              namespace: namespaceController.text.trim(),
-                              name: nameController.text.trim(),
-                              displayName: displayNameController.text.trim(),
-                            ),
-                          );
-                      _showMutationResult(
-                        successMessage: 'Tenant role created.',
-                        failureMessage: 'Tenant role create failed.',
-                        success: success,
-                      );
-
-                      if (success && mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
-                ],
+                ),
+                validator: _requiredValidator,
               ),
-            ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: nameController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Name',
+                  helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                ),
+                validator: _requiredValidator,
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: displayNameController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Display Name',
+                  helpText: acpFieldHelpText(
+                    key: 'DisplayName',
+                    label: 'Display Name',
+                  ),
+                ),
+                validator: _requiredValidator,
+              ),
+            ],
           ),
         ),
+        actions: [
+          _DialogActions(
+            submitLabel: 'Create Tenant Role',
+            onSubmit: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final success = await ref
+                  .read(rbacAdminControllerProvider.notifier)
+                  .createTenantRole(
+                    RbacCreateTenantRoleInput(
+                      tenantId: tenantId,
+                      namespace: namespaceController.text.trim(),
+                      name: nameController.text.trim(),
+                      displayName: displayNameController.text.trim(),
+                    ),
+                  );
+              _showMutationResult(
+                successMessage: 'Tenant role created.',
+                failureMessage: 'Tenant role create failed.',
+                success: success,
+              );
+
+              if (success && mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -890,63 +855,59 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildDialogTitle('Edit Tenant Role'),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: displayNameController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Display Name',
-                      helpText: acpFieldHelpText(
-                        key: 'DisplayName',
-                        label: 'Display Name',
-                      ),
-                    ),
-                    validator: _requiredValidator,
+      builder: (_) => AppFormDialog(
+        title: 'Edit Tenant Role',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: displayNameController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Display Name',
+                  helpText: acpFieldHelpText(
+                    key: 'DisplayName',
+                    label: 'Display Name',
                   ),
-                  const SizedBox(height: 14),
-                  _DialogActions(
-                    submitLabel: 'Save Changes',
-                    onSubmit: () async {
-                      final isValid = formKey.currentState?.validate() ?? false;
-                      if (!isValid) {
-                        return;
-                      }
-
-                      final success = await ref
-                          .read(rbacAdminControllerProvider.notifier)
-                          .updateTenantRole(
-                            RbacUpdateTenantRoleInput(
-                              tenantId: tenantId,
-                              roleId: role.id,
-                              displayName: displayNameController.text.trim(),
-                              rowVersion: role.rowVersion,
-                            ),
-                          );
-                      _showMutationResult(
-                        successMessage: 'Tenant role updated.',
-                        failureMessage: 'Tenant role update failed.',
-                        success: success,
-                      );
-
-                      if (success && mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
-                ],
+                ),
+                validator: _requiredValidator,
               ),
-            ),
+            ],
           ),
         ),
+        actions: [
+          _DialogActions(
+            submitLabel: 'Save Changes',
+            onSubmit: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final success = await ref
+                  .read(rbacAdminControllerProvider.notifier)
+                  .updateTenantRole(
+                    RbacUpdateTenantRoleInput(
+                      tenantId: tenantId,
+                      roleId: role.id,
+                      displayName: displayNameController.text.trim(),
+                      rowVersion: role.rowVersion,
+                    ),
+                  );
+              _showMutationResult(
+                successMessage: 'Tenant role updated.',
+                failureMessage: 'Tenant role update failed.',
+                success: success,
+              );
+
+              if (success && mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -975,83 +936,77 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildDialogTitle(title),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: namespaceController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Namespace',
-                      helpText: acpFieldHelpText(
-                        key: 'Namespace',
-                        label: 'Namespace',
-                      ),
-                    ),
-                    validator: _requiredValidator,
+      builder: (_) => AppFormDialog(
+        title: title,
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: namespaceController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Namespace',
+                  helpText: acpFieldHelpText(
+                    key: 'Namespace',
+                    label: 'Namespace',
                   ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: nameController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Name',
-                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
-                    ),
-                    validator: _requiredValidator,
-                  ),
-                  const SizedBox(height: 14),
-                  _DialogActions(
-                    submitLabel: submit,
-                    onSubmit: () async {
-                      final isValid = formKey.currentState?.validate() ?? false;
-                      if (!isValid) {
-                        return;
-                      }
-
-                      final notifier = ref.read(
-                        rbacAdminControllerProvider.notifier,
-                      );
-                      final success = isPermissionType
-                          ? await notifier.createPermissionType(
-                              RbacCreatePermissionTypeInput(
-                                namespace: namespaceController.text.trim(),
-                                name: nameController.text.trim(),
-                              ),
-                            )
-                          : await notifier.createPermissionObject(
-                              RbacCreatePermissionObjectInput(
-                                namespace: namespaceController.text.trim(),
-                                name: nameController.text.trim(),
-                              ),
-                            );
-
-                      _showMutationResult(
-                        successMessage: isPermissionType
-                            ? 'Permission type created.'
-                            : 'Permission object created.',
-                        failureMessage: isPermissionType
-                            ? 'Permission type create failed.'
-                            : 'Permission object create failed.',
-                        success: success,
-                      );
-
-                      if (success && mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
-                ],
+                ),
+                validator: _requiredValidator,
               ),
-            ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: nameController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Name',
+                  helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                ),
+                validator: _requiredValidator,
+              ),
+            ],
           ),
         ),
+        actions: [
+          _DialogActions(
+            submitLabel: submit,
+            onSubmit: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final notifier = ref.read(rbacAdminControllerProvider.notifier);
+              final success = isPermissionType
+                  ? await notifier.createPermissionType(
+                      RbacCreatePermissionTypeInput(
+                        namespace: namespaceController.text.trim(),
+                        name: nameController.text.trim(),
+                      ),
+                    )
+                  : await notifier.createPermissionObject(
+                      RbacCreatePermissionObjectInput(
+                        namespace: namespaceController.text.trim(),
+                        name: nameController.text.trim(),
+                      ),
+                    );
+
+              _showMutationResult(
+                successMessage: isPermissionType
+                    ? 'Permission type created.'
+                    : 'Permission object created.',
+                failureMessage: isPermissionType
+                    ? 'Permission type create failed.'
+                    : 'Permission object create failed.',
+                success: success,
+              );
+
+              if (success && mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -1080,118 +1035,111 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (dialogContext, setDialogState) {
-          return Dialog(
-            child: SizedBox(
-              width: _formDialogPanelWidth,
-              child: AppFormPanel(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildDialogTitle('Create Global Grant'),
-                      const SizedBox(height: 12),
-                      _buildGrantRoleSearchField(
-                        searchFieldKey: const Key(
-                          'rbac-global-grant-role-search-field',
-                        ),
-                        selectedKey: const Key(
-                          'rbac-global-grant-selected-role',
-                        ),
-                        optionKeyPrefix: 'rbac-global-grant-role-option',
-                        options: state.globalRoles,
-                        onSelected: (role) {
-                          selectedRole = role;
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      _buildPermissionObjectSearchField(
-                        searchFieldKey: const Key(
-                          'rbac-global-grant-permission-object-search-field',
-                        ),
-                        selectedKey: const Key(
-                          'rbac-global-grant-selected-permission-object',
-                        ),
-                        optionKeyPrefix:
-                            'rbac-global-grant-permission-object-option',
-                        options: state.permissionObjects,
-                        onSelected: (permissionObject) {
-                          selectedPermissionObject = permissionObject;
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      _buildPermissionTypeSearchField(
-                        searchFieldKey: const Key(
-                          'rbac-global-grant-permission-type-search-field',
-                        ),
-                        selectedKey: const Key(
-                          'rbac-global-grant-selected-permission-type',
-                        ),
-                        optionKeyPrefix:
-                            'rbac-global-grant-permission-type-option',
-                        options: state.permissionTypes,
-                        onSelected: (permissionType) {
-                          selectedPermissionType = permissionType;
-                        },
-                      ),
-                      SwitchListTile(
-                        value: permitted,
-                        title: appFieldLabelWithHelp(
-                          labelText: 'Permitted',
-                          helpText: acpFieldHelpText(
-                            key: 'Permitted',
-                            label: 'Permitted',
-                            kind: AcpFieldKind.boolean,
-                          ),
-                        ),
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (value) {
-                          setDialogState(() {
-                            permitted = value;
-                          });
-                        },
-                      ),
-                      _DialogActions(
-                        submitLabel: 'Create Global Grant',
-                        onSubmit: () async {
-                          final isValid =
-                              formKey.currentState?.validate() ?? false;
-                          final role = selectedRole;
-                          final permissionObject = selectedPermissionObject;
-                          final permissionType = selectedPermissionType;
-                          if (!isValid ||
-                              role == null ||
-                              permissionObject == null ||
-                              permissionType == null) {
-                            return;
-                          }
-
-                          final success = await ref
-                              .read(rbacAdminControllerProvider.notifier)
-                              .createGlobalPermissionEntry(
-                                RbacCreateGlobalPermissionEntryInput(
-                                  globalRoleId: role.id,
-                                  permissionObjectId: permissionObject.id,
-                                  permissionTypeId: permissionType.id,
-                                  permitted: permitted,
-                                ),
-                              );
-                          _showMutationResult(
-                            successMessage: 'Global grant created.',
-                            failureMessage: 'Global grant create failed.',
-                            success: success,
-                          );
-
-                          if (success && mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                      ),
-                    ],
+          return AppFormDialog(
+            title: 'Create Global Grant',
+            maxWidth: _formDialogPanelWidth,
+            body: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildGrantRoleSearchField(
+                    searchFieldKey: const Key(
+                      'rbac-global-grant-role-search-field',
+                    ),
+                    selectedKey: const Key('rbac-global-grant-selected-role'),
+                    optionKeyPrefix: 'rbac-global-grant-role-option',
+                    options: state.globalRoles,
+                    onSelected: (role) {
+                      selectedRole = role;
+                    },
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  _buildPermissionObjectSearchField(
+                    searchFieldKey: const Key(
+                      'rbac-global-grant-permission-object-search-field',
+                    ),
+                    selectedKey: const Key(
+                      'rbac-global-grant-selected-permission-object',
+                    ),
+                    optionKeyPrefix:
+                        'rbac-global-grant-permission-object-option',
+                    options: state.permissionObjects,
+                    onSelected: (permissionObject) {
+                      selectedPermissionObject = permissionObject;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _buildPermissionTypeSearchField(
+                    searchFieldKey: const Key(
+                      'rbac-global-grant-permission-type-search-field',
+                    ),
+                    selectedKey: const Key(
+                      'rbac-global-grant-selected-permission-type',
+                    ),
+                    optionKeyPrefix: 'rbac-global-grant-permission-type-option',
+                    options: state.permissionTypes,
+                    onSelected: (permissionType) {
+                      selectedPermissionType = permissionType;
+                    },
+                  ),
+                  SwitchListTile(
+                    value: permitted,
+                    title: appFieldLabelWithHelp(
+                      labelText: 'Permitted',
+                      helpText: acpFieldHelpText(
+                        key: 'Permitted',
+                        label: 'Permitted',
+                        kind: AcpFieldKind.boolean,
+                      ),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (value) {
+                      setDialogState(() {
+                        permitted = value;
+                      });
+                    },
+                  ),
+                ],
               ),
             ),
+            actions: [
+              _DialogActions(
+                submitLabel: 'Create Global Grant',
+                onSubmit: () async {
+                  final isValid = formKey.currentState?.validate() ?? false;
+                  final role = selectedRole;
+                  final permissionObject = selectedPermissionObject;
+                  final permissionType = selectedPermissionType;
+                  if (!isValid ||
+                      role == null ||
+                      permissionObject == null ||
+                      permissionType == null) {
+                    return;
+                  }
+
+                  final success = await ref
+                      .read(rbacAdminControllerProvider.notifier)
+                      .createGlobalPermissionEntry(
+                        RbacCreateGlobalPermissionEntryInput(
+                          globalRoleId: role.id,
+                          permissionObjectId: permissionObject.id,
+                          permissionTypeId: permissionType.id,
+                          permitted: permitted,
+                        ),
+                      );
+                  _showMutationResult(
+                    successMessage: 'Global grant created.',
+                    failureMessage: 'Global grant create failed.',
+                    success: success,
+                  );
+
+                  if (success && mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+            ],
           );
         },
       ),
@@ -1222,119 +1170,112 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (dialogContext, setDialogState) {
-          return Dialog(
-            child: SizedBox(
-              width: _formDialogPanelWidth,
-              child: AppFormPanel(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildDialogTitle('Create Tenant Grant'),
-                      const SizedBox(height: 12),
-                      _buildGrantRoleSearchField(
-                        searchFieldKey: const Key(
-                          'rbac-tenant-grant-role-search-field',
-                        ),
-                        selectedKey: const Key(
-                          'rbac-tenant-grant-selected-role',
-                        ),
-                        optionKeyPrefix: 'rbac-tenant-grant-role-option',
-                        options: state.tenantRoles,
-                        onSelected: (role) {
-                          selectedRole = role;
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      _buildPermissionObjectSearchField(
-                        searchFieldKey: const Key(
-                          'rbac-tenant-grant-permission-object-search-field',
-                        ),
-                        selectedKey: const Key(
-                          'rbac-tenant-grant-selected-permission-object',
-                        ),
-                        optionKeyPrefix:
-                            'rbac-tenant-grant-permission-object-option',
-                        options: state.permissionObjects,
-                        onSelected: (permissionObject) {
-                          selectedPermissionObject = permissionObject;
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      _buildPermissionTypeSearchField(
-                        searchFieldKey: const Key(
-                          'rbac-tenant-grant-permission-type-search-field',
-                        ),
-                        selectedKey: const Key(
-                          'rbac-tenant-grant-selected-permission-type',
-                        ),
-                        optionKeyPrefix:
-                            'rbac-tenant-grant-permission-type-option',
-                        options: state.permissionTypes,
-                        onSelected: (permissionType) {
-                          selectedPermissionType = permissionType;
-                        },
-                      ),
-                      SwitchListTile(
-                        value: permitted,
-                        title: appFieldLabelWithHelp(
-                          labelText: 'Permitted',
-                          helpText: acpFieldHelpText(
-                            key: 'Permitted',
-                            label: 'Permitted',
-                            kind: AcpFieldKind.boolean,
-                          ),
-                        ),
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (value) {
-                          setDialogState(() {
-                            permitted = value;
-                          });
-                        },
-                      ),
-                      _DialogActions(
-                        submitLabel: 'Create Tenant Grant',
-                        onSubmit: () async {
-                          final isValid =
-                              formKey.currentState?.validate() ?? false;
-                          final role = selectedRole;
-                          final permissionObject = selectedPermissionObject;
-                          final permissionType = selectedPermissionType;
-                          if (!isValid ||
-                              role == null ||
-                              permissionObject == null ||
-                              permissionType == null) {
-                            return;
-                          }
-
-                          final success = await ref
-                              .read(rbacAdminControllerProvider.notifier)
-                              .createTenantPermissionEntry(
-                                RbacCreateTenantPermissionEntryInput(
-                                  tenantId: tenantId,
-                                  roleId: role.id,
-                                  permissionObjectId: permissionObject.id,
-                                  permissionTypeId: permissionType.id,
-                                  permitted: permitted,
-                                ),
-                              );
-                          _showMutationResult(
-                            successMessage: 'Tenant grant created.',
-                            failureMessage: 'Tenant grant create failed.',
-                            success: success,
-                          );
-
-                          if (success && mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                      ),
-                    ],
+          return AppFormDialog(
+            title: 'Create Tenant Grant',
+            maxWidth: _formDialogPanelWidth,
+            body: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildGrantRoleSearchField(
+                    searchFieldKey: const Key(
+                      'rbac-tenant-grant-role-search-field',
+                    ),
+                    selectedKey: const Key('rbac-tenant-grant-selected-role'),
+                    optionKeyPrefix: 'rbac-tenant-grant-role-option',
+                    options: state.tenantRoles,
+                    onSelected: (role) {
+                      selectedRole = role;
+                    },
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  _buildPermissionObjectSearchField(
+                    searchFieldKey: const Key(
+                      'rbac-tenant-grant-permission-object-search-field',
+                    ),
+                    selectedKey: const Key(
+                      'rbac-tenant-grant-selected-permission-object',
+                    ),
+                    optionKeyPrefix:
+                        'rbac-tenant-grant-permission-object-option',
+                    options: state.permissionObjects,
+                    onSelected: (permissionObject) {
+                      selectedPermissionObject = permissionObject;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _buildPermissionTypeSearchField(
+                    searchFieldKey: const Key(
+                      'rbac-tenant-grant-permission-type-search-field',
+                    ),
+                    selectedKey: const Key(
+                      'rbac-tenant-grant-selected-permission-type',
+                    ),
+                    optionKeyPrefix: 'rbac-tenant-grant-permission-type-option',
+                    options: state.permissionTypes,
+                    onSelected: (permissionType) {
+                      selectedPermissionType = permissionType;
+                    },
+                  ),
+                  SwitchListTile(
+                    value: permitted,
+                    title: appFieldLabelWithHelp(
+                      labelText: 'Permitted',
+                      helpText: acpFieldHelpText(
+                        key: 'Permitted',
+                        label: 'Permitted',
+                        kind: AcpFieldKind.boolean,
+                      ),
+                    ),
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (value) {
+                      setDialogState(() {
+                        permitted = value;
+                      });
+                    },
+                  ),
+                ],
               ),
             ),
+            actions: [
+              _DialogActions(
+                submitLabel: 'Create Tenant Grant',
+                onSubmit: () async {
+                  final isValid = formKey.currentState?.validate() ?? false;
+                  final role = selectedRole;
+                  final permissionObject = selectedPermissionObject;
+                  final permissionType = selectedPermissionType;
+                  if (!isValid ||
+                      role == null ||
+                      permissionObject == null ||
+                      permissionType == null) {
+                    return;
+                  }
+
+                  final success = await ref
+                      .read(rbacAdminControllerProvider.notifier)
+                      .createTenantPermissionEntry(
+                        RbacCreateTenantPermissionEntryInput(
+                          tenantId: tenantId,
+                          roleId: role.id,
+                          permissionObjectId: permissionObject.id,
+                          permissionTypeId: permissionType.id,
+                          permitted: permitted,
+                        ),
+                      );
+                  _showMutationResult(
+                    successMessage: 'Tenant grant created.',
+                    failureMessage: 'Tenant grant create failed.',
+                    success: success,
+                  );
+
+                  if (success && mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+              ),
+            ],
           );
         },
       ),
@@ -1364,123 +1305,117 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildDialogTitle('Create Global Role Membership'),
-                  const SizedBox(height: 12),
-                  _RbacEntitySearchField<RbacAssignableUserEntity>(
-                    searchFieldKey: const Key(
-                      'rbac-global-role-membership-user-search-field',
-                    ),
-                    selectedKey: const Key(
-                      'rbac-global-role-membership-selected-user',
-                    ),
-                    optionKeyPrefix: 'rbac-global-role-membership-user-option',
-                    labelText: 'User',
-                    hintText: 'Search by name or email',
-                    helpText: acpFieldHelpText(key: 'UserId', label: 'User'),
-                    suffixIcon: Icons.person_search_outlined,
-                    options: activeUsers,
-                    optionKey: (user) => user.id,
-                    optionTitle: (user) => user.displayName,
-                    optionSubtitle: _globalUserSearchSubtitle,
-                    optionSearchText: _globalUserSearchText,
-                    selectedLabel: _globalUserOptionLabel,
-                    emptyMessage: 'No matching users found.',
-                    validator: (user) {
-                      if (user == null) {
-                        return 'Select a user.';
-                      }
+      builder: (_) => AppFormDialog(
+        title: 'Create Global Role Membership',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _RbacEntitySearchField<RbacAssignableUserEntity>(
+                searchFieldKey: const Key(
+                  'rbac-global-role-membership-user-search-field',
+                ),
+                selectedKey: const Key(
+                  'rbac-global-role-membership-selected-user',
+                ),
+                optionKeyPrefix: 'rbac-global-role-membership-user-option',
+                labelText: 'User',
+                hintText: 'Search by name or email',
+                helpText: acpFieldHelpText(key: 'UserId', label: 'User'),
+                suffixIcon: Icons.person_search_outlined,
+                options: activeUsers,
+                optionKey: (user) => user.id,
+                optionTitle: (user) => user.displayName,
+                optionSubtitle: _globalUserSearchSubtitle,
+                optionSearchText: _globalUserSearchText,
+                selectedLabel: _globalUserOptionLabel,
+                emptyMessage: 'No matching users found.',
+                validator: (user) {
+                  if (user == null) {
+                    return 'Select a user.';
+                  }
 
-                      return null;
-                    },
-                    onSelected: (user) {
-                      selectedUser = user;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  _RbacEntitySearchField<RbacRoleEntity>(
-                    searchFieldKey: const Key(
-                      'rbac-global-role-membership-role-search-field',
-                    ),
-                    selectedKey: const Key(
-                      'rbac-global-role-membership-selected-role',
-                    ),
-                    optionKeyPrefix: 'rbac-global-role-membership-role-option',
-                    labelText: 'Global Role',
-                    hintText: 'Search by role name or key',
-                    helpText: acpFieldHelpText(
-                      key: 'GlobalRoleId',
-                      label: 'Global Role',
-                    ),
-                    suffixIcon: Icons.manage_search_outlined,
-                    options: activeRoles,
-                    optionKey: (role) => role.id,
-                    optionTitle: (role) => role.displayName,
-                    optionSubtitle: _roleSearchSubtitle,
-                    optionSearchText: _roleSearchText,
-                    selectedLabel: _roleSelectedLabel,
-                    emptyMessage: 'No matching global roles found.',
-                    validator: (role) {
-                      if (role == null) {
-                        return 'Select a global role.';
-                      }
-                      if (_hasRoleMembershipDuplicate(
-                        state.globalRoleMemberships,
-                        roleId: role.id,
-                        userId: selectedUser?.id,
-                      )) {
-                        return 'This user already has this role.';
-                      }
-
-                      return null;
-                    },
-                    onSelected: (role) {
-                      selectedRole = role;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  _DialogActions(
-                    submitLabel: 'Create Global Role Membership',
-                    onSubmit: () async {
-                      final isValid = formKey.currentState?.validate() ?? false;
-                      if (!isValid ||
-                          selectedRole == null ||
-                          selectedUser == null) {
-                        return;
-                      }
-
-                      final success = await ref
-                          .read(rbacAdminControllerProvider.notifier)
-                          .createGlobalRoleMembership(
-                            RbacCreateGlobalRoleMembershipInput(
-                              roleId: selectedRole!.id,
-                              userId: selectedUser!.id,
-                            ),
-                          );
-                      _showMutationResult(
-                        successMessage: 'Global role membership created.',
-                        failureMessage: 'Global role membership create failed.',
-                        success: success,
-                      );
-
-                      if (success && mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
-                ],
+                  return null;
+                },
+                onSelected: (user) {
+                  selectedUser = user;
+                },
               ),
-            ),
+              const SizedBox(height: 8),
+              _RbacEntitySearchField<RbacRoleEntity>(
+                searchFieldKey: const Key(
+                  'rbac-global-role-membership-role-search-field',
+                ),
+                selectedKey: const Key(
+                  'rbac-global-role-membership-selected-role',
+                ),
+                optionKeyPrefix: 'rbac-global-role-membership-role-option',
+                labelText: 'Global Role',
+                hintText: 'Search by role name or key',
+                helpText: acpFieldHelpText(
+                  key: 'GlobalRoleId',
+                  label: 'Global Role',
+                ),
+                suffixIcon: Icons.manage_search_outlined,
+                options: activeRoles,
+                optionKey: (role) => role.id,
+                optionTitle: (role) => role.displayName,
+                optionSubtitle: _roleSearchSubtitle,
+                optionSearchText: _roleSearchText,
+                selectedLabel: _roleSelectedLabel,
+                emptyMessage: 'No matching global roles found.',
+                validator: (role) {
+                  if (role == null) {
+                    return 'Select a global role.';
+                  }
+                  if (_hasRoleMembershipDuplicate(
+                    state.globalRoleMemberships,
+                    roleId: role.id,
+                    userId: selectedUser?.id,
+                  )) {
+                    return 'This user already has this role.';
+                  }
+
+                  return null;
+                },
+                onSelected: (role) {
+                  selectedRole = role;
+                },
+              ),
+            ],
           ),
         ),
+        actions: [
+          _DialogActions(
+            submitLabel: 'Create Global Role Membership',
+            onSubmit: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid || selectedRole == null || selectedUser == null) {
+                return;
+              }
+
+              final success = await ref
+                  .read(rbacAdminControllerProvider.notifier)
+                  .createGlobalRoleMembership(
+                    RbacCreateGlobalRoleMembershipInput(
+                      roleId: selectedRole!.id,
+                      userId: selectedUser!.id,
+                    ),
+                  );
+              _showMutationResult(
+                successMessage: 'Global role membership created.',
+                failureMessage: 'Global role membership create failed.',
+                success: success,
+              );
+
+              if (success && mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -1511,121 +1446,111 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
 
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildDialogTitle('Create Tenant Role Membership'),
-                  const SizedBox(height: 12),
-                  _RbacEntitySearchField<RbacTenantMemberEntity>(
-                    searchFieldKey: const Key(
-                      'rbac-role-membership-user-search-field',
-                    ),
-                    selectedKey: const Key(
-                      'rbac-role-membership-selected-user',
-                    ),
-                    optionKeyPrefix: 'rbac-role-membership-user-option',
-                    labelText: 'User',
-                    hintText: 'Search by name or email',
-                    helpText: acpFieldHelpText(key: 'UserId', label: 'User'),
-                    suffixIcon: Icons.person_search_outlined,
-                    options: activeMembers,
-                    optionKey: (member) => member.userId,
-                    optionTitle: (member) => member.displayName,
-                    optionSubtitle: _tenantMemberSearchSubtitle,
-                    optionSearchText: _tenantMemberSearchText,
-                    selectedLabel: _tenantMemberOptionLabel,
-                    emptyMessage: 'No matching users found.',
-                    validator: (member) {
-                      if (member == null) {
-                        return 'Select a user.';
-                      }
+      builder: (_) => AppFormDialog(
+        title: 'Create Tenant Role Membership',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _RbacEntitySearchField<RbacTenantMemberEntity>(
+                searchFieldKey: const Key(
+                  'rbac-role-membership-user-search-field',
+                ),
+                selectedKey: const Key('rbac-role-membership-selected-user'),
+                optionKeyPrefix: 'rbac-role-membership-user-option',
+                labelText: 'User',
+                hintText: 'Search by name or email',
+                helpText: acpFieldHelpText(key: 'UserId', label: 'User'),
+                suffixIcon: Icons.person_search_outlined,
+                options: activeMembers,
+                optionKey: (member) => member.userId,
+                optionTitle: (member) => member.displayName,
+                optionSubtitle: _tenantMemberSearchSubtitle,
+                optionSearchText: _tenantMemberSearchText,
+                selectedLabel: _tenantMemberOptionLabel,
+                emptyMessage: 'No matching users found.',
+                validator: (member) {
+                  if (member == null) {
+                    return 'Select a user.';
+                  }
 
-                      return null;
-                    },
-                    onSelected: (member) {
-                      selectedMember = member;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  _RbacEntitySearchField<RbacRoleEntity>(
-                    searchFieldKey: const Key(
-                      'rbac-role-membership-role-search-field',
-                    ),
-                    selectedKey: const Key(
-                      'rbac-role-membership-selected-role',
-                    ),
-                    optionKeyPrefix: 'rbac-role-membership-role-option',
-                    labelText: 'Role',
-                    hintText: 'Search by role name or key',
-                    helpText: acpFieldHelpText(key: 'RoleId', label: 'Role'),
-                    suffixIcon: Icons.manage_search_outlined,
-                    options: activeRoles,
-                    optionKey: (role) => role.id,
-                    optionTitle: (role) => role.displayName,
-                    optionSubtitle: _roleSearchSubtitle,
-                    optionSearchText: _roleSearchText,
-                    selectedLabel: _roleSelectedLabel,
-                    emptyMessage: 'No matching roles found.',
-                    validator: (role) {
-                      if (role == null) {
-                        return 'Select a role.';
-                      }
-                      if (_hasRoleMembershipDuplicate(
-                        state.tenantRoleMemberships,
-                        roleId: role.id,
-                        userId: selectedMember?.userId,
-                      )) {
-                        return 'This user already has this role.';
-                      }
-
-                      return null;
-                    },
-                    onSelected: (role) {
-                      selectedRole = role;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  _DialogActions(
-                    submitLabel: 'Create Tenant Role Membership',
-                    onSubmit: () async {
-                      final isValid = formKey.currentState?.validate() ?? false;
-                      if (!isValid ||
-                          selectedRole == null ||
-                          selectedMember == null) {
-                        return;
-                      }
-
-                      final success = await ref
-                          .read(rbacAdminControllerProvider.notifier)
-                          .createTenantRoleMembership(
-                            RbacCreateRoleMembershipInput(
-                              tenantId: tenantId,
-                              roleId: selectedRole!.id,
-                              userId: selectedMember!.userId,
-                            ),
-                          );
-                      _showMutationResult(
-                        successMessage: 'Tenant role membership created.',
-                        failureMessage: 'Tenant role membership create failed.',
-                        success: success,
-                      );
-
-                      if (success && mounted) {
-                        Navigator.of(context).pop();
-                      }
-                    },
-                  ),
-                ],
+                  return null;
+                },
+                onSelected: (member) {
+                  selectedMember = member;
+                },
               ),
-            ),
+              const SizedBox(height: 8),
+              _RbacEntitySearchField<RbacRoleEntity>(
+                searchFieldKey: const Key(
+                  'rbac-role-membership-role-search-field',
+                ),
+                selectedKey: const Key('rbac-role-membership-selected-role'),
+                optionKeyPrefix: 'rbac-role-membership-role-option',
+                labelText: 'Role',
+                hintText: 'Search by role name or key',
+                helpText: acpFieldHelpText(key: 'RoleId', label: 'Role'),
+                suffixIcon: Icons.manage_search_outlined,
+                options: activeRoles,
+                optionKey: (role) => role.id,
+                optionTitle: (role) => role.displayName,
+                optionSubtitle: _roleSearchSubtitle,
+                optionSearchText: _roleSearchText,
+                selectedLabel: _roleSelectedLabel,
+                emptyMessage: 'No matching roles found.',
+                validator: (role) {
+                  if (role == null) {
+                    return 'Select a role.';
+                  }
+                  if (_hasRoleMembershipDuplicate(
+                    state.tenantRoleMemberships,
+                    roleId: role.id,
+                    userId: selectedMember?.userId,
+                  )) {
+                    return 'This user already has this role.';
+                  }
+
+                  return null;
+                },
+                onSelected: (role) {
+                  selectedRole = role;
+                },
+              ),
+            ],
           ),
         ),
+        actions: [
+          _DialogActions(
+            submitLabel: 'Create Tenant Role Membership',
+            onSubmit: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid || selectedRole == null || selectedMember == null) {
+                return;
+              }
+
+              final success = await ref
+                  .read(rbacAdminControllerProvider.notifier)
+                  .createTenantRoleMembership(
+                    RbacCreateRoleMembershipInput(
+                      tenantId: tenantId,
+                      roleId: selectedRole!.id,
+                      userId: selectedMember!.userId,
+                    ),
+                  );
+              _showMutationResult(
+                successMessage: 'Tenant role membership created.',
+                failureMessage: 'Tenant role membership create failed.',
+                success: success,
+              );
+
+              if (success && mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+        ],
       ),
     );
   }
@@ -1936,15 +1861,6 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
     snackBars.show(navigator, success ? successMessage : failureMessage);
   }
 
-  Widget _buildDialogTitle(String title) {
-    return Text(
-      title,
-      style: Theme.of(
-        context,
-      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-    );
-  }
-
   Widget _buildGrantRoleSearchField({
     required Key searchFieldKey,
     required Key selectedKey,
@@ -2031,6 +1947,113 @@ class _RbacManagementPanelState extends ConsumerState<RbacManagementPanel> {
       validator: (permissionType) =>
           permissionType == null ? 'Select a permission type.' : null,
       onSelected: onSelected,
+    );
+  }
+
+  List<AdminGridColumn<RbacPermissionEntryEntity>> _permissionEntryColumns() {
+    return [
+      AdminGridColumn<RbacPermissionEntryEntity>(
+        key: 'role',
+        label: 'Role',
+        flex: 2,
+        cell: (_, entry) => AdminCellText(entry.roleDisplayName),
+      ),
+      AdminGridColumn<RbacPermissionEntryEntity>(
+        key: 'namespace',
+        label: 'Namespace',
+        flex: 2,
+        cell: (_, entry) => AdminCellText(_permissionEntryNamespace(entry)),
+      ),
+      AdminGridColumn<RbacPermissionEntryEntity>(
+        key: 'object',
+        label: 'Object',
+        flex: 2,
+        cell: (_, entry) => AdminCellText(
+          _splitPermissionKey(entry.permissionObjectDisplayName).name,
+        ),
+      ),
+      AdminGridColumn<RbacPermissionEntryEntity>(
+        key: 'action',
+        label: 'Action',
+        flex: 2,
+        cell: (_, entry) => AdminCellText(
+          _splitPermissionKey(entry.permissionTypeDisplayName).name,
+        ),
+      ),
+      AdminGridColumn<RbacPermissionEntryEntity>(
+        key: 'decision',
+        label: 'Decision',
+        width: 128,
+        cell: (_, entry) =>
+            AdminStatusChip(label: entry.permitted ? 'permitted' : 'denied'),
+      ),
+    ];
+  }
+
+  List<AdminGridColumn<RbacRoleMembershipEntity>> _roleMembershipColumns() {
+    return [
+      AdminGridColumn<RbacRoleMembershipEntity>(
+        key: 'user',
+        label: 'User',
+        flex: 2,
+        cell: (_, membership) => AdminCellText(membership.userDisplayName),
+      ),
+      AdminGridColumn<RbacRoleMembershipEntity>(
+        key: 'email',
+        label: 'Email',
+        flex: 2,
+        cell: (_, membership) => AdminCellText(membership.userEmail),
+      ),
+      AdminGridColumn<RbacRoleMembershipEntity>(
+        key: 'role',
+        label: 'Role',
+        flex: 2,
+        cell: (_, membership) => AdminCellText(membership.roleDisplayName),
+      ),
+      AdminGridColumn<RbacRoleMembershipEntity>(
+        key: 'namespace',
+        label: 'Namespace',
+        cell: (_, membership) {
+          final roleKeyParts = _splitPermissionKey(membership.roleKey);
+          return AdminCellText(
+            roleKeyParts.namespace.isEmpty
+                ? membership.roleNamespace
+                : roleKeyParts.namespace,
+          );
+        },
+      ),
+      AdminGridColumn<RbacRoleMembershipEntity>(
+        key: 'roleName',
+        label: 'Role name',
+        cell: (_, membership) {
+          final roleKeyParts = _splitPermissionKey(membership.roleKey);
+          return AdminCellText(
+            roleKeyParts.name.isEmpty ? membership.roleName : roleKeyParts.name,
+          );
+        },
+      ),
+    ];
+  }
+
+  String _permissionEntryNamespace(RbacPermissionEntryEntity entry) {
+    final objectParts = _splitPermissionKey(entry.permissionObjectDisplayName);
+    if (objectParts.namespace.isNotEmpty) {
+      return objectParts.namespace;
+    }
+
+    return _splitPermissionKey(entry.permissionTypeDisplayName).namespace;
+  }
+
+  _RbacKeyParts _splitPermissionKey(String value) {
+    final trimmed = value.trim();
+    final separator = trimmed.indexOf(':');
+    if (separator <= 0 || separator == trimmed.length - 1) {
+      return _RbacKeyParts(namespace: '', name: trimmed);
+    }
+
+    return _RbacKeyParts(
+      namespace: trimmed.substring(0, separator),
+      name: trimmed.substring(separator + 1),
     );
   }
 
@@ -2230,7 +2253,7 @@ class _RbacEntitySearchField<T> extends StatefulWidget {
   final String optionKeyPrefix;
   final String labelText;
   final String hintText;
-  final String? helpText;
+  final String helpText;
   final IconData suffixIcon;
   final List<T> options;
   final String Function(T option) optionKey;
@@ -2310,7 +2333,7 @@ class _RbacEntitySearchFieldState<T> extends State<_RbacEntitySearchField<T>> {
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppUiPalette.surface,
           border: Border.all(color: AppUiPalette.border),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -2322,7 +2345,7 @@ class _RbacEntitySearchFieldState<T> extends State<_RbacEntitySearchField<T>> {
       constraints: const BoxConstraints(maxHeight: 220),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppUiPalette.surface,
           border: Border.all(color: AppUiPalette.border),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -2427,27 +2450,65 @@ class _RbacSelectedEntityTile extends StatelessWidget {
   }
 }
 
-class _RbacSearchItem {
-  _RbacSearchItem({required String searchText, required this.child})
-    : searchText = searchText.toLowerCase();
+class _RbacKeyParts {
+  const _RbacKeyParts({required this.namespace, required this.name});
 
-  final String searchText;
-  final Widget child;
+  final String namespace;
+  final String name;
+}
 
-  bool matches(List<String> tokens) {
-    return tokens.every(searchText.contains);
+class _RbacSectionNote extends StatelessWidget {
+  const _RbacSectionNote({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      child: Text(
+        message,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: AppUiPalette.textSecondary,
+          height: 1.3,
+        ),
+      ),
+    );
   }
 }
 
-class _RbacListSection extends StatefulWidget {
-  const _RbacListSection({
+class _RbacInlineActions extends StatelessWidget {
+  const _RbacInlineActions({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: children,
+    );
+  }
+}
+
+class _RbacGridSection<T> extends StatefulWidget {
+  const _RbacGridSection({
     required this.createButtonKey,
     required this.createLabel,
     required this.searchFieldKey,
     required this.searchHint,
     required this.onCreate,
+    required this.emptyTitle,
     required this.emptyMessage,
-    required this.items,
+    required this.rows,
+    required this.rowKey,
+    required this.searchText,
+    required this.columns,
+    this.actions = const [],
+    this.actionsBuilder,
+    this.actionsWidth,
+    this.minWidth = 960,
     super.key,
   });
 
@@ -2456,15 +2517,27 @@ class _RbacListSection extends StatefulWidget {
   final Key searchFieldKey;
   final String searchHint;
   final VoidCallback onCreate;
+  final String emptyTitle;
   final String emptyMessage;
-  final List<_RbacSearchItem> items;
+  final List<T> rows;
+  final String Function(T row) rowKey;
+  final String Function(T row) searchText;
+  final List<AdminGridColumn<T>> columns;
+  final List<AdminGridAction<T>> actions;
+  final Widget Function(BuildContext context, T row)? actionsBuilder;
+  final double? actionsWidth;
+  final double minWidth;
 
   @override
-  State<_RbacListSection> createState() => _RbacListSectionState();
+  State<_RbacGridSection<T>> createState() => _RbacGridSectionState<T>();
 }
 
-class _RbacListSectionState extends State<_RbacListSection> {
+class _RbacGridSectionState<T> extends State<_RbacGridSection<T>> {
+  static const List<int> _pageSizes = <int>[15, 25, 50];
+
   final TextEditingController _searchController = TextEditingController();
+  int _page = 1;
+  int _pageSize = _pageSizes.first;
 
   @override
   void dispose() {
@@ -2472,7 +2545,7 @@ class _RbacListSectionState extends State<_RbacListSection> {
     super.dispose();
   }
 
-  List<_RbacSearchItem> _visibleItems() {
+  List<T> _filteredRows() {
     final tokens = _searchController.text
         .trim()
         .toLowerCase()
@@ -2480,68 +2553,139 @@ class _RbacListSectionState extends State<_RbacListSection> {
         .where((token) => token.isNotEmpty)
         .toList(growable: false);
     if (tokens.isEmpty) {
-      return widget.items;
+      return widget.rows;
     }
 
-    return widget.items
-        .where((item) => item.matches(tokens))
+    return widget.rows
+        .where((row) {
+          final searchText = widget.searchText(row).toLowerCase();
+          return tokens.every(searchText.contains);
+        })
         .toList(growable: false);
   }
 
   @override
   Widget build(BuildContext context) {
-    final visibleItems = _visibleItems();
+    final filteredRows = _filteredRows();
     final hasSearchTerm = _searchController.text.trim().isNotEmpty;
+    final pageCount = math.max((filteredRows.length / _pageSize).ceil(), 1);
+    final effectivePage = math.min(_page, pageCount);
+    final pageStart = math.min(
+      (effectivePage - 1) * _pageSize,
+      filteredRows.length,
+    );
+    final pageEnd = math.min(pageStart + _pageSize, filteredRows.length);
+    final visibleRows = filteredRows.sublist(pageStart, pageEnd);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
+        AdminToolbar(
           children: [
-            OutlinedButton.icon(
+            FilledButton.icon(
               key: widget.createButtonKey,
               onPressed: widget.onCreate,
               icon: const Icon(Icons.add),
               label: Text(widget.createLabel),
             ),
-            const SizedBox(width: 12),
-            Expanded(
+            SizedBox(
+              width: 320,
               child: TextField(
                 key: widget.searchFieldKey,
                 controller: _searchController,
-                decoration: appFormInputDecoration(
-                  labelText: 'Search',
+                decoration: InputDecoration(
                   hintText: widget.searchHint,
+                  prefixIcon: const Icon(Icons.search),
                   suffixIcon: hasSearchTerm
                       ? IconButton(
                           tooltip: 'Clear search',
                           icon: const Icon(Icons.clear),
                           onPressed: () {
-                            setState(_searchController.clear);
+                            setState(() {
+                              _searchController.clear();
+                              _page = 1;
+                            });
                           },
                         )
-                      : const Icon(Icons.search),
+                      : null,
                 ),
                 onChanged: (_) {
-                  setState(() {});
+                  setState(() {
+                    _page = 1;
+                  });
                 },
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
         Expanded(
-          child: visibleItems.isEmpty
-              ? Center(
-                  child: Text(
-                    hasSearchTerm ? 'No matching rows.' : widget.emptyMessage,
-                  ),
-                )
-              : ListView.separated(
-                  itemCount: visibleItems.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, index) => visibleItems[index].child,
-                ),
+          child: AdminDataGrid<T>(
+            rows: visibleRows,
+            columns: widget.columns,
+            actions: widget.actions,
+            actionsBuilder: widget.actionsBuilder,
+            actionsWidth: widget.actionsWidth,
+            rowKey: widget.rowKey,
+            hasActiveFilter: hasSearchTerm,
+            emptyState: AdminEmptyStateData(
+              title: widget.emptyTitle,
+              message: widget.emptyMessage,
+              primaryAction: FilledButton.icon(
+                onPressed: widget.onCreate,
+                icon: const Icon(Icons.add),
+                label: Text(widget.createLabel),
+              ),
+            ),
+            filteredEmptyState: const AdminEmptyStateData(
+              title: 'No matching records.',
+              message: 'Clear the search or adjust filters.',
+            ),
+            minWidth: widget.minWidth,
+            footer: AdminGridFooter(
+              state: AdminPaginationState(
+                visibleCount: visibleRows.length,
+                totalCount: filteredRows.length,
+                page: effectivePage,
+                pages: pageCount,
+                pageSize: _pageSize,
+                pageSizes: _pageSizes,
+                onPageSizeChanged: (value) {
+                  setState(() {
+                    _pageSize = value;
+                    _page = 1;
+                  });
+                },
+                onFirstPage: effectivePage <= 1
+                    ? null
+                    : () {
+                        setState(() {
+                          _page = 1;
+                        });
+                      },
+                onPreviousPage: effectivePage <= 1
+                    ? null
+                    : () {
+                        setState(() {
+                          _page = effectivePage - 1;
+                        });
+                      },
+                onNextPage: effectivePage >= pageCount
+                    ? null
+                    : () {
+                        setState(() {
+                          _page = effectivePage + 1;
+                        });
+                      },
+                onLastPage: effectivePage >= pageCount
+                    ? null
+                    : () {
+                        setState(() {
+                          _page = pageCount;
+                        });
+                      },
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -2556,41 +2700,17 @@ class _DialogActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Wrap(
-        alignment: WrapAlignment.end,
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(onPressed: onSubmit, child: Text(submitLabel)),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionIcon extends StatelessWidget {
-  const _ActionIcon({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      icon: Icon(icon, size: 20),
-      tooltip: tooltip,
-      onPressed: onPressed,
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: onSubmit, child: Text(submitLabel)),
+      ],
     );
   }
 }

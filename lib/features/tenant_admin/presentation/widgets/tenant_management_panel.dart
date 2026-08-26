@@ -16,6 +16,7 @@ import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/application/query_models.dart';
+import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
@@ -73,56 +74,43 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            FilledButton.icon(
-              key: const Key('tenant-management-new-tenant-button'),
-              onPressed: () => _showTenantDialog(),
-              icon: const Icon(Icons.add),
-              label: const Text('New Tenant'),
-            ),
-            const SizedBox(width: 8),
-            TextButton.icon(
-              onPressed: () => controller.loadTenants(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          key: const Key('tenant-management-search-field'),
-          decoration: appFormInputDecoration(
-            labelText: 'Search tenants',
-            hintText: 'Name or slug',
-            suffixIcon: const Icon(Icons.search),
+        AdminPageHeader(
+          title: 'Tenants',
+          subtitle:
+              'Manage tenant records, domains, invitations, and memberships.',
+          primaryAction: FilledButton.icon(
+            key: const Key('tenant-management-new-tenant-button'),
+            onPressed: () => _showTenantDialog(),
+            icon: const Icon(Icons.add),
+            label: const Text('New Tenant'),
           ),
-          onChanged: (value) {
-            _searchDebounce?.cancel();
-            _searchDebounce = Timer(_searchDebounceDuration, () async {
-              controller.setSearchTerm(value.trim());
-              await controller.loadTenants();
-            });
-          },
         ),
-        if (state.isLoadingTenants)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: LinearProgressIndicator(),
-          ),
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(bottom: 8),
             child: AppErrorAlert(message: state.errorMessage!),
           ),
-        const SizedBox(height: 8),
-        AppFormPanel(
-          margin: EdgeInsets.zero,
+        AdminSurface(
+          padding: const EdgeInsets.all(8),
+          margin: const EdgeInsets.only(bottom: 8),
           child: _TenantSelector(
             tenants: state.tenants,
             selectedTenant: state.selectedTenant,
             selectedTenantId: state.selectedTenantId,
+            isLoading: state.isLoadingTenants,
+            hasMoreOptions: state.page < state.pages,
             onSelected: controller.selectTenant,
+            onSearchChanged: (value) {
+              _searchDebounce?.cancel();
+              _searchDebounce = Timer(_searchDebounceDuration, () {
+                unawaited(controller.searchTenants(value));
+              });
+            },
+            onLoadMore: () => unawaited(controller.loadMoreTenants()),
+            onOpened: () {
+              _searchDebounce?.cancel();
+              unawaited(controller.refreshTenantOptions());
+            },
             onEdit: state.selectedTenant == null
                 ? null
                 : () => _showTenantDialog(existingTenant: state.selectedTenant),
@@ -132,64 +120,46 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
           ),
         ),
         const SizedBox(height: 8),
-        _TenantPaginator(state: state),
-        const SizedBox(height: 8),
         Expanded(
-          child: AppFormPanel(
-            margin: EdgeInsets.zero,
+          child: AdminSurface(
             child: state.selectedTenant == null
-                ? const Center(
-                    child: Text(
-                      'Select a tenant to manage domains and access.',
+                ? const AdminEmptyState(
+                    data: AdminEmptyStateData(
+                      title: 'No tenant selected.',
+                      message:
+                          'Select a tenant to manage domains, invitations, and memberships.',
                     ),
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          _TenantTabChip(
-                            chipKey: const Key('tenant-management-tab-domains'),
+                      AdminTabs(
+                        items: [
+                          AdminTabItem(
+                            key: const Key('tenant-management-tab-domains'),
                             label: 'Domains',
-                            tooltip:
-                                'Verified tenant domains used to identify tenant-owned traffic.',
-                            tooltipKey: const Key(
-                              'tenant-management-tab-domains-info',
-                            ),
+                            count: state.domains.length,
                             selected: state.activeTab == TenantAdminTab.domains,
-                            onSelected: (_) =>
+                            onSelected: () =>
                                 controller.setActiveTab(TenantAdminTab.domains),
                           ),
-                          _TenantTabChip(
-                            chipKey: const Key(
-                              'tenant-management-tab-invitations',
-                            ),
+                          AdminTabItem(
+                            key: const Key('tenant-management-tab-invitations'),
                             label: 'Invitations',
-                            tooltip:
-                                'Pending invitations for adding users to this tenant.',
-                            tooltipKey: const Key(
-                              'tenant-management-tab-invitations-info',
-                            ),
+                            count: state.invitations.length,
                             selected:
                                 state.activeTab == TenantAdminTab.invitations,
-                            onSelected: (_) => controller.setActiveTab(
+                            onSelected: () => controller.setActiveTab(
                               TenantAdminTab.invitations,
                             ),
                           ),
-                          _TenantTabChip(
-                            chipKey: const Key(
-                              'tenant-management-tab-memberships',
-                            ),
+                          AdminTabItem(
+                            key: const Key('tenant-management-tab-memberships'),
                             label: 'Memberships',
-                            tooltip:
-                                'Users assigned to this tenant and their tenant roles.',
-                            tooltipKey: const Key(
-                              'tenant-management-tab-memberships-info',
-                            ),
+                            count: state.memberships.length,
                             selected:
                                 state.activeTab == TenantAdminTab.memberships,
-                            onSelected: (_) => controller.setActiveTab(
+                            onSelected: () => controller.setActiveTab(
                               TenantAdminTab.memberships,
                             ),
                           ),
@@ -197,10 +167,9 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                       ),
                       if (state.isLoadingDetails)
                         const Padding(
-                          padding: EdgeInsets.only(top: 8),
+                          padding: EdgeInsets.only(bottom: 8),
                           child: LinearProgressIndicator(),
                         ),
-                      const SizedBox(height: 8),
                       Expanded(
                         child: switch (state.activeTab) {
                           TenantAdminTab.domains => _TenantDomainsTab(
@@ -276,104 +245,84 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
 
     await showDialog<void>(
       context: context,
-      builder: (_) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    isEditing ? 'Edit Tenant' : 'Create Tenant',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: nameController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Name',
-                      helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Field cannot be empty.';
-                      }
+      builder: (_) => AppFormDialog(
+        title: isEditing ? 'Edit Tenant' : 'Create Tenant',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Name',
+                  helpText: acpFieldHelpText(key: 'Name', label: 'Name'),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Field cannot be empty.';
+                  }
 
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: slugController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Slug',
-                      helpText: acpFieldHelpText(key: 'Slug', label: 'Slug'),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Field cannot be empty.';
-                      }
-
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () async {
-                          final isValid =
-                              formKey.currentState?.validate() ?? false;
-                          if (!isValid) {
-                            return;
-                          }
-
-                          final success = isEditing
-                              ? await controller.updateTenant(
-                                  UpdateTenantInput(
-                                    tenantId: existingTenant.id,
-                                    name: nameController.text.trim(),
-                                    slug: slugController.text.trim(),
-                                    rowVersion: existingTenant.rowVersion,
-                                  ),
-                                )
-                              : await controller.createTenant(
-                                  CreateTenantInput(
-                                    name: nameController.text.trim(),
-                                    slug: slugController.text.trim(),
-                                  ),
-                                );
-                          snackBar.show(
-                            navigator,
-                            success
-                                ? 'Tenant saved successfully.'
-                                : 'Tenant save failed.',
-                          );
-                          if (success && mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: Text(
-                          isEditing ? 'Save Changes' : 'Create Tenant',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  return null;
+                },
               ),
-            ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: slugController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Slug',
+                  helpText: acpFieldHelpText(key: 'Slug', label: 'Slug'),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Field cannot be empty.';
+                  }
+
+                  return null;
+                },
+              ),
+            ],
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final success = isEditing
+                  ? await controller.updateTenant(
+                      UpdateTenantInput(
+                        tenantId: existingTenant.id,
+                        name: nameController.text.trim(),
+                        slug: slugController.text.trim(),
+                        rowVersion: existingTenant.rowVersion,
+                      ),
+                    )
+                  : await controller.createTenant(
+                      CreateTenantInput(
+                        name: nameController.text.trim(),
+                        slug: slugController.text.trim(),
+                      ),
+                    );
+              snackBar.show(
+                navigator,
+                success ? 'Tenant saved successfully.' : 'Tenant save failed.',
+              );
+              if (success && mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Text(isEditing ? 'Save Changes' : 'Create Tenant'),
+          ),
+        ],
       ),
     );
   }
@@ -384,7 +333,12 @@ class _TenantSelector extends StatelessWidget {
     required this.tenants,
     required this.selectedTenant,
     required this.selectedTenantId,
+    required this.isLoading,
+    required this.hasMoreOptions,
     required this.onSelected,
+    required this.onSearchChanged,
+    required this.onLoadMore,
+    required this.onOpened,
     required this.onEdit,
     required this.onLifecycleAction,
   });
@@ -392,19 +346,17 @@ class _TenantSelector extends StatelessWidget {
   final List<TenantEntity> tenants;
   final TenantEntity? selectedTenant;
   final String? selectedTenantId;
+  final bool isLoading;
+  final bool hasMoreOptions;
   final Future<void> Function(String tenantId) onSelected;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onLoadMore;
+  final VoidCallback onOpened;
   final VoidCallback? onEdit;
   final VoidCallback? onLifecycleAction;
 
   @override
   Widget build(BuildContext context) {
-    if (tenants.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: Text('No tenants found.'),
-      );
-    }
-
     final selected = selectedTenant;
     final lifecycleIsActive =
         selected != null && _isActiveStatus(selected.status);
@@ -421,161 +373,55 @@ class _TenantSelector extends StatelessWidget {
             optionKeyPrefix: 'tenant-management-tenant-option',
             labelText: 'Tenant',
             hintText: 'Search tenants',
+            helpText: acpFieldHelpText(
+              key: 'Tenant',
+              label: 'Tenant',
+              resourceKey: 'TenantAdmin',
+            ),
             options: tenants,
             selectedOptionKey: selectedTenantId,
+            selectedOptionTitle: selected == null
+                ? null
+                : _tenantSelectorLabel(selected),
             optionKey: (tenant) => tenant.id,
             optionTitle: _tenantSelectorLabel,
             optionSubtitle: (tenant) => '${tenant.status}  |  ${tenant.id}',
             optionSearchText: (tenant) =>
                 '${tenant.name} ${tenant.slug} ${tenant.status} ${tenant.id}',
             emptyMessage: 'No matching tenants found.',
+            isLoading: isLoading,
+            hasMoreOptions: hasMoreOptions,
+            onSearchChanged: onSearchChanged,
+            onLoadMore: onLoadMore,
+            onOpened: onOpened,
             onSelected: (tenant) {
               unawaited(onSelected(tenant.id));
             },
           ),
         ),
         if (selected != null)
-          Container(
+          Row(
             key: const Key('tenant-management-selected-tenant-actions'),
-            decoration: BoxDecoration(
-              color: AppUiPalette.surfaceMuted,
-              border: Border.all(color: AppUiPalette.border),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ActionIcon(
-                  icon: Icons.edit_outlined,
-                  tooltip: 'Edit tenant',
-                  onPressed: onEdit,
-                ),
-                _ActionIcon(
-                  icon: lifecycleIsActive
-                      ? Icons.pause_circle_outline
-                      : Icons.play_circle_outline,
-                  tooltip: lifecycleIsActive
-                      ? 'Deactivate tenant'
-                      : 'Reactivate tenant',
-                  onPressed: onLifecycleAction,
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _TenantTabChip extends StatelessWidget {
-  const _TenantTabChip({
-    required this.chipKey,
-    required this.label,
-    required this.tooltip,
-    required this.tooltipKey,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final Key chipKey;
-  final String label;
-  final String tooltip;
-  final Key tooltipKey;
-  final bool selected;
-  final ValueChanged<bool> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.centerRight,
-      children: [
-        ChoiceChip(
-          key: chipKey,
-          label: Padding(
-            padding: const EdgeInsets.only(right: 24),
-            child: Text(label),
-          ),
-          selected: selected,
-          onSelected: onSelected,
-        ),
-        Positioned(
-          right: 6,
-          top: 0,
-          bottom: 0,
-          child: Center(
-            child: Tooltip(
-              key: tooltipKey,
-              message: tooltip,
-              child: const SizedBox.square(
-                dimension: 18,
-                child: Center(
-                  child: Icon(
-                    Icons.info_outline,
-                    size: 16,
-                    color: AppUiPalette.textSecondary,
-                  ),
-                ),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AdminStatusChip(label: selected.status),
+              const SizedBox(width: 4),
+              _ActionIcon(
+                icon: Icons.edit_outlined,
+                tooltip: 'Edit tenant',
+                onPressed: onEdit,
               ),
-            ),
+              _ActionIcon(
+                icon: lifecycleIsActive
+                    ? Icons.pause_circle_outline
+                    : Icons.play_circle_outline,
+                tooltip: lifecycleIsActive
+                    ? 'Deactivate tenant'
+                    : 'Reactivate tenant',
+                onPressed: onLifecycleAction,
+              ),
+            ],
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _TenantPaginator extends ConsumerWidget {
-  const _TenantPaginator({required this.state});
-
-  final TenantAdminState state;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.read(tenantAdminControllerProvider.notifier);
-    final hasPrev = state.page > 1;
-    final hasNext = state.page < state.pages;
-    return Row(
-      children: [
-        const Text('Rows per page'),
-        const SizedBox(width: 8),
-        DropdownButton<int>(
-          value: state.pageSize,
-          onChanged: (value) async {
-            if (value == null) {
-              return;
-            }
-            controller.setRowsPerPage(value);
-            await controller.loadTenants();
-          },
-          items: const [
-            DropdownMenuItem<int>(value: 15, child: Text('15')),
-            DropdownMenuItem<int>(value: 25, child: Text('25')),
-            DropdownMenuItem<int>(value: 50, child: Text('50')),
-          ],
-        ),
-        const Spacer(),
-        Text('Page ${state.page} / ${state.pages}'),
-        IconButton(
-          tooltip: 'Previous page',
-          onPressed: !hasPrev
-              ? null
-              : () async {
-                  controller.setPage(state.page - 1);
-                  await controller.loadTenants();
-                },
-          icon: const Icon(Icons.chevron_left),
-        ),
-        IconButton(
-          tooltip: 'Next page',
-          onPressed: !hasNext
-              ? null
-              : () async {
-                  controller.setPage(state.page + 1);
-                  await controller.loadTenants();
-                },
-          icon: const Icon(Icons.chevron_right),
-        ),
       ],
     );
   }
@@ -903,11 +749,7 @@ class _ActionIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      icon: Icon(icon, size: 20),
-    );
+    return AdminIconButton(icon: icon, tooltip: tooltip, onPressed: onPressed);
   }
 }
 
@@ -968,108 +810,88 @@ Future<void> _showDomainDialog(
   await showDialog<void>(
     context: context,
     builder: (_) => StatefulBuilder(
-      builder: (context, setState) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    existing == null ? 'Add Domain' : 'Edit Domain',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: domainController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Domain',
-                      helpText: acpFieldHelpText(
-                        key: 'Domain',
-                        label: 'Domain',
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Field cannot be empty.';
-                      }
+      builder: (context, setState) => AppFormDialog(
+        title: existing == null ? 'Add Domain' : 'Edit Domain',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: domainController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Domain',
+                  helpText: acpFieldHelpText(key: 'Domain', label: 'Domain'),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Field cannot be empty.';
+                  }
 
-                      return null;
-                    },
-                  ),
-                  CheckboxListTile(
-                    value: isPrimary,
-                    title: appFieldLabelWithHelp(
-                      labelText: 'Primary domain',
-                      helpText: acpFieldHelpText(
-                        key: 'IsPrimary',
-                        label: 'Primary Domain',
-                        kind: AcpFieldKind.boolean,
-                      ),
-                    ),
-                    contentPadding: EdgeInsets.zero,
-                    onChanged: (value) {
-                      setState(() {
-                        isPrimary = value ?? false;
-                      });
-                    },
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () async {
-                          final isValid =
-                              formKey.currentState?.validate() ?? false;
-                          if (!isValid) {
-                            return;
-                          }
-
-                          final success = existing == null
-                              ? await controller.createDomain(
-                                  CreateTenantDomainInput(
-                                    tenantId: tenant.id,
-                                    domain: domainController.text.trim(),
-                                    isPrimary: isPrimary,
-                                  ),
-                                )
-                              : await controller.updateDomain(
-                                  UpdateTenantDomainInput(
-                                    tenantId: tenant.id,
-                                    domainId: existing.id,
-                                    domain: domainController.text.trim(),
-                                    isPrimary: isPrimary,
-                                    rowVersion: existing.rowVersion,
-                                  ),
-                                );
-                          snackBar.show(
-                            navigator,
-                            success
-                                ? 'Domain saved successfully.'
-                                : 'Domain save failed.',
-                          );
-                          if (success && context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: Text(existing == null ? 'Add Domain' : 'Save'),
-                      ),
-                    ],
-                  ),
-                ],
+                  return null;
+                },
               ),
-            ),
+              CheckboxListTile(
+                value: isPrimary,
+                title: appFieldLabelWithHelp(
+                  labelText: 'Primary domain',
+                  helpText: acpFieldHelpText(
+                    key: 'IsPrimary',
+                    label: 'Primary Domain',
+                    kind: AcpFieldKind.boolean,
+                  ),
+                ),
+                contentPadding: EdgeInsets.zero,
+                onChanged: (value) {
+                  setState(() {
+                    isPrimary = value ?? false;
+                  });
+                },
+              ),
+            ],
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final success = existing == null
+                  ? await controller.createDomain(
+                      CreateTenantDomainInput(
+                        tenantId: tenant.id,
+                        domain: domainController.text.trim(),
+                        isPrimary: isPrimary,
+                      ),
+                    )
+                  : await controller.updateDomain(
+                      UpdateTenantDomainInput(
+                        tenantId: tenant.id,
+                        domainId: existing.id,
+                        domain: domainController.text.trim(),
+                        isPrimary: isPrimary,
+                        rowVersion: existing.rowVersion,
+                      ),
+                    );
+              snackBar.show(
+                navigator,
+                success ? 'Domain saved successfully.' : 'Domain save failed.',
+              );
+              if (success && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Text(existing == null ? 'Add Domain' : 'Save'),
+          ),
+        ],
       ),
     ),
   );
@@ -1090,120 +912,102 @@ Future<void> _showInvitationDialog(
   await showDialog<void>(
     context: context,
     builder: (_) => StatefulBuilder(
-      builder: (context, setDialogState) => Dialog(
-        child: SizedBox(
-          width: _formDialogPanelWidth,
-          child: AppFormPanel(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Create Invitation',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: emailController,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Email',
-                      helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Field cannot be empty.';
-                      }
+      builder: (context, setDialogState) => AppFormDialog(
+        title: 'Create Invitation',
+        maxWidth: _formDialogPanelWidth,
+        body: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: emailController,
+                decoration: appFormInputDecoration(
+                  labelText: 'Email',
+                  helpText: acpFieldHelpText(key: 'Email', label: 'Email'),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Field cannot be empty.';
+                  }
 
-                      if (!value.contains('@')) {
-                        return 'Email address must be valid';
-                      }
+                  if (!value.contains('@')) {
+                    return 'Email address must be valid';
+                  }
 
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    key: const Key('tenant-invitation-role-dropdown'),
-                    initialValue: selectedRole,
-                    isExpanded: true,
-                    decoration: appFormInputDecoration(
-                      labelText: 'Role In Tenant',
-                      helpText: acpFieldHelpText(
-                        key: 'RoleInTenant',
-                        label: 'Role In Tenant',
-                      ),
-                    ),
-                    items: _tenantMembershipRoleOptions
-                        .map(
-                          (option) => DropdownMenuItem<String>(
-                            value: option.value,
-                            child: Text(option.label),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-
-                      setDialogState(() {
-                        selectedRole = value;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Field cannot be empty.';
-                      }
-
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () async {
-                          final isValid =
-                              formKey.currentState?.validate() ?? false;
-                          if (!isValid) {
-                            return;
-                          }
-
-                          final success = await controller.createInvitation(
-                            CreateTenantInvitationInput(
-                              tenantId: tenant.id,
-                              email: emailController.text.trim(),
-                              roleInTenant: selectedRole,
-                            ),
-                          );
-                          snackBar.show(
-                            navigator,
-                            success
-                                ? 'Invitation created.'
-                                : 'Invitation creation failed.',
-                          );
-                          if (success && context.mounted) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: const Text('Create Invitation'),
-                      ),
-                    ],
-                  ),
-                ],
+                  return null;
+                },
               ),
-            ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                key: const Key('tenant-invitation-role-dropdown'),
+                initialValue: selectedRole,
+                isExpanded: true,
+                decoration: appFormInputDecoration(
+                  labelText: 'Role In Tenant',
+                  helpText: acpFieldHelpText(
+                    key: 'RoleInTenant',
+                    label: 'Role In Tenant',
+                  ),
+                ),
+                items: _tenantMembershipRoleOptions
+                    .map(
+                      (option) => DropdownMenuItem<String>(
+                        value: option.value,
+                        child: Text(option.label),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) {
+                  if (value == null) {
+                    return;
+                  }
+
+                  setDialogState(() {
+                    selectedRole = value;
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Field cannot be empty.';
+                  }
+
+                  return null;
+                },
+              ),
+            ],
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final isValid = formKey.currentState?.validate() ?? false;
+              if (!isValid) {
+                return;
+              }
+
+              final success = await controller.createInvitation(
+                CreateTenantInvitationInput(
+                  tenantId: tenant.id,
+                  email: emailController.text.trim(),
+                  roleInTenant: selectedRole,
+                ),
+              );
+              snackBar.show(
+                navigator,
+                success ? 'Invitation created.' : 'Invitation creation failed.',
+              );
+              if (success && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: const Text('Create Invitation'),
+          ),
+        ],
       ),
     ),
   );
@@ -1217,15 +1021,10 @@ Future<void> _showMembershipDialog(
 }) async {
   await showDialog<void>(
     context: context,
-    builder: (_) => Dialog(
-      child: SizedBox(
-        width: _formDialogPanelWidth,
-        child: _TenantMembershipDialog(
-          tenant: tenant,
-          memberships: memberships,
-          existing: existing,
-        ),
-      ),
+    builder: (_) => _TenantMembershipDialog(
+      tenant: tenant,
+      memberships: memberships,
+      existing: existing,
     ),
   );
 }
@@ -1279,41 +1078,31 @@ class _TenantMembershipDialogState
 
   @override
   Widget build(BuildContext context) {
-    return AppFormPanel(
-      child: Form(
+    return AppFormDialog(
+      title: _isEditing ? 'Edit Membership Role' : 'Add Membership',
+      maxWidth: _formDialogPanelWidth,
+      body: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              _isEditing ? 'Edit Membership Role' : 'Add Membership',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
             _isEditing ? _buildReadonlyUserField() : _buildUserPicker(),
             const SizedBox(height: 8),
             _buildRoleDropdown(),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _submit,
-                  child: Text(_isEditing ? 'Save' : 'Add Membership'),
-                ),
-              ],
-            ),
           ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(_isEditing ? 'Save' : 'Add Membership'),
+        ),
+      ],
     );
   }
 
@@ -1380,7 +1169,7 @@ class _TenantMembershipDialogState
       return Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppUiPalette.surface,
           border: Border.all(color: AppUiPalette.border),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -1392,7 +1181,7 @@ class _TenantMembershipDialogState
       constraints: const BoxConstraints(maxHeight: 220),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppUiPalette.surface,
           border: Border.all(color: AppUiPalette.border),
           borderRadius: BorderRadius.circular(8),
         ),

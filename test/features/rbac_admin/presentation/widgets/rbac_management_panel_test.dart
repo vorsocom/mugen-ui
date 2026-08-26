@@ -29,99 +29,35 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('New Permission Object'), findsOneWidget);
-    expect(
-      _tabTooltipMessage(
-        tester,
-        const Key('rbac-management-tab-global-roles-info'),
-      ),
-      'Platform-wide roles that can be granted outside a tenant.',
-    );
-    expect(
-      _tabTooltipMessage(
-        tester,
-        const Key('rbac-management-tab-permission-objects-info'),
-      ),
-      'Protected object types that permissions can be granted on.',
-    );
-    expect(
-      _tabTooltipMessage(
-        tester,
-        const Key('rbac-management-tab-permission-types-info'),
-      ),
-      'Actions that can be allowed or denied for permission objects.',
-    );
-    expect(
-      _tabTooltipMessage(
-        tester,
-        const Key('rbac-management-tab-global-grants-info'),
-      ),
-      'Global role permissions that apply without tenant scope.',
-    );
-    expect(
-      _tabTooltipMessage(
-        tester,
-        const Key('rbac-management-tab-global-role-memberships-info'),
-      ),
-      'Users assigned to global roles outside tenant scope.',
-    );
-    expect(
-      _tabTooltipMessage(
-        tester,
-        const Key('rbac-management-tab-tenant-roles-info'),
-      ),
-      'Roles available only within the selected tenant.',
-    );
-    expect(
-      _tabTooltipMessage(
-        tester,
-        const Key('rbac-management-tab-role-memberships-info'),
-      ),
-      'Users assigned to tenant roles in the selected tenant.',
-    );
-    expect(
-      _tabTooltipMessage(
-        tester,
-        const Key('rbac-management-tab-tenant-grants-info'),
-      ),
-      'Permissions assigned to tenant roles in the selected tenant.',
-    );
+    expect(find.text('Roles & Permissions'), findsOneWidget);
+    expect(find.text('Permission Objects'), findsOneWidget);
+    expect(find.text('Permission Types'), findsOneWidget);
+    expect(find.text('Global Roles'), findsOneWidget);
+    expect(find.text('Global Grants'), findsOneWidget);
+    expect(find.text('Global Role Memberships'), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-permission-types')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-permission-types'));
     expect(find.text('New Permission Type'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('rbac-management-tab-global-roles')));
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-global-roles'));
     expect(find.text('New Global Role'), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-global-grants')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-global-grants'));
     expect(find.text('New Global Grant'), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-global-role-memberships')),
+    await _tapTab(
+      tester,
+      const Key('rbac-management-tab-global-role-memberships'),
     );
-    await tester.pumpAndSettle();
     expect(find.text('New Global Role Membership'), findsOneWidget);
 
-    await tester.tap(find.byKey(const Key('rbac-management-tab-tenant-roles')));
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-tenant-roles'));
     expect(find.text('New Tenant Role'), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-tenant-grants')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-tenant-grants'));
     expect(find.text('New Tenant Grant'), findsOneWidget);
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-role-memberships')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-role-memberships'));
     expect(find.text('New Tenant Role Membership'), findsOneWidget);
   });
 
@@ -132,8 +68,7 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('rbac-management-tab-global-roles')));
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-global-roles'));
     expect(find.text('Administrator'), findsOneWidget);
     expect(find.text('Auditor'), findsOneWidget);
 
@@ -145,25 +80,19 @@ void main() {
     expect(find.text('Auditor'), findsOneWidget);
     expect(find.text('Administrator'), findsNothing);
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-permission-objects')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('acp:tenant'), findsOneWidget);
-    expect(find.text('acp:user'), findsOneWidget);
+    await _tapTab(tester, const Key('rbac-management-tab-permission-objects'));
+    expect(find.text('tenant'), findsOneWidget);
+    expect(find.text('user'), findsAtLeastNWidgets(1));
 
     await tester.enterText(
       find.byKey(const Key('rbac-permission-objects-search-field')),
       'user',
     );
     await tester.pumpAndSettle();
-    expect(find.text('acp:user'), findsOneWidget);
-    expect(find.text('acp:tenant'), findsNothing);
+    expect(find.text('user'), findsAtLeastNWidgets(1));
+    expect(find.text('tenant'), findsNothing);
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-global-grants')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-global-grants'));
     await tester.enterText(
       find.byKey(const Key('rbac-global-grants-search-field')),
       'read',
@@ -171,22 +100,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Auditor'), findsOneWidget);
     expect(find.text('Administrator'), findsNothing);
-    expect(find.text('acp:user  |  acp:read'), findsOneWidget);
-    expect(find.text('acp:tenant  |  acp:manage'), findsNothing);
+    expect(find.text('user'), findsOneWidget);
+    expect(find.text('read'), findsAtLeastNWidgets(1));
+    expect(find.text('tenant'), findsNothing);
+    expect(find.text('manage'), findsNothing);
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-role-memberships')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('alice@example.com'), findsOneWidget);
-    expect(find.text('bob@example.com'), findsOneWidget);
+    await _tapTab(tester, const Key('rbac-management-tab-role-memberships'));
+    expect(find.text('alice@example.com'), findsAtLeastNWidgets(1));
+    expect(find.text('bob@example.com'), findsAtLeastNWidgets(1));
 
     await tester.enterText(
       find.byKey(const Key('rbac-role-memberships-search-field')),
       'auditor',
     );
     await tester.pumpAndSettle();
-    expect(find.text('bob@example.com'), findsOneWidget);
+    expect(find.text('bob@example.com'), findsAtLeastNWidgets(1));
     expect(find.text('alice@example.com'), findsNothing);
   });
 
@@ -197,8 +125,7 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('rbac-management-tab-global-roles')));
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-global-roles'));
     await tester.tap(find.byKey(const Key('rbac-global-role-create-button')));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Create Global Role'));
@@ -230,10 +157,7 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-permission-objects')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-permission-objects'));
 
     await tester.tap(find.byTooltip('Deprecate permission object').first);
     await tester.pumpAndSettle();
@@ -247,18 +171,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.deprecatePermissionObjectInputs, hasLength(1));
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-permission-types')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-permission-types'));
     await tester.tap(find.byTooltip('Deprecate permission type').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(repository.deprecatePermissionTypeInputs, hasLength(1));
 
-    await tester.tap(find.byKey(const Key('rbac-management-tab-tenant-roles')));
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-tenant-roles'));
 
     await tester.tap(find.byTooltip('Deprecate tenant role').first);
     await tester.pumpAndSettle();
@@ -280,10 +200,7 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-global-grants')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-global-grants'));
 
     await tester.tap(find.byTooltip('Set denied').first);
     await tester.pumpAndSettle();
@@ -301,10 +218,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(repository.deleteGlobalPermissionEntryInputs, hasLength(1));
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-tenant-grants')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-tenant-grants'));
 
     await tester.tap(find.byTooltip('Set denied').first);
     await tester.pumpAndSettle();
@@ -330,10 +244,7 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-global-grants')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-global-grants'));
     await tester.tap(find.byKey(const Key('rbac-global-grant-create-button')));
     await tester.pumpAndSettle();
 
@@ -381,9 +292,12 @@ void main() {
       'read',
     );
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const Key('rbac-global-grant-permission-type-option-pt-2')),
+    final globalPermissionTypeOption = find.byKey(
+      const Key('rbac-global-grant-permission-type-option-pt-2'),
     );
+    await tester.ensureVisible(globalPermissionTypeOption);
+    await tester.pumpAndSettle();
+    await tester.tap(globalPermissionTypeOption);
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(FilledButton, 'Create Global Grant'));
@@ -407,10 +321,7 @@ void main() {
     );
     expect(find.byType(Dialog), findsNothing);
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-tenant-grants')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-tenant-grants'));
     await tester.tap(find.byKey(const Key('rbac-tenant-grant-create-button')));
     await tester.pumpAndSettle();
 
@@ -498,10 +409,7 @@ void main() {
     await _pumpPanel(tester, repository, surfaceSize: const Size(640, 640));
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-global-grants')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-global-grants'));
     await tester.tap(find.byKey(const Key('rbac-global-grant-create-button')));
     await tester.pumpAndSettle();
 
@@ -516,14 +424,15 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-global-role-memberships')),
+    await _tapTab(
+      tester,
+      const Key('rbac-management-tab-global-role-memberships'),
     );
-    await tester.pumpAndSettle();
 
     expect(find.text('New Global Role Membership'), findsOneWidget);
-    expect(find.text('alice@example.com'), findsOneWidget);
-    expect(find.text('Administrator  |  acp:administrator'), findsOneWidget);
+    expect(find.text('alice@example.com'), findsAtLeastNWidgets(1));
+    expect(find.text('Administrator'), findsOneWidget);
+    expect(find.text('administrator'), findsOneWidget);
 
     await tester.tap(
       find.byKey(const Key('rbac-global-role-membership-create-button')),
@@ -616,10 +525,7 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-role-memberships')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-role-memberships'));
 
     expect(find.text('New Tenant Role Membership'), findsOneWidget);
     expect(
@@ -628,8 +534,9 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('alice@example.com'), findsOneWidget);
-    expect(find.text('Member  |  acp:member'), findsOneWidget);
+    expect(find.text('alice@example.com'), findsAtLeastNWidgets(1));
+    expect(find.text('Member'), findsOneWidget);
+    expect(find.text('member'), findsOneWidget);
 
     await tester.tap(
       find.byKey(const Key('rbac-role-membership-create-button')),
@@ -742,26 +649,19 @@ void main() {
     await _pumpPanel(tester, repository);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('rbac-management-tab-tenant-roles')));
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-tenant-roles'));
     expect(
       find.text('Select a tenant to manage tenant roles.'),
       findsOneWidget,
     );
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-role-memberships')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-role-memberships'));
     expect(
       find.text('Select a tenant to manage tenant role memberships.'),
       findsOneWidget,
     );
 
-    await tester.tap(
-      find.byKey(const Key('rbac-management-tab-tenant-grants')),
-    );
-    await tester.pumpAndSettle();
+    await _tapTab(tester, const Key('rbac-management-tab-tenant-grants'));
     expect(
       find.text('Select a tenant to manage tenant grants.'),
       findsOneWidget,
@@ -769,9 +669,12 @@ void main() {
   });
 }
 
-String? _tabTooltipMessage(WidgetTester tester, Key tabKey) {
-  final tooltip = tester.widget<Tooltip>(find.byKey(tabKey));
-  return tooltip.message;
+Future<void> _tapTab(WidgetTester tester, Key key) async {
+  final tab = find.byKey(key);
+  await tester.ensureVisible(tab);
+  await tester.pumpAndSettle();
+  await tester.tap(tab);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpPanel(

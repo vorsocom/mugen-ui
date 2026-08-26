@@ -1,5 +1,6 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
+import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/shell/application/shell_route_access.dart';
@@ -35,11 +36,17 @@ class ShellController extends _$ShellController {
   @override
   ShellState build() {
     final definition = ref.read(appDefinitionProvider);
+    final routeAvailabilities = <String, ShellRouteAvailability>{
+      for (final route in definition.shellRoutes)
+        if (route.availabilityProvider != null)
+          route.id: ref.read(route.availabilityProvider!),
+    };
     final routeAccess = resolveShellRouteAccess(
       shellRoutes: definition.shellRoutes,
       defaultShellRouteId: definition.defaultShellRouteId,
       sessionRoles: _currentSessionRoles(),
       requestedRoute: definition.defaultShellRouteId,
+      routeAvailabilities: routeAvailabilities,
     );
     return ShellState(
       isDrawerCollapsed: false,
@@ -83,11 +90,17 @@ class ShellController extends _$ShellController {
 
   ShellRouteAccess _resolveRouteAccess(String route) {
     final definition = ref.read(appDefinitionProvider);
+    final routeAvailabilities = <String, ShellRouteAvailability>{
+      for (final shellRoute in definition.shellRoutes)
+        if (shellRoute.availabilityProvider != null)
+          shellRoute.id: ref.read(shellRoute.availabilityProvider!),
+    };
     return resolveShellRouteAccess(
       shellRoutes: definition.shellRoutes,
       defaultShellRouteId: definition.defaultShellRouteId,
       sessionRoles: _currentSessionRoles(),
       requestedRoute: route,
+      routeAvailabilities: routeAvailabilities,
     );
   }
 

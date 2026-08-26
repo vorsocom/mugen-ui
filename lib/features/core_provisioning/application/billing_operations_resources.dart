@@ -240,8 +240,8 @@ billingOperationsResources = <AcpResourceDescriptor>[
     entitySet: 'BillingRuns',
     columns: <AcpColumnDescriptor>[
       coreColumn('Status', 'Status'),
-      coreColumn('WindowStart', 'Window Start', flex: 2),
-      coreColumn('WindowEnd', 'Window End', flex: 2),
+      coreColumn('PeriodStart', 'Period Start', flex: 2),
+      coreColumn('PeriodEnd', 'Period End', flex: 2),
       coreColumn('CreatedAt', 'Created At', flex: 2),
     ],
   ),

@@ -212,6 +212,12 @@ void main() {
     expect(shellRouteIds, contains(RouteIds.knowledgePacks));
     expect(shellRouteIds, contains(RouteIds.acpConsole));
     expect(shellRouteIds, contains(RouteIds.billingCatalog));
+    expect(shellRouteIds, contains(RouteIds.billingOperations));
+    expect(shellRouteIds, contains(RouteIds.connectors));
+    expect(shellRouteIds, contains(RouteIds.governance));
+    expect(shellRouteIds, contains(RouteIds.workflows));
+    expect(shellRouteIds, contains(RouteIds.sla));
+    expect(shellRouteIds, contains(RouteIds.reporting));
     expect(
       definition.shellRoutes
           .firstWhere((route) => route.id == RouteIds.billingCatalog)
@@ -247,6 +253,12 @@ void main() {
       RouteIds.localUsers,
       RouteIds.rolePermissionManagement,
       RouteIds.billingCatalog,
+      RouteIds.billingOperations,
+      RouteIds.connectors,
+      RouteIds.governance,
+      RouteIds.workflows,
+      RouteIds.sla,
+      RouteIds.reporting,
       RouteIds.channelOrchestration,
       RouteIds.contextEngine,
       RouteIds.knowledgePacks,
@@ -263,6 +275,8 @@ void main() {
       'Identity & Access',
     );
     expect(drawerGroupFor(RouteIds.billingCatalog), 'Platform Capabilities');
+    expect(drawerGroupFor(RouteIds.billingOperations), 'Platform Capabilities');
+    expect(drawerGroupFor(RouteIds.connectors), 'Platform Capabilities');
     expect(
       drawerGroupFor(RouteIds.channelOrchestration),
       'Platform Capabilities',
@@ -270,6 +284,10 @@ void main() {
     expect(drawerGroupFor(RouteIds.contextEngine), 'Platform Capabilities');
     expect(drawerGroupFor(RouteIds.knowledgePacks), 'Platform Capabilities');
     expect(drawerGroupFor(RouteIds.runtimeControl), 'Operations & Governance');
+    expect(drawerGroupFor(RouteIds.governance), 'Operations & Governance');
+    expect(drawerGroupFor(RouteIds.workflows), 'Operations & Governance');
+    expect(drawerGroupFor(RouteIds.sla), 'Operations & Governance');
+    expect(drawerGroupFor(RouteIds.reporting), 'Operations & Governance');
     expect(drawerGroupFor(RouteIds.auditManagement), 'Operations & Governance');
     expect(drawerGroupFor(RouteIds.acpConsole), 'Developer');
     expect(
@@ -292,6 +310,35 @@ void main() {
     expect(topLevelRouteIds, contains('core.portal.privacy'));
     expect(topLevelRouteIds, contains('core.auth.login'));
     expect(topLevelRouteIds, contains('core.tenant_invite.invite'));
+  });
+
+  testWidgets('Core provisioning route factories build their panels', (
+    WidgetTester tester,
+  ) async {
+    final definition = buildDefaultAppDefinition();
+    const routeIds = <String>{
+      RouteIds.billingOperations,
+      RouteIds.connectors,
+      RouteIds.governance,
+      RouteIds.workflows,
+      RouteIds.sla,
+      RouteIds.reporting,
+    };
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            for (final route in definition.shellRoutes.where(
+              (route) => routeIds.contains(route.id),
+            )) {
+              expect(route.builder(context), isA<Padding>());
+            }
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
   });
 
   test('app definition rejects duplicate module ids', () {

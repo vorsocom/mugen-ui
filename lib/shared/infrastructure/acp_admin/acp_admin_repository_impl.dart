@@ -195,7 +195,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     }
 
     final body = <String, dynamic>{...values};
-    if (rowVersion != null && rowVersion > 0) {
+    if (rowVersion != null && rowVersion >= 0) {
       body['RowVersion'] = rowVersion;
     }
 
@@ -222,7 +222,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       return Result<void>.failure(path.failure!);
     }
 
-    final body = rowVersion == null || rowVersion <= 0
+    final body = rowVersion == null || rowVersion < 0
         ? null
         : <String, dynamic>{'RowVersion': rowVersion};
     return _sendForVoid(
@@ -248,7 +248,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       return Result<void>.failure(path.failure!);
     }
 
-    final body = rowVersion == null || rowVersion <= 0
+    final body = rowVersion == null || rowVersion < 0
         ? null
         : <String, dynamic>{'RowVersion': rowVersion};
     return _sendForVoid(
@@ -302,7 +302,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
 
     final body = <String, dynamic>{...values};
     if (action.includeRowVersion) {
-      if (rowVersion == null || rowVersion <= 0) {
+      if (rowVersion == null || rowVersion < 0) {
         return const Result<Object?>.failure(
           ValidationFailure('RowVersion is required for this action.'),
         );
@@ -349,11 +349,24 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       }
 
       if (!response.response.isSuccess) {
+        final message = normalizeApiErrorMessage(
+          response.response.body,
+          maximumLength: null,
+        );
+        if (response.response.statusCode == 409) {
+          final normalizedMessage = message.toLowerCase();
+          return Result<AuthenticatedResponse>.failure(
+            ConflictFailure(
+              normalizedMessage.contains('rowversion') ||
+                      normalizedMessage.contains('row version')
+                  ? ConflictKind.staleRowVersion
+                  : ConflictKind.lifecycle,
+              message,
+            ),
+          );
+        }
         return Result<AuthenticatedResponse>.failure(
-          ApiFailure(
-            response.response.statusCode,
-            normalizeApiErrorMessage(response.response.body),
-          ),
+          ApiFailure(response.response.statusCode, message),
         );
       }
 

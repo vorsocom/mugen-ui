@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
+import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_admin_panel.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
@@ -461,6 +462,168 @@ void main() {
       ),
     );
     expect(textField.controller!.text, '{"b":2,"a":[1]}');
+  });
+
+  testWidgets('server failures retain operator input for retry', (
+    WidgetTester tester,
+  ) async {
+    final repository = FakeAcpAdminRepository()
+      ..createResult = const Result<Object?>.failure(
+        ApiFailure(422, 'Name is already in use.'),
+      );
+    await _pumpPanel(
+      tester,
+      repository: repository,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'retained-input',
+          title: 'Retained Input',
+          entitySet: 'RetainedInputs',
+          scopeMode: AcpScopeMode.none,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'Name', label: 'Name'),
+          ],
+          createFields: <AcpFieldDescriptor>[
+            AcpFieldDescriptor(key: 'Name', label: 'Name', required: true),
+          ],
+          allowCreate: true,
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-Name')),
+      'operator value',
+    );
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Name is already in use.'), findsWidgets);
+    expect(find.text('Create Retained Input'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const Key('acp-dynamic-field-Name')),
+          )
+          .controller!
+          .text,
+      'operator value',
+    );
+
+    repository.createResult = const Result<Object?>.success(<String, Object?>{
+      'Id': 'created',
+      'RowVersion': 1,
+    });
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(find.text('Create Retained Input'), findsNothing);
+  });
+
+  testWidgets('timezone validation rejects naive timestamps', (
+    WidgetTester tester,
+  ) async {
+    final repository = await _pumpPanel(
+      tester,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'windows',
+          title: 'Windows',
+          entitySet: 'Windows',
+          scopeMode: AcpScopeMode.none,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'WindowStart', label: 'Window Start'),
+          ],
+          createFields: <AcpFieldDescriptor>[
+            AcpFieldDescriptor(
+              key: 'WindowStart',
+              label: 'Window Start',
+              kind: AcpFieldKind.dateTime,
+              required: true,
+            ),
+          ],
+          allowCreate: true,
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-WindowStart')),
+      '2026-08-26T12:00:00',
+    );
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('with a timezone'), findsWidgets);
+    expect(repository.createPayloads, isEmpty);
+
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-WindowStart')),
+      '2026-08-26T12:00:00-04:00',
+    );
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(
+      repository.createPayloads.single['WindowStart'],
+      '2026-08-26T16:00:00.000Z',
+    );
+  });
+
+  testWidgets('integer-list validation enforces configured bounds', (
+    WidgetTester tester,
+  ) async {
+    final repository = await _pumpPanel(
+      tester,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'calendars',
+          title: 'Calendar',
+          entitySet: 'Calendars',
+          scopeMode: AcpScopeMode.none,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'BusinessDays', label: 'Business Days'),
+          ],
+          createFields: <AcpFieldDescriptor>[
+            AcpFieldDescriptor(
+              key: 'BusinessDays',
+              label: 'Business Days',
+              kind: AcpFieldKind.integerList,
+              minimumValue: 1,
+              maximumValue: 7,
+            ),
+          ],
+          allowCreate: true,
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-BusinessDays')),
+      '0, 3',
+    );
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter values of at least 1.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-BusinessDays')),
+      '[2, 8]',
+    );
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter values no greater than 7.'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-BusinessDays')),
+      '1, 3, 7',
+    );
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(repository.createPayloads.single['BusinessDays'], <int>[1, 3, 7]);
   });
 
   testWidgets('row detail dialog copies object ID to the clipboard', (

@@ -403,6 +403,23 @@ void main() {
       final networkFixture = _RepositoryFixture(
         handlers: <_AuthHandler>[(_) => throw Exception('boom')],
       );
+      final staleConflictFixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 409,
+            body: '{"detail":"RowVersion conflict. Refresh and retry."}',
+          ),
+        ],
+      );
+      final lifecycleConflictFixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 409,
+            body:
+                '{"detail":"Invoice can only be issued from draft. ${'x' * 700}"}',
+          ),
+        ],
+      );
 
       final sessionResult = await sessionFixture.repository.fetchTenants();
       final unauthorizedResult = await unauthorizedFixture.repository
@@ -410,6 +427,10 @@ void main() {
       final apiResult = await apiFixture.repository.fetchTenants();
       final rawApiResult = await rawApiFixture.repository.fetchTenants();
       final networkResult = await networkFixture.repository.fetchTenants();
+      final staleConflict = await staleConflictFixture.repository
+          .fetchTenants();
+      final lifecycleConflict = await lifecycleConflictFixture.repository
+          .fetchTenants();
 
       expect(sessionResult.isFailure, isTrue);
       expect(sessionResult.failure, isA<SessionExpiredFailure>());
@@ -420,6 +441,24 @@ void main() {
       expect(apiResult.failure?.message, 'server broke');
       expect(rawApiResult.failure?.message, 'plain failure');
       expect(networkResult.failure, isA<NetworkFailure>());
+      expect(
+        staleConflict.failure,
+        isA<ConflictFailure>().having(
+          (failure) => failure.kind,
+          'kind',
+          ConflictKind.staleRowVersion,
+        ),
+      );
+      expect(
+        lifecycleConflict.failure,
+        isA<ConflictFailure>()
+            .having((failure) => failure.kind, 'kind', ConflictKind.lifecycle)
+            .having(
+              (failure) => failure.message.length,
+              'complete message length',
+              greaterThan(700),
+            ),
+      );
     },
   );
 

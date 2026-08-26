@@ -13,6 +13,10 @@ void main() {
       expect(ValidationFailure('v').message, 'v');
       expect(const NetworkFailure('n').message, 'n');
       expect(const ApiFailure(418, 'a').message, 'a');
+      const conflict = ConflictFailure(ConflictKind.staleRowVersion, 'stale');
+      expect(conflict.statusCode, 409);
+      expect(conflict.kind, ConflictKind.staleRowVersion);
+      expect(conflict.message, 'stale');
       expect(const SessionExpiredFailure('s').message, 's');
       expect(const UnexpectedFailure('u').message, 'u');
     });

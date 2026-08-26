@@ -13,6 +13,8 @@ import 'package:mugen_ui/features/billing_catalog/presentation/providers/billing
 import 'package:mugen_ui/features/billing_catalog/presentation/widgets/billing_catalog_panel.dart';
 import 'package:mugen_ui/features/chat/presentation/pages/chat_page.dart';
 import 'package:mugen_ui/features/context_admin/presentation/widgets/context_engine_panel.dart';
+import 'package:mugen_ui/features/core_provisioning/presentation/providers/core_provisioning_providers.dart';
+import 'package:mugen_ui/features/core_provisioning/presentation/widgets/core_provisioning_panels.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/widgets/human_handoff_panel.dart';
 import 'package:mugen_ui/features/knowledge_pack_admin/presentation/widgets/knowledge_pack_panel.dart';
 import 'package:mugen_ui/features/orchestration_admin/presentation/widgets/channel_orchestration_panel.dart';
@@ -38,6 +40,12 @@ MugenUiAppDefinition buildDefaultAppDefinition() {
       _coreLocalUsersModule,
       _coreRbacModule,
       _coreBillingCatalogModule,
+      _coreBillingOperationsModule,
+      _coreConnectorsModule,
+      _coreGovernanceModule,
+      _coreWorkflowsModule,
+      _coreSlaModule,
+      _coreReportingModule,
       _coreChannelOrchestrationModule,
       _coreContextEngineModule,
       _coreKnowledgePackModule,
@@ -296,6 +304,102 @@ final MugenUiModule _coreBillingCatalogModule = MugenUiModule(
   ],
 );
 
+final MugenUiModule _coreBillingOperationsModule = MugenUiModule(
+  id: 'core.billing_operations',
+  shellRoutes: <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.billingOperations,
+      title: 'Billing Operations',
+      icon: Icons.receipt_long_outlined,
+      section: 'Platform Configuration',
+      group: 'Platform Capabilities',
+      requiredRoles: const <String>['$acpNamespace:administrator'],
+      availabilityProvider: billingOperationsShellAvailabilityProvider,
+      builder: _buildBillingOperationsRoute,
+    ),
+  ],
+);
+
+final MugenUiModule _coreConnectorsModule = MugenUiModule(
+  id: 'core.connectors',
+  shellRoutes: <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.connectors,
+      title: 'Connectors',
+      icon: Icons.cable_outlined,
+      section: 'Platform Configuration',
+      group: 'Platform Capabilities',
+      requiredRoles: const <String>['$acpNamespace:administrator'],
+      availabilityProvider: connectorsShellAvailabilityProvider,
+      builder: _buildConnectorsRoute,
+    ),
+  ],
+);
+
+final MugenUiModule _coreGovernanceModule = MugenUiModule(
+  id: 'core.governance',
+  shellRoutes: <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.governance,
+      title: 'Governance',
+      icon: Icons.policy_outlined,
+      section: 'Platform Configuration',
+      group: 'Operations & Governance',
+      requiredRoles: const <String>['$acpNamespace:administrator'],
+      availabilityProvider: governanceShellAvailabilityProvider,
+      builder: _buildGovernanceRoute,
+    ),
+  ],
+);
+
+final MugenUiModule _coreWorkflowsModule = MugenUiModule(
+  id: 'core.workflows',
+  shellRoutes: <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.workflows,
+      title: 'Workflows',
+      icon: Icons.account_tree_outlined,
+      section: 'Platform Configuration',
+      group: 'Operations & Governance',
+      requiredRoles: const <String>['$acpNamespace:administrator'],
+      availabilityProvider: workflowsShellAvailabilityProvider,
+      builder: _buildWorkflowsRoute,
+    ),
+  ],
+);
+
+final MugenUiModule _coreSlaModule = MugenUiModule(
+  id: 'core.sla',
+  shellRoutes: <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.sla,
+      title: 'SLA',
+      icon: Icons.timer_outlined,
+      section: 'Platform Configuration',
+      group: 'Operations & Governance',
+      requiredRoles: const <String>['$acpNamespace:administrator'],
+      availabilityProvider: slaShellAvailabilityProvider,
+      builder: _buildSlaRoute,
+    ),
+  ],
+);
+
+final MugenUiModule _coreReportingModule = MugenUiModule(
+  id: 'core.reporting',
+  shellRoutes: <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.reporting,
+      title: 'Reporting',
+      icon: Icons.analytics_outlined,
+      section: 'Platform Configuration',
+      group: 'Operations & Governance',
+      requiredRoles: const <String>['$acpNamespace:administrator'],
+      availabilityProvider: reportingShellAvailabilityProvider,
+      builder: _buildReportingRoute,
+    ),
+  ],
+);
+
 final MugenUiModule _coreTenantInviteModule = MugenUiModule(
   id: 'core.tenant_invite',
   topLevelRoutes: <TopLevelRouteDefinition>[
@@ -353,3 +457,21 @@ Widget _buildAcpConsoleRoute(BuildContext context) =>
 
 Widget _buildBillingCatalogRoute(BuildContext context) =>
     const Padding(padding: EdgeInsets.all(24), child: BillingCatalogPanel());
+
+Widget _buildBillingOperationsRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(24), child: BillingOperationsPanel());
+
+Widget _buildConnectorsRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(24), child: ConnectorsPanel());
+
+Widget _buildGovernanceRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(24), child: GovernancePanel());
+
+Widget _buildWorkflowsRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(24), child: WorkflowsPanel());
+
+Widget _buildSlaRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(24), child: SlaPanel());
+
+Widget _buildReportingRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(24), child: ReportingPanel());

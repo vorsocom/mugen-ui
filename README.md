@@ -75,6 +75,27 @@ Runtime quality gates run in CI for pull requests and pushes to `develop` and `m
 
 CI also enforces Conventional Commit formatting for both commit messages and pull request titles.
 
+## Public Portal and WhatsApp Signup Flag
+
+The public portal is available at `/`, with login at `/login` and the legal
+pages at `/terms` and `/privacy`. The portal is the default page and the
+fallback for unknown browser routes; authenticated application routes remain
+under `/app`.
+
+WhatsApp Embedded Signup is fail-closed. Its landing-page action is omitted
+unless the compile-time flag is explicitly enabled:
+
+```bash
+flutter run -d chrome \
+  --dart-define=MUGEN_UI_WHATSAPP_EMBEDDED_SIGNUP_ENABLED=true
+```
+
+Set the flag to `true` only in deployments where `core.fw.whatsapp_wacapi` is
+enabled. Amplify Hosting reads the optional
+`MUGEN_UI_WHATSAPP_EMBEDDED_SIGNUP_ENABLED` environment variable and defaults
+it to `false`. Enabling the card does not provide a Meta implementation by
+itself; downstream applications must also override the typed signup launcher.
+
 ## Architecture Overview
 
 This codebase uses a feature-first module layout with strict layer boundaries:
@@ -101,6 +122,7 @@ Rules enforced by `tool/architecture/check_dependencies.dart`:
 - `lib/features/user_admin` user management domain/application/infrastructure/presentation
 - `lib/features/tenant_admin` tenant/domain/invitation/membership administration domain/application/infrastructure/presentation
 - `lib/features/tenant_invite` authenticated tenant invitation redeem flow (login-first) domain/infrastructure/presentation
+- `lib/features/portal` public landing, login-adjacent, and legal presentation surfaces plus the optional WhatsApp signup contract
 - `lib/features/runtime_admin` ACP runtime control for messaging clients, runtime profiles, keys, and system flags
 - `lib/features/orchestration_admin` channel orchestration ACP admin for profiles, rules, states, work items, and events
 - `lib/features/context_admin` context engine ACP admin for profiles, policies, bindings, and trace policies
@@ -143,6 +165,7 @@ The UI serializes these through structured multipart fields (`composition_mode`,
 - `lib/extension/app_definition.dart` assembles a typed `MugenUiAppDefinition`
 - downstream modules contribute shell routes, top-level browser routes, settings panels, and provider overrides
 - branding/endpoints/role catalog still come from typed `AppConfig`
+- public portal branding and copy come from the typed `PortalDefinition` provider
 
 ## Documentation
 

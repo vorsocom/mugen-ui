@@ -1162,7 +1162,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(authController.logoutCallCount, 1);
-    expect(navigator.lastRoute, RouteIds.login);
+    expect(navigator.lastRoute, RouteIds.portal);
     expect(navigator.navigateCallCount, 1);
   });
 

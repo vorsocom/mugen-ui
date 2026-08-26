@@ -18,6 +18,7 @@ void main() {
         appName: 'Custom Name',
         browserTitle: 'Custom Browser Title',
         faviconHref: 'assets/branding/custom-favicon.svg',
+        whatsappEmbeddedSignupEnabled: true,
         activeRoles: <AppRoleConfig>[
           AppRoleConfig(name: 'custom:role', displayName: 'Custom'),
         ],
@@ -50,6 +51,8 @@ void main() {
     expect(merged.browserTitle, 'Custom Browser Title');
     expect(defaults.faviconHref, isNull);
     expect(merged.faviconHref, 'assets/branding/custom-favicon.svg');
+    expect(defaults.whatsappEmbeddedSignupEnabled, isFalse);
+    expect(merged.whatsappEmbeddedSignupEnabled, isTrue);
     expect(merged.appVersion, defaults.appVersion);
     expect(merged.activeRoles.single.name, 'custom:role');
     expect(merged.api.baseUrl, defaults.api.baseUrl);
@@ -179,6 +182,7 @@ void main() {
     expect(runtimeOverride.appName, isNull);
     expect(runtimeOverride.browserTitle, isNull);
     expect(runtimeOverride.faviconHref, isNull);
+    expect(runtimeOverride.whatsappEmbeddedSignupEnabled, isNull);
     expect(apiOverride.baseUrl, isNull);
   });
 
@@ -283,6 +287,9 @@ void main() {
     expect(settingsPanelIds, contains('core.auth.account'));
     expect(settingsPanelIds, contains('core.auth.reset_password'));
     expect(topLevelRouteIds, contains('core.shell.app'));
+    expect(topLevelRouteIds, contains('core.portal.landing'));
+    expect(topLevelRouteIds, contains('core.portal.terms'));
+    expect(topLevelRouteIds, contains('core.portal.privacy'));
     expect(topLevelRouteIds, contains('core.auth.login'));
     expect(topLevelRouteIds, contains('core.tenant_invite.invite'));
   });
@@ -499,6 +506,24 @@ void main() {
           .builder(context),
       isA<Padding>(),
     );
+
+    final publicPortalRoutes = definition.topLevelRoutes.where(
+      (route) => route.id.startsWith('core.portal.'),
+    );
+    expect(publicPortalRoutes, hasLength(3));
+    for (final route in publicPortalRoutes) {
+      final match = route.match(route.exactPath);
+      expect(match, isNotNull);
+      expect(route.builder(context, match!), isNot(isA<AuthGuard>()));
+    }
+    for (final routeId in <String>['core.auth.login', 'core.shell.app']) {
+      final route = definition.topLevelRoutes.firstWhere(
+        (definition) => definition.id == routeId,
+      );
+      final match = route.match(route.exactPath);
+      expect(match, isNotNull);
+      expect(route.builder(context, match!), isA<AuthGuard>());
+    }
     expect(
       definition.shellRoutes
           .firstWhere((route) => route.id == RouteIds.tenantManagement)

@@ -81,6 +81,8 @@ flutter:
   #   - images/a_dot_ham.jpeg
   assets:
       - assets/images/profile-avatar.png
+      - assets/branding/mugen-logotype.png
+      - assets/branding/tech-infrastructure-pattern.png
 
   fonts:
     - family: Inter
@@ -93,6 +95,10 @@ flutter:
           weight: 600
         - asset: assets/fonts/Inter-Bold.otf
           weight: 700
+    - family: BebasNeue
+      fonts:
+        - asset: assets/fonts/BebasNeue-Regular.ttf
+          weight: 400
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware.

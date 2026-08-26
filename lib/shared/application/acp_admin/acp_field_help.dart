@@ -85,7 +85,7 @@ const Map<String, String> _fieldHelpByContext = <String, String>{
   'rbacadmin::tenant':
       'Tenant used by tenant-role, tenant-grant, and tenant-membership tabs. Global RBAC tabs do not change scope.',
   'tenantadmin::tenant':
-      'Tenant whose domains, invitations, and memberships are displayed in the detail tabs.',
+      'Searches platform tenants by name or slug. Selecting a tenant loads its domains, invitations, and memberships without changing any other resource scope.',
   'acpadmin::scope':
       'Selects global data or tenant-scoped data for resources that support both. The backend remains authoritative for permitted scopes.',
   'acpadmin::tenant':

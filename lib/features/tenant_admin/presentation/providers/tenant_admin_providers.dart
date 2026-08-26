@@ -137,8 +137,14 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
       );
 
   final Ref ref;
+  int _tenantLoadGeneration = 0;
 
-  Future<void> loadTenants() async {
+  Future<void> loadTenants({
+    bool append = false,
+    bool reloadDetails = true,
+    bool selectFirst = true,
+  }) async {
+    final generation = ++_tenantLoadGeneration;
     state = state.copyWith(isLoadingTenants: true, clearError: true);
 
     final response = await ref
@@ -153,6 +159,10 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
           ),
         );
 
+    if (generation != _tenantLoadGeneration) {
+      return;
+    }
+
     if (response.isFailure) {
       _applyFailure(response.failure!, fallback: 'Could not load tenants.');
       state = state.copyWith(isLoadingTenants: false);
@@ -160,18 +170,29 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
     }
 
     final page = response.data!;
+    final selectedTenant = state.selectedTenant;
+    final tenants = append
+        ? _mergeTenantOptions(state.tenants, page.items)
+        : page.items.toList(growable: true);
+    if (selectedTenant != null &&
+        !tenants.any((tenant) => tenant.id == selectedTenant.id)) {
+      tenants.insert(0, selectedTenant);
+    }
+
     var selectedTenantId = state.selectedTenantId;
-    final selectedStillVisible = page.items.any(
-      (t) => t.id == selectedTenantId,
-    );
+    final selectedStillVisible = tenants.any((t) => t.id == selectedTenantId);
     if (!selectedStillVisible) {
-      selectedTenantId = page.items.isEmpty ? null : page.items.first.id;
+      selectedTenantId = selectFirst && page.items.isNotEmpty
+          ? page.items.first.id
+          : null;
     }
 
     state = state.copyWith(
-      tenants: page.items,
+      tenants: tenants,
       total: page.total,
+      page: page.page,
       selectedTenantId: selectedTenantId,
+      clearSelectedTenant: selectedTenantId == null,
       isLoadingTenants: false,
       clearError: true,
     );
@@ -185,7 +206,40 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
       return;
     }
 
-    await loadSelectedTenantDetails();
+    if (reloadDetails) {
+      await loadSelectedTenantDetails();
+    }
+  }
+
+  Future<void> searchTenants(String value) async {
+    final searchTerm = value.trim();
+    if (searchTerm == state.searchTerm && state.page == 1) {
+      return;
+    }
+
+    state = state.copyWith(searchTerm: searchTerm, page: 1);
+    await loadTenants(reloadDetails: false, selectFirst: false);
+  }
+
+  Future<void> loadMoreTenants() async {
+    if (state.isLoadingTenants || state.page >= state.pages) {
+      return;
+    }
+
+    final previousPage = state.page;
+    final searchTerm = state.searchTerm;
+    state = state.copyWith(page: previousPage + 1);
+    await loadTenants(append: true, reloadDetails: false, selectFirst: false);
+    if (state.searchTerm == searchTerm &&
+        state.page == previousPage + 1 &&
+        state.errorMessage != null) {
+      state = state.copyWith(page: previousPage);
+    }
+  }
+
+  Future<void> refreshTenantOptions() async {
+    state = state.copyWith(searchTerm: '', page: 1);
+    await loadTenants(reloadDetails: false);
   }
 
   Future<void> loadSelectedTenantDetails() async {
@@ -255,6 +309,27 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
 
   void setActiveTab(TenantAdminTab tab) {
     state = state.copyWith(activeTab: tab);
+  }
+
+  List<TenantEntity> _mergeTenantOptions(
+    List<TenantEntity> existing,
+    List<TenantEntity> incoming,
+  ) {
+    final merged = <TenantEntity>[...existing];
+    final indexes = <String, int>{
+      for (var index = 0; index < merged.length; index++)
+        merged[index].id: index,
+    };
+    for (final tenant in incoming) {
+      final index = indexes[tenant.id];
+      if (index == null) {
+        indexes[tenant.id] = merged.length;
+        merged.add(tenant);
+      } else {
+        merged[index] = tenant;
+      }
+    }
+    return merged;
   }
 
   Future<bool> createTenant(CreateTenantInput input) async {

@@ -242,6 +242,97 @@ void main() {
     expect(authController.refreshCallCount, 1);
   });
 
+  test(
+    'TenantAdminController remotely searches and appends tenant options',
+    () async {
+      final repository = _FakeTenantAdminRepository();
+      final container = ProviderContainer(
+        overrides: <Override>[
+          tenantAdminRepositoryProvider.overrideWithValue(repository),
+          authControllerProvider.overrideWith(() => _TestAuthController()),
+        ],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(tenantAdminControllerProvider.notifier);
+
+      await notifier.loadTenants();
+      final detailLoads = repository.fetchDomainsCallCount;
+      await notifier.searchTenants('tenant two');
+      expect(repository.lastTenantQuery?.searchTerm, 'tenant two');
+      expect(
+        container.read(tenantAdminControllerProvider).selectedTenantId,
+        't-1',
+      );
+      expect(repository.fetchDomainsCallCount, detailLoads);
+
+      final searchCalls = repository.fetchTenantsCallCount;
+      await notifier.searchTenants('tenant two');
+      expect(repository.fetchTenantsCallCount, searchCalls);
+
+      notifier.setRowsPerPage(1);
+      await notifier.refreshTenantOptions();
+      expect(repository.lastTenantQuery?.searchTerm, isEmpty);
+      expect(repository.lastTenantQuery?.pageRequest.page, 1);
+      expect(repository.fetchDomainsCallCount, detailLoads);
+
+      repository
+        ..useConfiguredTenantResult = true
+        ..fetchTenantsResult = const Result<PageResult<TenantEntity>>.failure(
+          UnexpectedFailure('next tenant page failed'),
+        );
+      await notifier.loadMoreTenants();
+      expect(container.read(tenantAdminControllerProvider).page, 1);
+      expect(
+        container.read(tenantAdminControllerProvider).errorMessage,
+        'next tenant page failed',
+      );
+
+      repository
+        ..useConfiguredTenantResult = false
+        ..fetchTenantsResult = const Result<PageResult<TenantEntity>>.success(
+          PageResult<TenantEntity>(
+            items: <TenantEntity>[],
+            total: 0,
+            page: 1,
+            pageSize: 15,
+          ),
+        );
+      await notifier.loadMoreTenants();
+      expect(repository.lastTenantQuery?.pageRequest.page, 2);
+      expect(
+        container.read(tenantAdminControllerProvider).tenants,
+        hasLength(2),
+      );
+
+      final callsAtLastPage = repository.fetchTenantsCallCount;
+      await notifier.loadMoreTenants();
+      expect(repository.fetchTenantsCallCount, callsAtLastPage);
+    },
+  );
+
+  test('TenantAdminController ignores stale remote-search responses', () async {
+    final repository = _FakeTenantAdminRepository()
+      ..fetchTenantsDelay = const Duration(milliseconds: 10);
+    final container = ProviderContainer(
+      overrides: <Override>[
+        tenantAdminRepositoryProvider.overrideWithValue(repository),
+        authControllerProvider.overrideWith(() => _TestAuthController()),
+      ],
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(tenantAdminControllerProvider.notifier);
+
+    final first = notifier.searchTenants('first');
+    final second = notifier.searchTenants('second');
+    await Future.wait(<Future<void>>[first, second]);
+
+    expect(container.read(tenantAdminControllerProvider).searchTerm, 'second');
+    expect(
+      container.read(tenantAdminControllerProvider).isLoadingTenants,
+      isFalse,
+    );
+  });
+
   test('TenantAdminController applies load failures', () async {
     final repository = _FakeTenantAdminRepository()
       ..fetchTenantsResult = const Result<PageResult<TenantEntity>>.failure(
@@ -434,6 +525,7 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
   int fetchMembershipsCallCount = 0;
   int createTenantCallCount = 0;
   bool useConfiguredTenantResult = false;
+  Duration? fetchTenantsDelay;
   TenantListQuery? lastTenantQuery;
 
   Result<List<TenantDomainEntity>>? fetchDomainsResult;
@@ -505,6 +597,9 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
   Future<Result<PageResult<TenantEntity>>> fetchTenants(
     TenantListQuery query,
   ) async {
+    if (fetchTenantsDelay != null) {
+      await Future<void>.delayed(fetchTenantsDelay!);
+    }
     fetchTenantsCallCount += 1;
     lastTenantQuery = query;
     if (useConfiguredTenantResult) {

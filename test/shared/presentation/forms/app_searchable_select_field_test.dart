@@ -199,6 +199,112 @@ void main() {
     await tester.pumpAndSettle();
     expect(results, findsOneWidget);
   });
+
+  testWidgets(
+    'AppSearchableSelectField supports remote results and incremental loading',
+    (WidgetTester tester) async {
+      var options = <_SearchOption>[];
+      var isLoading = true;
+      var hasMore = false;
+      var loadMoreCalls = 0;
+      var openedCalls = 0;
+      final queries = <String>[];
+      late StateSetter setFixtureState;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                setFixtureState = setState;
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 360,
+                    child: AppSearchableSelectField<_SearchOption>(
+                      fieldKey: const Key('remote-searchable-field'),
+                      optionKeyPrefix: 'remote-searchable-option',
+                      labelText: 'Tenant',
+                      helpText: 'Search all tenants from the backend.',
+                      options: options,
+                      selectedOptionKey: 'selected',
+                      selectedOptionTitle: 'Selected tenant',
+                      optionKey: (option) => option.id,
+                      optionTitle: (option) => option.title,
+                      optionSubtitle: (option) => option.subtitle,
+                      optionSearchText: (option) => option.title,
+                      onSearchChanged: queries.add,
+                      onOpened: () {
+                        openedCalls += 1;
+                      },
+                      isLoading: isLoading,
+                      hasMoreOptions: hasMore,
+                      onLoadMore: () {
+                        loadMoreCalls += 1;
+                      },
+                      onSelected: (_) {},
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      final field = find.byKey(const Key('remote-searchable-field'));
+      final fieldSize = tester.getSize(field);
+      expect(
+        tester.widget<TextFormField>(field).controller!.text,
+        'Selected tenant',
+      );
+
+      await tester.tap(field);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(openedCalls, 1);
+      expect(queries, contains(''));
+      expect(
+        find.byKey(const Key('app-searchable-select-loading')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(field, 'remote');
+      await tester.pump();
+      expect(openedCalls, 1);
+      expect(queries.last, 'remote');
+
+      setFixtureState(() {
+        options = const <_SearchOption>[
+          _SearchOption('remote', 'Remote tenant', 'Backend result'),
+        ];
+        hasMore = true;
+      });
+      await tester.pump();
+      expect(tester.widget<TextFormField>(field).controller!.text, 'remote');
+      expect(
+        find.byKey(const Key('app-searchable-select-loading-more')),
+        findsOneWidget,
+      );
+
+      setFixtureState(() {
+        isLoading = false;
+      });
+      await tester.pump();
+      expect(tester.getSize(field), fieldSize);
+      await tester.tap(
+        find.byKey(const Key('remote-searchable-option-load-more')),
+      );
+      expect(loadMoreCalls, 1);
+
+      await tester.tapAt(const Offset(700, 500));
+      await tester.pumpAndSettle();
+      expect(queries.last, '');
+      expect(
+        tester.widget<TextFormField>(field).controller!.text,
+        'Selected tenant',
+      );
+    },
+  );
 }
 
 class _SearchOption {

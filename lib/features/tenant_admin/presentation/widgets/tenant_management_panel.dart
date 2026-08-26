@@ -85,38 +85,6 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
             label: const Text('New Tenant'),
           ),
         ),
-        AdminToolbar(
-          children: [
-            SizedBox(
-              width: 320,
-              child: TextFormField(
-                key: const Key('tenant-management-search-field'),
-                initialValue: state.searchTerm,
-                decoration: const InputDecoration(
-                  hintText: 'Search tenants...',
-                  prefixIcon: Icon(Icons.search),
-                ),
-                onChanged: (value) {
-                  _searchDebounce?.cancel();
-                  _searchDebounce = Timer(_searchDebounceDuration, () async {
-                    controller.setSearchTerm(value.trim());
-                    await controller.loadTenants();
-                  });
-                },
-              ),
-            ),
-            TextButton.icon(
-              onPressed: controller.loadTenants,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh'),
-            ),
-          ],
-        ),
-        if (state.isLoadingTenants)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: LinearProgressIndicator(minHeight: 2),
-          ),
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -129,53 +97,26 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
             tenants: state.tenants,
             selectedTenant: state.selectedTenant,
             selectedTenantId: state.selectedTenantId,
-            hasActiveFilter: state.searchTerm.trim().isNotEmpty,
+            isLoading: state.isLoadingTenants,
+            hasMoreOptions: state.page < state.pages,
             onSelected: controller.selectTenant,
-            onCreate: () => _showTenantDialog(),
+            onSearchChanged: (value) {
+              _searchDebounce?.cancel();
+              _searchDebounce = Timer(_searchDebounceDuration, () {
+                unawaited(controller.searchTenants(value));
+              });
+            },
+            onLoadMore: () => unawaited(controller.loadMoreTenants()),
+            onOpened: () {
+              _searchDebounce?.cancel();
+              unawaited(controller.refreshTenantOptions());
+            },
             onEdit: state.selectedTenant == null
                 ? null
                 : () => _showTenantDialog(existingTenant: state.selectedTenant),
             onLifecycleAction: state.selectedTenant == null
                 ? null
                 : () => _runTenantLifecycle(state.selectedTenant!),
-          ),
-        ),
-        AdminGridFooter(
-          state: AdminPaginationState(
-            visibleCount: state.tenants.length,
-            totalCount: state.total,
-            page: state.page,
-            pages: state.pages,
-            pageSize: state.pageSize,
-            pageSizes: const <int>[15, 25, 50],
-            onPageSizeChanged: (value) async {
-              controller.setRowsPerPage(value);
-              await controller.loadTenants();
-            },
-            onFirstPage: state.page <= 1
-                ? null
-                : () async {
-                    controller.setPage(1);
-                    await controller.loadTenants();
-                  },
-            onPreviousPage: state.page <= 1
-                ? null
-                : () async {
-                    controller.setPage(state.page - 1);
-                    await controller.loadTenants();
-                  },
-            onNextPage: state.page >= state.pages
-                ? null
-                : () async {
-                    controller.setPage(state.page + 1);
-                    await controller.loadTenants();
-                  },
-            onLastPage: state.page >= state.pages
-                ? null
-                : () async {
-                    controller.setPage(state.pages);
-                    await controller.loadTenants();
-                  },
           ),
         ),
         const SizedBox(height: 8),
@@ -392,9 +333,12 @@ class _TenantSelector extends StatelessWidget {
     required this.tenants,
     required this.selectedTenant,
     required this.selectedTenantId,
-    required this.hasActiveFilter,
+    required this.isLoading,
+    required this.hasMoreOptions,
     required this.onSelected,
-    required this.onCreate,
+    required this.onSearchChanged,
+    required this.onLoadMore,
+    required this.onOpened,
     required this.onEdit,
     required this.onLifecycleAction,
   });
@@ -402,32 +346,17 @@ class _TenantSelector extends StatelessWidget {
   final List<TenantEntity> tenants;
   final TenantEntity? selectedTenant;
   final String? selectedTenantId;
-  final bool hasActiveFilter;
+  final bool isLoading;
+  final bool hasMoreOptions;
   final Future<void> Function(String tenantId) onSelected;
-  final VoidCallback onCreate;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onLoadMore;
+  final VoidCallback onOpened;
   final VoidCallback? onEdit;
   final VoidCallback? onLifecycleAction;
 
   @override
   Widget build(BuildContext context) {
-    if (tenants.isEmpty) {
-      return AdminEmptyState(
-        data: AdminEmptyStateData(
-          title: hasActiveFilter ? 'No matching tenants.' : 'No tenants yet.',
-          message: hasActiveFilter
-              ? 'Clear the search or adjust filters.'
-              : 'Create a tenant before assigning domains, invitations, or memberships.',
-          primaryAction: hasActiveFilter
-              ? null
-              : FilledButton.icon(
-                  onPressed: onCreate,
-                  icon: const Icon(Icons.add),
-                  label: const Text('New Tenant'),
-                ),
-        ),
-      );
-    }
-
     final selected = selectedTenant;
     final lifecycleIsActive =
         selected != null && _isActiveStatus(selected.status);
@@ -451,12 +380,20 @@ class _TenantSelector extends StatelessWidget {
             ),
             options: tenants,
             selectedOptionKey: selectedTenantId,
+            selectedOptionTitle: selected == null
+                ? null
+                : _tenantSelectorLabel(selected),
             optionKey: (tenant) => tenant.id,
             optionTitle: _tenantSelectorLabel,
             optionSubtitle: (tenant) => '${tenant.status}  |  ${tenant.id}',
             optionSearchText: (tenant) =>
                 '${tenant.name} ${tenant.slug} ${tenant.status} ${tenant.id}',
             emptyMessage: 'No matching tenants found.',
+            isLoading: isLoading,
+            hasMoreOptions: hasMoreOptions,
+            onSearchChanged: onSearchChanged,
+            onLoadMore: onLoadMore,
+            onOpened: onOpened,
             onSelected: (tenant) {
               unawaited(onSelected(tenant.id));
             },

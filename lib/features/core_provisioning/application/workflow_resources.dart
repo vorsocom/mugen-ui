@@ -1,0 +1,233 @@
+import 'package:mugen_ui/features/core_provisioning/application/core_provisioning_descriptors.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+
+final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
+  AcpResourceDescriptor(
+    key: 'ops-workflow-definitions',
+    title: 'Workflow Definitions',
+    entitySet: 'OpsWorkflowDefinitions',
+    scopeMode: AcpScopeMode.required,
+    description: 'Tenant workflow identities and activation settings.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Key', 'Key'),
+      coreColumn('Name', 'Name', flex: 2),
+      coreColumn('IsActive', 'Active'),
+      coreColumn('UpdatedAt', 'Updated', flex: 2),
+    ],
+    createFields: <AcpFieldDescriptor>[
+      coreText('Key', 'Key', required: true),
+      coreText('Name', 'Name', required: true),
+      coreMultiline('Description', 'Description', applyAfterCreate: true),
+      coreBool(
+        'IsActive',
+        'Is Active',
+        initialValue: true,
+        applyAfterCreate: true,
+      ),
+      coreJson('Attributes', 'Attributes', applyAfterCreate: true),
+    ],
+    updateFields: <AcpFieldDescriptor>[
+      coreText('Key', 'Key'),
+      coreText('Name', 'Name'),
+      coreMultiline('Description', 'Description'),
+      coreBool('IsActive', 'Is Active'),
+      coreJson('Attributes', 'Attributes'),
+    ],
+    searchFields: const <String>['Key', 'Name', 'Description'],
+    defaultOrderBy: 'Key asc',
+    allowCreate: true,
+    allowUpdate: true,
+  ),
+  AcpResourceDescriptor(
+    key: 'ops-workflow-versions',
+    title: 'Workflow Versions',
+    entitySet: 'OpsWorkflowVersions',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Constrained draft, published, and retired versions with an explicit default contract.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('VersionNumber', 'Version'),
+      coreColumn('Status', 'Status'),
+      coreColumn('IsDefault', 'Default'),
+      coreColumn('WorkflowDefinitionId', 'Definition', flex: 2),
+      coreColumn('PublishedAt', 'Published At', flex: 2),
+    ],
+    createFields: <AcpFieldDescriptor>[
+      _workflowDefinition(required: true),
+      coreInteger(
+        'VersionNumber',
+        'Version Number',
+        required: true,
+        minimumValue: 1,
+      ),
+      coreText(
+        'Status',
+        'Status',
+        options: const <String>['draft', 'published', 'retired'],
+        initialValue: 'draft',
+        applyAfterCreate: true,
+      ),
+      coreDateTime('PublishedAt', 'Published At', applyAfterCreate: true),
+      coreText(
+        'PublishedByUserId',
+        'Published By User ID',
+        applyAfterCreate: true,
+      ),
+      coreBool('IsDefault', 'Is Default', applyAfterCreate: true),
+      coreJson('Attributes', 'Attributes', applyAfterCreate: true),
+    ],
+    updateFields: <AcpFieldDescriptor>[
+      coreText(
+        'Status',
+        'Status',
+        options: const <String>['draft', 'published', 'retired'],
+      ),
+      coreDateTime('PublishedAt', 'Published At'),
+      coreText('PublishedByUserId', 'Published By User ID'),
+      coreBool('IsDefault', 'Is Default'),
+      coreJson('Attributes', 'Attributes'),
+    ],
+    searchFields: const <String>['Status'],
+    defaultOrderBy: 'CreatedAt desc',
+    allowCreate: true,
+    allowUpdate: true,
+  ),
+  AcpResourceDescriptor(
+    key: 'ops-workflow-states',
+    title: 'Workflow States',
+    entitySet: 'OpsWorkflowStates',
+    scopeMode: AcpScopeMode.required,
+    description: 'Named states with explicit initial and terminal behavior.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Key', 'Key'),
+      coreColumn('Name', 'Name', flex: 2),
+      coreColumn('IsInitial', 'Initial'),
+      coreColumn('IsTerminal', 'Terminal'),
+      coreColumn('WorkflowVersionId', 'Version', flex: 2),
+    ],
+    createFields: <AcpFieldDescriptor>[
+      _workflowVersion(required: true),
+      coreText('Key', 'Key', required: true),
+      coreText('Name', 'Name', required: true),
+      coreBool('IsInitial', 'Is Initial', applyAfterCreate: true),
+      coreBool('IsTerminal', 'Is Terminal', applyAfterCreate: true),
+      coreJson('Attributes', 'Attributes', applyAfterCreate: true),
+    ],
+    updateFields: <AcpFieldDescriptor>[
+      coreText('Key', 'Key'),
+      coreText('Name', 'Name'),
+      coreBool('IsInitial', 'Is Initial'),
+      coreBool('IsTerminal', 'Is Terminal'),
+      coreJson('Attributes', 'Attributes'),
+    ],
+    searchFields: const <String>['Key', 'Name'],
+    defaultOrderBy: 'WorkflowVersionId asc, Key asc',
+    allowCreate: true,
+    allowUpdate: true,
+  ),
+  AcpResourceDescriptor(
+    key: 'ops-workflow-transitions',
+    title: 'Workflow Transitions',
+    entitySet: 'OpsWorkflowTransitions',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Searchable source-to-target state transitions within a workflow version.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Key', 'Key'),
+      coreColumn('FromStateId', 'From State', flex: 2),
+      coreColumn('ToStateId', 'To State', flex: 2),
+      coreColumn('RequiresApproval', 'Approval'),
+      coreColumn('IsActive', 'Active'),
+    ],
+    createFields: <AcpFieldDescriptor>[
+      _workflowVersion(required: true),
+      coreText('Key', 'Key', required: true),
+      _workflowState('FromStateId', 'Source State', required: true),
+      _workflowState('ToStateId', 'Target State', required: true),
+      coreBool('RequiresApproval', 'Requires Approval', applyAfterCreate: true),
+      coreText(
+        'AutoAssignUserId',
+        'Auto-assign User ID',
+        applyAfterCreate: true,
+      ),
+      coreText('AutoAssignQueue', 'Auto-assign Queue', applyAfterCreate: true),
+      coreJson('CompensationJson', 'Compensation JSON', applyAfterCreate: true),
+      coreBool(
+        'IsActive',
+        'Is Active',
+        initialValue: true,
+        applyAfterCreate: true,
+      ),
+      coreJson('Attributes', 'Attributes', applyAfterCreate: true),
+    ],
+    updateFields: <AcpFieldDescriptor>[
+      coreText('Key', 'Key'),
+      _workflowState('FromStateId', 'Source State'),
+      _workflowState('ToStateId', 'Target State'),
+      coreBool('RequiresApproval', 'Requires Approval'),
+      coreText('AutoAssignUserId', 'Auto-assign User ID'),
+      coreText('AutoAssignQueue', 'Auto-assign Queue'),
+      coreJson('CompensationJson', 'Compensation JSON'),
+      coreBool('IsActive', 'Is Active'),
+      coreJson('Attributes', 'Attributes'),
+    ],
+    searchFields: const <String>['Key', 'AutoAssignQueue'],
+    defaultOrderBy: 'WorkflowVersionId asc, Key asc',
+    allowCreate: true,
+    allowUpdate: true,
+  ),
+];
+
+AcpFieldDescriptor _workflowDefinition({bool required = false}) {
+  return coreReference(
+    'WorkflowDefinitionId',
+    'Workflow Definition',
+    entitySet: 'OpsWorkflowDefinitions',
+    scopeMode: AcpScopeMode.required,
+    required: required,
+    searchFields: const <String>['Key', 'Name'],
+    titleFields: const <String>['Name', 'Key'],
+    subtitleFields: const <String>['Key', 'IsActive', 'Id'],
+    defaultOrderBy: 'Key asc',
+  );
+}
+
+AcpFieldDescriptor _workflowVersion({bool required = false}) {
+  return coreReference(
+    'WorkflowVersionId',
+    'Workflow Version',
+    entitySet: 'OpsWorkflowVersions',
+    scopeMode: AcpScopeMode.required,
+    required: required,
+    searchFields: const <String>['Status'],
+    titleFields: const <String>['VersionNumber'],
+    subtitleFields: const <String>[
+      'Status',
+      'IsDefault',
+      'WorkflowDefinitionId',
+      'Id',
+    ],
+    defaultOrderBy: 'CreatedAt desc',
+  );
+}
+
+AcpFieldDescriptor _workflowState(
+  String key,
+  String label, {
+  bool required = false,
+}) {
+  return coreReference(
+    key,
+    label,
+    entitySet: 'OpsWorkflowStates',
+    scopeMode: AcpScopeMode.required,
+    required: required,
+    searchFields: const <String>['Key', 'Name'],
+    titleFields: const <String>['Name', 'Key'],
+    subtitleFields: const <String>['Key', 'IsInitial', 'IsTerminal', 'Id'],
+    defaultOrderBy: 'Key asc',
+    filterFieldsFromForm: const <String, String>{
+      'WorkflowVersionId': 'WorkflowVersionId',
+    },
+  );
+}

@@ -4,7 +4,17 @@ enum AcpScopeMode { none, required, optional }
 
 enum AcpActionTarget { collection, entity }
 
-enum AcpFieldKind { text, multiline, boolean, integer, json, dateTime }
+enum AcpFieldKind {
+  text,
+  multiline,
+  boolean,
+  integer,
+  integerList,
+  stringList,
+  json,
+  dateTime,
+  timeOfDay,
+}
 
 typedef AcpRow = Map<String, dynamic>;
 
@@ -23,6 +33,13 @@ class AcpFieldDescriptor {
     this.options = const <String>[],
     this.reference,
     this.readOnly = false,
+    this.minimumValue,
+    this.maximumValue,
+    this.visibleWhenEquals = const <String, List<Object>>{},
+    this.applyAfterCreate = false,
+    this.payloadContainerKey,
+    this.payloadMapKey,
+    this.excludedJsonKeys = const <String>[],
   });
 
   final String key;
@@ -38,6 +55,13 @@ class AcpFieldDescriptor {
   final List<String> options;
   final AcpFieldReferenceDescriptor? reference;
   final bool readOnly;
+  final int? minimumValue;
+  final int? maximumValue;
+  final Map<String, List<Object>> visibleWhenEquals;
+  final bool applyAfterCreate;
+  final String? payloadContainerKey;
+  final String? payloadMapKey;
+  final List<String> excludedJsonKeys;
 }
 
 class AcpFieldReferenceDescriptor {
@@ -51,6 +75,10 @@ class AcpFieldReferenceDescriptor {
     this.subtitleFields = const <String>[],
     this.defaultOrderBy,
     this.pageSize = 20,
+    this.valueField = 'Id',
+    this.multiSelect = false,
+    this.extraFilters = const <String>[],
+    this.filterFieldsFromForm = const <String, String>{},
   });
 
   final String entitySet;
@@ -62,6 +90,13 @@ class AcpFieldReferenceDescriptor {
   final List<String> subtitleFields;
   final String? defaultOrderBy;
   final int pageSize;
+  final String valueField;
+  final bool multiSelect;
+  final List<String> extraFilters;
+
+  /// Maps a referenced resource field to the current form field supplying its
+  /// filter value, for example `WorkflowVersionId -> WorkflowVersionId`.
+  final Map<String, String> filterFieldsFromForm;
 }
 
 class AcpColumnDescriptor {
@@ -90,6 +125,7 @@ class AcpActionDescriptor {
     this.showInRowMenu = false,
     this.prefillFieldsFromRow = false,
     this.showAsRowButton = false,
+    this.visibleWhenEquals = const <String, List<Object>>{},
   });
 
   final String name;
@@ -104,6 +140,9 @@ class AcpActionDescriptor {
   final bool showInRowMenu;
   final bool prefillFieldsFromRow;
   final bool showAsRowButton;
+  final Map<String, List<Object>> visibleWhenEquals;
+
+  bool isVisibleFor(AcpRow row) => acpRowMatches(row, visibleWhenEquals);
 }
 
 class AcpResourceDescriptor {
@@ -127,6 +166,7 @@ class AcpResourceDescriptor {
     this.allowRestore = false,
     this.pageSize = 15,
     this.actionsColumnLeading = false,
+    this.updateWhenEquals = const <String, List<Object>>{},
   });
 
   final String key;
@@ -148,6 +188,28 @@ class AcpResourceDescriptor {
   final bool allowRestore;
   final int pageSize;
   final bool actionsColumnLeading;
+  final Map<String, List<Object>> updateWhenEquals;
+
+  bool canUpdate(AcpRow row) =>
+      allowUpdate && acpRowMatches(row, updateWhenEquals);
+}
+
+bool acpRowMatches(AcpRow row, Map<String, List<Object>> expectedValues) {
+  for (final entry in expectedValues.entries) {
+    final actual = row[entry.key];
+    if (!entry.value.any((expected) => _acpValuesEqual(actual, expected))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool _acpValuesEqual(Object? actual, Object? expected) {
+  if (actual is bool || expected is bool) {
+    return actual.toString().toLowerCase() == expected.toString().toLowerCase();
+  }
+  return actual?.toString().trim().toLowerCase() ==
+      expected?.toString().trim().toLowerCase();
 }
 
 class AcpTenantOption {

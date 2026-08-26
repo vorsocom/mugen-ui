@@ -80,6 +80,12 @@ abstract class CoreShellRouteIds {
   static const String knowledgePacks = 'knowledge-packs';
   static const String acpConsole = 'acp-console';
   static const String billingCatalog = 'billing-catalog';
+  static const String billingOperations = 'billing-operations';
+  static const String connectors = 'connectors';
+  static const String governance = 'governance';
+  static const String workflows = 'workflows';
+  static const String sla = 'sla';
+  static const String reporting = 'reporting';
 }
 
 abstract class RouteIds {
@@ -105,6 +111,12 @@ abstract class RouteIds {
   static const String knowledgePacks = CoreShellRouteIds.knowledgePacks;
   static const String acpConsole = CoreShellRouteIds.acpConsole;
   static const String billingCatalog = CoreShellRouteIds.billingCatalog;
+  static const String billingOperations = CoreShellRouteIds.billingOperations;
+  static const String connectors = CoreShellRouteIds.connectors;
+  static const String governance = CoreShellRouteIds.governance;
+  static const String workflows = CoreShellRouteIds.workflows;
+  static const String sla = CoreShellRouteIds.sla;
+  static const String reporting = CoreShellRouteIds.reporting;
 
   static String buildInviteRoute({
     required String tenantId,

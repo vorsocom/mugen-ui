@@ -173,12 +173,23 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     return descriptorForKey(state.activeResourceKey);
   }
 
+  String? get errorMessage => state.errorMessage;
+
   AcpResourceDescriptor descriptorForKey(String key) {
     return _descriptorsByKey[key]!;
   }
 
   AcpResourceState resourceStateFor(String key) {
     return state.resourceStates[key]!;
+  }
+
+  AcpRow? rowById(String rowId) {
+    for (final row in state.activeResourceState.rows) {
+      if (row.id == rowId) {
+        return row;
+      }
+    }
+    return null;
   }
 
   bool usesTenantScope(AcpResourceDescriptor descriptor) {
@@ -367,9 +378,16 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       values: values,
       tenantId: tenantId,
     );
+    String? createdRowId;
+    if (result.isSuccess) {
+      final createdRow = _objectAsRow(result.data);
+      createdRowId = createdRow?.id;
+    }
     return _finishObjectMutation(
       result,
       descriptor: descriptor,
+      rowId: createdRowId,
+      tenantId: tenantId,
       conflictMessage:
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage: 'Could not create ${descriptor.title.toLowerCase()}.',
@@ -400,6 +418,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     return _finishObjectMutation(
       result,
       descriptor: descriptor,
+      rowId: rowId,
+      tenantId: tenantId,
       conflictMessage:
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage: 'Could not update ${descriptor.title.toLowerCase()}.',
@@ -428,6 +448,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     return _finishVoidMutation(
       result,
       descriptor: descriptor,
+      rowId: null,
+      tenantId: tenantId,
       conflictMessage:
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage: 'Could not delete ${descriptor.title.toLowerCase()}.',
@@ -456,6 +478,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     return _finishVoidMutation(
       result,
       descriptor: descriptor,
+      rowId: null,
+      tenantId: tenantId,
       conflictMessage:
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage: 'Could not restore ${descriptor.title.toLowerCase()}.',
@@ -484,6 +508,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     return _finishObjectMutation(
       result,
       descriptor: descriptor,
+      rowId: null,
+      tenantId: tenantId,
       conflictMessage:
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage:
@@ -517,6 +543,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     return _finishObjectMutation(
       result,
       descriptor: descriptor,
+      rowId: rowId,
+      tenantId: tenantId,
       conflictMessage:
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage:
@@ -588,12 +616,18 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
   Future<Result<Object?>> _finishObjectMutation(
     Result<Object?> result, {
     required AcpResourceDescriptor descriptor,
+    required String? rowId,
+    required String? tenantId,
     required String conflictMessage,
     required String fallbackMessage,
   }) async {
     state = state.copyWith(isMutating: false);
     if (result.isSuccess) {
-      await loadActiveResource();
+      await _refreshAffectedRow(
+        descriptor: descriptor,
+        rowId: rowId,
+        tenantId: tenantId,
+      );
       await refreshResourceCounts();
       return result;
     }
@@ -601,6 +635,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     await _handleMutationFailure(
       result.failure!,
       descriptor: descriptor,
+      rowId: rowId,
+      tenantId: tenantId,
       conflictMessage: conflictMessage,
       fallbackMessage: fallbackMessage,
     );
@@ -610,6 +646,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
   Future<Result<void>> _finishVoidMutation(
     Result<void> result, {
     required AcpResourceDescriptor descriptor,
+    required String? rowId,
+    required String? tenantId,
     required String conflictMessage,
     required String fallbackMessage,
   }) async {
@@ -623,6 +661,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     await _handleMutationFailure(
       result.failure!,
       descriptor: descriptor,
+      rowId: rowId,
+      tenantId: tenantId,
       conflictMessage: conflictMessage,
       fallbackMessage: fallbackMessage,
     );
@@ -632,16 +672,68 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
   Future<void> _handleMutationFailure(
     Failure failure, {
     required AcpResourceDescriptor descriptor,
+    required String? rowId,
+    required String? tenantId,
     required String conflictMessage,
     required String fallbackMessage,
   }) async {
-    if (failure is ApiFailure && failure.statusCode == 409) {
-      await _loadResource(descriptor);
-      state = state.copyWith(errorMessage: conflictMessage);
+    if (failure is ConflictFailure ||
+        (failure is ApiFailure && failure.statusCode == 409)) {
+      await _refreshAffectedRow(
+        descriptor: descriptor,
+        rowId: rowId,
+        tenantId: tenantId,
+      );
+      final message = switch (failure) {
+        ConflictFailure(kind: ConflictKind.staleRowVersion) =>
+          'Stale RowVersion. The latest row was refreshed; review your retained input and retry. ${failure.message}',
+        ConflictFailure() => 'Lifecycle conflict. ${failure.message}',
+        _ => conflictMessage,
+      };
+      state = state.copyWith(errorMessage: message);
       return;
     }
 
     _applyFailure(failure, fallback: fallbackMessage);
+  }
+
+  Future<void> _refreshAffectedRow({
+    required AcpResourceDescriptor descriptor,
+    required String? rowId,
+    required String? tenantId,
+  }) async {
+    if (rowId == null || rowId.isEmpty) {
+      await _loadResource(descriptor);
+      return;
+    }
+
+    final result = await repository.fetchRow(
+      descriptor: descriptor,
+      rowId: rowId,
+      tenantId: tenantId,
+    );
+    if (result.isFailure) {
+      await _loadResource(descriptor);
+      return;
+    }
+
+    final resourceState = resourceStateFor(descriptor.key);
+    final refreshedRow = result.data!;
+    final rows = <AcpRow>[
+      for (final row in resourceState.rows)
+        if (row.id == rowId) refreshedRow else row,
+    ];
+    if (!resourceState.rows.any((row) => row.id == rowId)) {
+      rows.insert(0, refreshedRow);
+    }
+    _replaceResourceState(descriptor.key, resourceState.copyWith(rows: rows));
+  }
+
+  AcpRow? _objectAsRow(Object? value) {
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    return null;
   }
 
   void _applyFailure(Failure failure, {required String fallback}) {

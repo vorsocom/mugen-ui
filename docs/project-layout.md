@@ -119,6 +119,11 @@ Form surfaces and overlays use the shared primitives in
 10. Add widget coverage that verifies every hand-authored form exposes its
     field guidance, and include new built-in ACP descriptors in the catalog-wide
     explicit-guidance test.
+11. For server-backed selectors, use `AppSearchableSelectField` remote-search
+    and incremental-loading callbacks instead of placing a separate search box
+    or pagination footer beside the selector. Refresh remote options when the
+    menu opens, and keep the committed selection stable while remote options
+    are loading or temporarily filtered out.
 
 ### Replace a Built-In Feature Downstream
 

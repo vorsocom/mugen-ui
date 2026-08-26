@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Consolidated tenant discovery into one backend-searchable selector with
+  incremental result loading, refresh-on-open behavior, and stable,
+  non-shifting loading feedback.
 - Completed contextual information tooltips across built-in form surfaces and
   made nonblank field guidance a required shared form-control contract.
 - Replaced warm beige-gray surfaces, outlines, and supporting text with a

@@ -85,6 +85,7 @@ void main() {
     );
     final invoices = _resource(billingOperationsResources, 'BillingInvoices');
     final lines = _resource(billingOperationsResources, 'BillingInvoiceLines');
+    final runs = _resource(billingOperationsResources, 'BillingRuns');
 
     expect(buckets.allowCreate, isTrue);
     expect(buckets.allowUpdate, isTrue);
@@ -102,6 +103,12 @@ void main() {
       AcpScopeMode.none,
     );
     expect(lines.allowDelete, isFalse);
+    expect(runs.columns.map((column) => column.key), <String>[
+      'Status',
+      'PeriodStart',
+      'PeriodEnd',
+      'CreatedAt',
+    ]);
 
     expect(invoices.canUpdate(<String, dynamic>{'Status': 'draft'}), isTrue);
     expect(invoices.canUpdate(<String, dynamic>{'Status': 'issued'}), isFalse);

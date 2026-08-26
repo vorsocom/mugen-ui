@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Corrected Billing Runs diagnostics to display the ACP `PeriodStart` and
+  `PeriodEnd` fields.
+
 ### Security
 
 ## [0.13.0] - 2026-08-26

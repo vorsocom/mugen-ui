@@ -1,0 +1,211 @@
+import 'package:mugen_ui/features/core_provisioning/application/core_provisioning_descriptors.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+
+const List<String> _formulaTypes = <String>[
+  'count_rows',
+  'sum_column',
+  'avg_column',
+  'min_column',
+  'max_column',
+];
+
+const List<String> _valueFormulaTypes = <String>[
+  'sum_column',
+  'avg_column',
+  'min_column',
+  'max_column',
+];
+
+final List<AcpResourceDescriptor> reportingResources = <AcpResourceDescriptor>[
+  AcpResourceDescriptor(
+    key: 'ops-reporting-metric-definitions',
+    title: 'Metric Definitions',
+    entitySet: 'OpsReportingMetricDefinitions',
+    scopeMode: AcpScopeMode.required,
+    description: 'Reusable typed aggregation formulas and source bindings.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Code', 'Code'),
+      coreColumn('Name', 'Name', flex: 2),
+      coreColumn('FormulaType', 'Formula'),
+      coreColumn('SourceTable', 'Source Table'),
+      coreColumn('IsActive', 'Active'),
+    ],
+    createFields: _metricFields(create: true),
+    updateFields: _metricFields(create: false),
+    entityActions: <AcpActionDescriptor>[
+      AcpActionDescriptor(
+        name: 'run_aggregation',
+        label: 'Run Aggregation',
+        target: AcpActionTarget.entity,
+        includeRowVersion: true,
+        confirmMessage: 'Run aggregation for this metric definition?',
+        successMessage: 'Aggregation completed.',
+        visibleWhenEquals: const <String, List<Object>>{
+          'IsActive': <Object>[true],
+        },
+        fields: _windowFields(requireWindow: false),
+      ),
+      AcpActionDescriptor(
+        name: 'recompute_window',
+        label: 'Recompute Window',
+        target: AcpActionTarget.entity,
+        includeRowVersion: true,
+        confirmMessage:
+            'Recompute this window and replace existing series values?',
+        successMessage: 'Metric window recomputed.',
+        visibleWhenEquals: const <String, List<Object>>{
+          'IsActive': <Object>[true],
+        },
+        fields: _windowFields(requireWindow: true),
+      ),
+    ],
+    searchFields: const <String>['Code', 'Name', 'SourceTable'],
+    defaultOrderBy: 'Code asc',
+    allowCreate: true,
+    allowUpdate: true,
+  ),
+  AcpResourceDescriptor(
+    key: 'ops-reporting-report-definitions',
+    title: 'Report Definitions',
+    entitySet: 'OpsReportingReportDefinitions',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Reusable report definitions with searchable metric-code selection.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Code', 'Code'),
+      coreColumn('Name', 'Name', flex: 2),
+      coreColumn('MetricCodes', 'Metric Codes', flex: 2),
+      coreColumn('IsActive', 'Active'),
+    ],
+    createFields: _reportFields(create: true),
+    updateFields: _reportFields(create: false),
+    searchFields: const <String>['Code', 'Name', 'Description'],
+    defaultOrderBy: 'Code asc',
+    allowCreate: true,
+    allowUpdate: true,
+  ),
+  _diagnostic(
+    key: 'ops-reporting-metric-series',
+    title: 'Metric Series',
+    entitySet: 'OpsReportingMetricSeries',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('MetricDefinitionId', 'Metric', flex: 2),
+      coreColumn('WindowStart', 'Window Start', flex: 2),
+      coreColumn('WindowEnd', 'Window End', flex: 2),
+      coreColumn('ScopeKey', 'Scope'),
+      coreColumn('Value', 'Value'),
+    ],
+  ),
+  _diagnostic(
+    key: 'ops-reporting-aggregation-jobs',
+    title: 'Run History',
+    entitySet: 'OpsReportingAggregationJobs',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Status', 'Status'),
+      coreColumn('MetricDefinitionId', 'Metric', flex: 2),
+      coreColumn('WindowStart', 'Window Start', flex: 2),
+      coreColumn('WindowEnd', 'Window End', flex: 2),
+      coreColumn('ErrorMessage', 'Error', flex: 2),
+    ],
+  ),
+  _diagnostic(
+    key: 'ops-reporting-report-snapshots',
+    title: 'Report Snapshots',
+    entitySet: 'OpsReportingReportSnapshots',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Status', 'Status'),
+      coreColumn('ReportDefinitionId', 'Report', flex: 2),
+      coreColumn('WindowStart', 'Window Start', flex: 2),
+      coreColumn('WindowEnd', 'Window End', flex: 2),
+      coreColumn('CreatedAt', 'Created', flex: 2),
+    ],
+  ),
+];
+
+List<AcpFieldDescriptor> _metricFields({required bool create}) {
+  return <AcpFieldDescriptor>[
+    coreText('Code', 'Code', required: create),
+    coreText('Name', 'Name', required: create),
+    coreText(
+      'FormulaType',
+      'Formula Type',
+      required: create,
+      initialValue: create ? 'count_rows' : null,
+      options: _formulaTypes,
+    ),
+    coreText('SourceTable', 'Source Table', required: create),
+    coreText('SourceTimeColumn', 'Source Time Column'),
+    coreText(
+      'SourceValueColumn',
+      'Source Value Column',
+      requiredWhenEquals: const <String, List<String>>{
+        'FormulaType': _valueFormulaTypes,
+      },
+    ),
+    coreText('ScopeColumn', 'Scope Column'),
+    coreJson('SourceFilter', 'Source Filter'),
+    coreMultiline('Description', 'Description'),
+    coreBool('IsActive', 'Is Active', initialValue: create ? true : null),
+    coreJson('Attributes', 'Attributes'),
+  ];
+}
+
+List<AcpFieldDescriptor> _windowFields({required bool requireWindow}) {
+  return <AcpFieldDescriptor>[
+    coreDateTime('WindowStart', 'Window Start', required: requireWindow),
+    coreDateTime('WindowEnd', 'Window End', required: requireWindow),
+    coreInteger(
+      'BucketMinutes',
+      'Bucket Minutes',
+      minimumValue: 1,
+      initialValue: 60,
+    ),
+    coreText('ScopeKey', 'Scope Key'),
+    coreMultiline('Note', 'Note'),
+  ];
+}
+
+List<AcpFieldDescriptor> _reportFields({required bool create}) {
+  return <AcpFieldDescriptor>[
+    coreText('Code', 'Code', required: create),
+    coreText('Name', 'Name', required: create),
+    coreMultiline('Description', 'Description'),
+    coreStringList(
+      'MetricCodes',
+      'Metric Codes',
+      reference: const AcpFieldReferenceDescriptor(
+        entitySet: 'OpsReportingMetricDefinitions',
+        scopeMode: AcpScopeMode.required,
+        title: 'Metric Definitions',
+        valueField: 'Code',
+        multiSelect: true,
+        searchFields: <String>['Code', 'Name'],
+        titleFields: <String>['Name', 'Code'],
+        subtitleFields: <String>['Code', 'FormulaType', 'SourceTable'],
+        defaultOrderBy: 'Code asc',
+        extraFilters: <String>["IsActive eq true"],
+      ),
+    ),
+    coreJson('FiltersJson', 'Filters JSON'),
+    coreStringList('GroupByJson', 'Group By Fields'),
+    coreBool('IsActive', 'Is Active', initialValue: create ? true : null),
+    coreJson('Attributes', 'Attributes'),
+  ];
+}
+
+AcpResourceDescriptor _diagnostic({
+  required String key,
+  required String title,
+  required String entitySet,
+  required List<AcpColumnDescriptor> columns,
+}) {
+  return AcpResourceDescriptor(
+    key: key,
+    title: title,
+    entitySet: entitySet,
+    scopeMode: AcpScopeMode.required,
+    description: 'Read-only reporting operations and generated data.',
+    columns: columns,
+    defaultOrderBy: 'CreatedAt desc',
+  );
+}

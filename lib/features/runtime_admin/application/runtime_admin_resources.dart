@@ -23,7 +23,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       _text('DisplayName', 'Display Name'),
       _bool('IsActive', 'Is Active', initialValue: true),
       _json('Settings', 'Settings'),
-      _json('SecretRefs', 'Secret References'),
+      ..._secretReferenceFields(),
       _text(
         'PathToken',
         'Path Token',
@@ -66,7 +66,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
       _text('DisplayName', 'Display Name'),
       _bool('IsActive', 'Is Active'),
       _json('Settings', 'Settings'),
-      _json('SecretRefs', 'Secret References'),
+      ..._secretReferenceFields(),
       _text('PathToken', 'Path Token'),
       _text('RecipientUserId', 'Recipient User ID'),
       _text('AccountNumber', 'Account Number'),
@@ -223,6 +223,61 @@ const List<String> _runtimeCategoryOptions = <String>[
   'messaging.platform_defaults',
   'ops_connector.defaults',
 ];
+
+List<AcpFieldDescriptor> _secretReferenceFields() {
+  const whatsappVisibility = <String, List<Object>>{
+    'PlatformKey': <Object>['whatsapp'],
+  };
+  return <AcpFieldDescriptor>[
+    const AcpFieldDescriptor(
+      key: 'SecretRefs',
+      label: 'Additional Secret References',
+      kind: AcpFieldKind.json,
+      minLines: 5,
+      maxLines: 10,
+      hintText:
+          'Map supported runtime paths to managed KeyRef UUIDs. Never enter secret material.',
+      excludedJsonKeys: <String>[
+        'graphapi.access_token',
+        'webhook.verification_token',
+      ],
+    ),
+    const AcpFieldDescriptor(
+      key: 'WhatsappGraphApiAccessTokenKeyRefId',
+      label: 'WhatsApp Graph API Access Token KeyRef',
+      visibleWhenEquals: whatsappVisibility,
+      payloadContainerKey: 'SecretRefs',
+      payloadMapKey: 'graphapi.access_token',
+      reference: AcpFieldReferenceDescriptor(
+        entitySet: 'KeyRefs',
+        scopeMode: AcpScopeMode.optional,
+        title: 'Key References',
+        searchFields: <String>['Purpose', 'KeyId', 'Provider', 'Status'],
+        titleFields: <String>['Purpose', 'KeyId'],
+        subtitleFields: <String>['KeyId', 'Status', 'Provider', 'HasMaterial'],
+        defaultOrderBy: 'Purpose asc, KeyId asc',
+        extraFilters: <String>["Status eq 'active'"],
+      ),
+    ),
+    const AcpFieldDescriptor(
+      key: 'WhatsappWebhookVerificationTokenKeyRefId',
+      label: 'WhatsApp Webhook Verification Token KeyRef',
+      visibleWhenEquals: whatsappVisibility,
+      payloadContainerKey: 'SecretRefs',
+      payloadMapKey: 'webhook.verification_token',
+      reference: AcpFieldReferenceDescriptor(
+        entitySet: 'KeyRefs',
+        scopeMode: AcpScopeMode.optional,
+        title: 'Key References',
+        searchFields: <String>['Purpose', 'KeyId', 'Provider', 'Status'],
+        titleFields: <String>['Purpose', 'KeyId'],
+        subtitleFields: <String>['KeyId', 'Status', 'Provider', 'HasMaterial'],
+        defaultOrderBy: 'Purpose asc, KeyId asc',
+        extraFilters: <String>["Status eq 'active'"],
+      ),
+    ),
+  ];
+}
 
 AcpFieldDescriptor _text(
   String key,

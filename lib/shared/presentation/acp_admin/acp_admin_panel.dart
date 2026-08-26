@@ -1,6 +1,7 @@
 // coverage:ignore-file
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart'
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
+import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_json_codec.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_field.dart';
@@ -30,12 +32,16 @@ typedef _AcpReferenceSearch =
     Future<Result<AcpRowPage>> Function(
       AcpFieldReferenceDescriptor reference,
       String searchTerm,
+      List<String> extraFilters,
     );
 typedef _AcpReferenceLookup =
     Future<Result<AcpRow>> Function(
       AcpFieldReferenceDescriptor reference,
-      String rowId,
+      String value,
+      List<String> extraFilters,
     );
+typedef _AcpFormSubmit =
+    Future<Result<Object?>> Function(Map<String, dynamic> payload);
 
 class AcpAdminPanel<T extends AcpAdminController>
     extends ConsumerStatefulWidget {
@@ -634,7 +640,9 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
     final rowId = row.id;
     final rowButtonActions = <_RowMenuAction>[
       for (final action in descriptor.collectionActions)
-        if (action.showInRowMenu && action.showAsRowButton)
+        if (action.showInRowMenu &&
+            action.showAsRowButton &&
+            action.isVisibleFor(row))
           _RowMenuAction.collection(
             action: action,
             initialValues: _collectionActionInitialValues(
@@ -645,7 +653,9 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
     ];
     final rowMenuActions = <_RowMenuAction>[
       for (final action in descriptor.collectionActions)
-        if (action.showInRowMenu && !action.showAsRowButton)
+        if (action.showInRowMenu &&
+            !action.showAsRowButton &&
+            action.isVisibleFor(row))
           _RowMenuAction.collection(
             action: action,
             initialValues: _collectionActionInitialValues(
@@ -655,7 +665,7 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
           ),
       if (rowId != null)
         for (final action in descriptor.entityActions)
-          _RowMenuAction.entity(action: action),
+          if (action.isVisibleFor(row)) _RowMenuAction.entity(action: action),
     ];
 
     return Align(
@@ -685,7 +695,7 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
                   scopeRow: row,
                 ),
               ),
-            if (descriptor.allowUpdate && rowId != null)
+            if (descriptor.canUpdate(row) && rowId != null)
               AdminIconButton(
                 tooltip: 'Edit row',
                 icon: Icons.edit_outlined,
@@ -868,6 +878,10 @@ Future<void> _showCreateDialog<T extends AcpAdminController>({
   required StateNotifierProvider<T, AcpAdminState> controllerProvider,
   required AcpResourceDescriptor descriptor,
 }) async {
+  Result<Object?>? mutationResult;
+  String? createdRowId;
+  int? createdRowVersion;
+  var createdWithoutIdentifier = false;
   final payload = await _showDynamicFormDialog(
     context: context,
     title: 'Create ${descriptor.title}',
@@ -887,19 +901,64 @@ Future<void> _showCreateDialog<T extends AcpAdminController>({
     fields: descriptor.createFields,
     resourceKey: descriptor.key,
     entitySet: descriptor.entitySet,
+    onSubmit: (payload) async {
+      final split = _splitCreatePayload(
+        payload: payload,
+        fields: descriptor.createFields,
+      );
+      final controller = ref.read(controllerProvider.notifier);
+      if (createdWithoutIdentifier) {
+        return const Result<Object?>.failure(
+          UnexpectedFailure(
+            'The row was created, but the server did not return its identifier. '
+            'Close this form, refresh, and edit the new row to apply the remaining fields.',
+          ),
+        );
+      }
+      if (createdRowId == null) {
+        final createResult = await controller.createRow(split.initialValues);
+        mutationResult = createResult;
+        if (createResult.isFailure || split.postCreateValues.isEmpty) {
+          return _formMutationResult(controller, createResult);
+        }
+        final created = createResult.data;
+        if (created is Map) {
+          final row = Map<String, dynamic>.from(created);
+          createdRowId = row.id;
+          createdRowVersion = row.rowVersion;
+        }
+        if (createdRowId == null) {
+          createdWithoutIdentifier = true;
+          mutationResult = const Result<Object?>.failure(
+            UnexpectedFailure(
+              'The row was created, but the server did not return its identifier. '
+              'Close this form, refresh, and edit the new row to apply the remaining fields.',
+            ),
+          );
+          return mutationResult!;
+        }
+      }
+
+      final latestRow = controller.rowById(createdRowId!)?.rowVersion;
+      final updateResult = await controller.updateRow(
+        rowId: createdRowId!,
+        values: split.postCreateValues,
+        rowVersion: latestRow ?? createdRowVersion,
+      );
+      mutationResult = updateResult;
+      return _formMutationResult(controller, updateResult);
+    },
   );
   if (payload == null) {
     return;
   }
-
-  final result = await ref.read(controllerProvider.notifier).createRow(payload);
   if (!context.mounted) {
     return;
   }
   await _handleObjectMutationResult(
     context: context,
     ref: ref,
-    result: result,
+    result: mutationResult!,
     successMessage: 'Created successfully.',
   );
 }
@@ -916,6 +975,7 @@ Future<void> _showUpdateDialog<T extends AcpAdminController>({
     return;
   }
 
+  Result<Object?>? mutationResult;
   final payload = await _showDynamicFormDialog(
     context: context,
     title: 'Update ${descriptor.title}',
@@ -947,32 +1007,80 @@ Future<void> _showUpdateDialog<T extends AcpAdminController>({
     resourceKey: descriptor.key,
     entitySet: descriptor.entitySet,
     initialValues: row,
+    onSubmit: (payload) async {
+      final controller = ref.read(controllerProvider.notifier);
+      final latestRow = controller.rowById(rowId) ?? row;
+      final result = await controller.updateRow(
+        rowId: rowId,
+        values: payload,
+        tenantIdOverride: row.tenantId,
+        useTenantIdOverride: _usesRowTenantScope(
+          descriptor: descriptor,
+          row: row,
+        ),
+        rowVersion: latestRow.rowVersion,
+      );
+      mutationResult = result;
+      return _formMutationResult(controller, result);
+    },
   );
   if (payload == null) {
     return;
   }
-
-  final useTenantIdOverride = _usesRowTenantScope(
-    descriptor: descriptor,
-    row: row,
-  );
-  final result = await ref
-      .read(controllerProvider.notifier)
-      .updateRow(
-        rowId: rowId,
-        values: payload,
-        tenantIdOverride: row.tenantId,
-        useTenantIdOverride: useTenantIdOverride,
-        rowVersion: row.rowVersion,
-      );
   if (!context.mounted) {
     return;
   }
   await _handleObjectMutationResult(
     context: context,
     ref: ref,
-    result: result,
+    result: mutationResult!,
     successMessage: 'Updated successfully.',
+  );
+}
+
+Result<Object?> _formMutationResult(
+  AcpAdminController controller,
+  Result<Object?> result,
+) {
+  if (result.isSuccess) {
+    return result;
+  }
+  return Result<Object?>.failure(
+    UnexpectedFailure(
+      controller.errorMessage ??
+          result.failure?.message ??
+          'The operation could not be completed.',
+    ),
+  );
+}
+
+class _CreatePayloadSplit {
+  const _CreatePayloadSplit({
+    required this.initialValues,
+    required this.postCreateValues,
+  });
+
+  final Map<String, dynamic> initialValues;
+  final Map<String, dynamic> postCreateValues;
+}
+
+_CreatePayloadSplit _splitCreatePayload({
+  required Map<String, dynamic> payload,
+  required List<AcpFieldDescriptor> fields,
+}) {
+  final postCreateKeys = fields
+      .where((field) => field.applyAfterCreate)
+      .map((field) => field.payloadContainerKey ?? field.key)
+      .toSet();
+  return _CreatePayloadSplit(
+    initialValues: <String, dynamic>{
+      for (final entry in payload.entries)
+        if (!postCreateKeys.contains(entry.key)) entry.key: entry.value,
+    },
+    postCreateValues: <String, dynamic>{
+      for (final entry in payload.entries)
+        if (postCreateKeys.contains(entry.key)) entry.key: entry.value,
+    },
   );
 }
 
@@ -1077,9 +1185,9 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
   Map<String, dynamic> initialValues = const <String, dynamic>{},
   AcpRow? scopeRow,
 }) async {
-  Map<String, dynamic>? payload = const <String, dynamic>{};
   if (action.fields.isNotEmpty) {
-    payload = await _showDynamicFormDialog(
+    Result<Object?>? mutationResult;
+    final payload = await _showDynamicFormDialog(
       context: context,
       title: action.label,
       contextLabel: _dialogScopeLabel(
@@ -1111,28 +1219,37 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
       entitySet: descriptor.entitySet,
       actionName: action.name,
       initialValues: initialValues,
+      confirmMessage: action.confirmMessage,
+      confirmIcon: action.icon,
+      onSubmit: (payload) async {
+        final controller = ref.read(controllerProvider.notifier);
+        final result = await controller.runCollectionAction(
+          action: action,
+          values: payload,
+          tenantIdOverride: scopeRow?.tenantId,
+          useTenantIdOverride: _usesRowTenantScope(
+            descriptor: descriptor,
+            row: scopeRow,
+          ),
+        );
+        mutationResult = result;
+        return _formMutationResult(controller, result);
+      },
     );
-  } else if (action.confirmMessage != null) {
-    final confirmed = await showAppConfirmationDialog(
-      context: context,
-      title: action.label,
-      message: action.confirmMessage!,
-      confirmLabel: action.label,
-      icon: action.icon ?? Icons.play_circle_outline,
-    );
-    if (confirmed != true) {
+    if (payload == null || !context.mounted) {
       return;
     }
-  }
-
-  if (payload == null) {
+    await _handleObjectMutationResult(
+      context: context,
+      ref: ref,
+      result: mutationResult!,
+      successMessage: action.successMessage ?? 'Action completed.',
+      showResult: true,
+    );
     return;
   }
 
-  if (action.fields.isNotEmpty && action.confirmMessage != null) {
-    if (!context.mounted) {
-      return;
-    }
+  if (action.confirmMessage != null) {
     final confirmed = await showAppConfirmationDialog(
       context: context,
       title: action.label,
@@ -1153,7 +1270,7 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
       .read(controllerProvider.notifier)
       .runCollectionAction(
         action: action,
-        values: payload,
+        values: const <String, dynamic>{},
         tenantIdOverride: scopeRow?.tenantId,
         useTenantIdOverride: useTenantIdOverride,
       );
@@ -1197,9 +1314,9 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
     return;
   }
 
-  Map<String, dynamic>? payload = const <String, dynamic>{};
   if (action.fields.isNotEmpty) {
-    payload = await _showDynamicFormDialog(
+    Result<Object?>? mutationResult;
+    final payload = await _showDynamicFormDialog(
       context: context,
       title: action.label,
       contextLabel: _dialogScopeLabel(
@@ -1231,28 +1348,40 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
       entitySet: descriptor.entitySet,
       actionName: action.name,
       initialValues: row,
+      confirmMessage: action.confirmMessage,
+      confirmIcon: action.icon,
+      onSubmit: (payload) async {
+        final controller = ref.read(controllerProvider.notifier);
+        final latestRow = controller.rowById(rowId) ?? row;
+        final result = await controller.runEntityAction(
+          action: action,
+          rowId: rowId,
+          values: payload,
+          tenantIdOverride: row.tenantId,
+          useTenantIdOverride: _usesRowTenantScope(
+            descriptor: descriptor,
+            row: row,
+          ),
+          rowVersion: action.includeRowVersion ? latestRow.rowVersion : null,
+        );
+        mutationResult = result;
+        return _formMutationResult(controller, result);
+      },
     );
-  } else if (action.confirmMessage != null) {
-    final confirmed = await showAppConfirmationDialog(
-      context: context,
-      title: action.label,
-      message: action.confirmMessage!,
-      confirmLabel: action.label,
-      icon: action.icon ?? Icons.play_circle_outline,
-    );
-    if (confirmed != true) {
+    if (payload == null || !context.mounted) {
       return;
     }
-  }
-
-  if (payload == null) {
+    await _handleObjectMutationResult(
+      context: context,
+      ref: ref,
+      result: mutationResult!,
+      successMessage: action.successMessage ?? 'Action completed.',
+      showResult: true,
+    );
     return;
   }
 
-  if (action.fields.isNotEmpty && action.confirmMessage != null) {
-    if (!context.mounted) {
-      return;
-    }
+  if (action.confirmMessage != null) {
     final confirmed = await showAppConfirmationDialog(
       context: context,
       title: action.label,
@@ -1270,7 +1399,7 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
       .runEntityAction(
         action: action,
         rowId: rowId,
-        values: payload,
+        values: const <String, dynamic>{},
         tenantIdOverride: row.tenantId,
         useTenantIdOverride: _usesRowTenantScope(
           descriptor: descriptor,
@@ -1302,6 +1431,9 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
   _AcpReferenceSearch? referenceSearch,
   _AcpReferenceLookup? referenceLookup,
   Map<String, dynamic> initialValues = const <String, dynamic>{},
+  _AcpFormSubmit? onSubmit,
+  String? confirmMessage,
+  IconData? confirmIcon,
 }) {
   return showDialog<Map<String, dynamic>>(
     context: context,
@@ -1316,6 +1448,9 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
       entitySet: entitySet,
       actionName: actionName,
       initialValues: initialValues,
+      onSubmit: onSubmit,
+      confirmMessage: confirmMessage,
+      confirmIcon: confirmIcon,
     ),
   );
 }
@@ -1326,7 +1461,7 @@ _AcpReferenceSearch _referenceSearchFor<T extends AcpAdminController>({
   String? tenantIdOverride,
   bool useTenantIdOverride = false,
 }) {
-  return (reference, searchTerm) {
+  return (reference, searchTerm, dynamicFilters) {
     final state = ref.read(controllerProvider);
     final controller = ref.read(controllerProvider.notifier);
     final tenantId = _referenceTenantIdFor(
@@ -1334,6 +1469,9 @@ _AcpReferenceSearch _referenceSearchFor<T extends AcpAdminController>({
       state: state,
       tenantIdOverride: tenantIdOverride,
       useTenantIdOverride: useTenantIdOverride,
+      useSelectedTenantScope: controller.usesTenantScope(
+        controller.activeDescriptor,
+      ),
     );
 
     return controller.repository.listRows(
@@ -1350,6 +1488,7 @@ _AcpReferenceSearch _referenceSearchFor<T extends AcpAdminController>({
       pageRequest: PageRequest(page: 1, pageSize: reference.pageSize),
       tenantId: tenantId,
       searchTerm: searchTerm,
+      extraFilters: <String>[...reference.extraFilters, ...dynamicFilters],
     );
   };
 }
@@ -1360,7 +1499,7 @@ _AcpReferenceLookup _referenceLookupFor<T extends AcpAdminController>({
   String? tenantIdOverride,
   bool useTenantIdOverride = false,
 }) {
-  return (reference, rowId) {
+  return (reference, value, dynamicFilters) async {
     final state = ref.read(controllerProvider);
     final controller = ref.read(controllerProvider.notifier);
     final tenantId = _referenceTenantIdFor(
@@ -1368,20 +1507,90 @@ _AcpReferenceLookup _referenceLookupFor<T extends AcpAdminController>({
       state: state,
       tenantIdOverride: tenantIdOverride,
       useTenantIdOverride: useTenantIdOverride,
+      useSelectedTenantScope: controller.usesTenantScope(
+        controller.activeDescriptor,
+      ),
     );
 
-    return controller.repository.fetchRow(
-      descriptor: AcpResourceDescriptor(
-        key: 'reference-${reference.entitySet}',
-        title: reference.title,
-        entitySet: reference.entitySet,
-        scopeMode: reference.scopeMode,
-        columns: const <AcpColumnDescriptor>[],
-      ),
-      rowId: rowId,
-      tenantId: tenantId,
+    final descriptor = AcpResourceDescriptor(
+      key: 'reference-${reference.entitySet}',
+      title: reference.title,
+      entitySet: reference.entitySet,
+      scopeMode: reference.scopeMode,
+      columns: const <AcpColumnDescriptor>[],
+      defaultOrderBy: reference.defaultOrderBy,
     );
+    if (reference.valueField == reference.idField &&
+        reference.extraFilters.isEmpty &&
+        dynamicFilters.isEmpty) {
+      return controller.repository.fetchRow(
+        descriptor: descriptor,
+        rowId: value,
+        tenantId: tenantId,
+      );
+    }
+
+    final result = await controller.repository.listRows(
+      descriptor: descriptor,
+      pageRequest: const PageRequest(page: 1, pageSize: 1),
+      tenantId: tenantId,
+      extraFilters: <String>[
+        ...reference.extraFilters,
+        ...dynamicFilters,
+        "${reference.valueField} eq '${_escapeODataString(value)}'",
+      ],
+    );
+    if (result.isFailure) {
+      return Result<AcpRow>.failure(result.failure!);
+    }
+    final rows = result.data?.items ?? const <AcpRow>[];
+    if (rows.isEmpty) {
+      return Result<AcpRow>.failure(
+        UnexpectedFailure('${reference.title} reference was not found.'),
+      );
+    }
+    return Result<AcpRow>.success(rows.first);
   };
+}
+
+String _escapeODataString(String value) => value.replaceAll("'", "''");
+
+List<String> _decodeStringList(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) {
+    return const <String>[];
+  }
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (decoded is List) {
+      return decoded
+          .map((value) => value.toString().trim())
+          .where((value) => value.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+    }
+  } catch (_) {
+    // A comma-separated operator entry is also supported.
+  }
+  return trimmed
+      .split(',')
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
+}
+
+List<int>? _decodeIntegerList(String raw) {
+  final values = _decodeStringList(raw);
+  final parsed = <int>[];
+  for (final value in values) {
+    final integer = int.tryParse(value);
+    if (integer == null) {
+      return null;
+    }
+    parsed.add(integer);
+  }
+  return parsed;
 }
 
 String? _referenceTenantIdFor({
@@ -1389,8 +1598,15 @@ String? _referenceTenantIdFor({
   required AcpAdminState state,
   required String? tenantIdOverride,
   required bool useTenantIdOverride,
+  required bool useSelectedTenantScope,
 }) {
   if (reference.scopeMode == AcpScopeMode.none) {
+    return null;
+  }
+
+  if (!useTenantIdOverride &&
+      reference.scopeMode == AcpScopeMode.optional &&
+      !useSelectedTenantScope) {
     return null;
   }
 
@@ -1636,6 +1852,7 @@ class _AcpReferenceField extends StatefulWidget {
     required this.helpText,
     required this.helpKey,
     required this.validator,
+    required this.extraFilters,
     super.key,
   });
 
@@ -1646,6 +1863,7 @@ class _AcpReferenceField extends StatefulWidget {
   final String helpText;
   final Key helpKey;
   final FormFieldValidator<String> validator;
+  final List<String> Function() extraFilters;
 
   @override
   State<_AcpReferenceField> createState() => _AcpReferenceFieldState();
@@ -1829,7 +2047,11 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
       _searchError = null;
     });
 
-    final response = await widget.search(_reference, term);
+    final response = await widget.search(
+      _reference,
+      term,
+      widget.extraFilters(),
+    );
     if (!mounted || generation != _searchGeneration) {
       return;
     }
@@ -1857,7 +2079,11 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
       return;
     }
 
-    final response = await widget.lookup(_reference, selectedValue);
+    final response = await widget.lookup(
+      _reference,
+      selectedValue,
+      widget.extraFilters(),
+    );
     if (!mounted ||
         _selectedRow != null ||
         widget.controller.text.trim() != selectedValue ||
@@ -1895,7 +2121,7 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
   }
 
   String _referenceValue(AcpRow row) {
-    return row[_reference.idField]?.toString().trim() ?? '';
+    return row[_reference.valueField]?.toString().trim() ?? '';
   }
 
   String _referenceTitle(AcpRow row) {
@@ -1966,6 +2192,219 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
   }
 }
 
+class _AcpMultiReferenceField extends StatefulWidget {
+  const _AcpMultiReferenceField({
+    required this.field,
+    required this.controller,
+    required this.search,
+    required this.extraFilters,
+    required this.helpText,
+    required this.helpKey,
+    required this.validator,
+    super.key,
+  });
+
+  final AcpFieldDescriptor field;
+  final TextEditingController controller;
+  final _AcpReferenceSearch search;
+  final List<String> Function() extraFilters;
+  final String helpText;
+  final Key helpKey;
+  final FormFieldValidator<String> validator;
+
+  @override
+  State<_AcpMultiReferenceField> createState() =>
+      _AcpMultiReferenceFieldState();
+}
+
+class _AcpMultiReferenceFieldState extends State<_AcpMultiReferenceField> {
+  late final TextEditingController _searchController;
+  late final List<String> _selectedValues;
+  Timer? _searchDebounce;
+  int _searchGeneration = 0;
+  bool _isSearching = false;
+  bool _hasSearched = false;
+  String? _searchError;
+  List<AcpRow> _results = const <AcpRow>[];
+
+  AcpFieldReferenceDescriptor get _reference => widget.field.reference!;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _selectedValues = _decodeStringList(widget.controller.text).toList();
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FormField<String>(
+      initialValue: widget.controller.text,
+      validator: widget.validator,
+      builder: (fieldState) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextFormField(
+              key: Key('acp-reference-search-${widget.field.key}'),
+              controller: _searchController,
+              decoration: appFormInputDecoration(
+                labelText: widget.field.label,
+                hintText: widget.field.hintText ?? 'Search and select records',
+                suffixIcon: const Icon(Icons.manage_search_outlined),
+                helpText: widget.helpText,
+                helpKey: widget.helpKey,
+                errorMaxLines: 4,
+              ),
+              onChanged: _queueSearch,
+            ),
+            if (fieldState.errorText != null) ...[
+              const SizedBox(height: 6),
+              AppErrorAlert(message: fieldState.errorText!),
+            ],
+            if (_selectedValues.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final value in _selectedValues)
+                    InputChip(
+                      key: Key(
+                        'acp-reference-selected-${widget.field.key}-$value',
+                      ),
+                      label: Text(value),
+                      onDeleted: widget.field.readOnly
+                          ? null
+                          : () => _toggleValue(value, fieldState),
+                    ),
+                ],
+              ),
+            ],
+            if (_isSearching) ...[
+              const SizedBox(height: 8),
+              const LinearProgressIndicator(),
+            ],
+            if (_searchError != null && _searchError!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              AppErrorAlert(message: _searchError!),
+            ],
+            if (_hasSearched && !_isSearching && _searchError == null) ...[
+              const SizedBox(height: 8),
+              _buildResults(fieldState),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildResults(FormFieldState<String> fieldState) {
+    if (_results.isEmpty) {
+      return const Text('No matching records found.');
+    }
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 220),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppUiPalette.surface,
+          border: Border.all(color: AppUiPalette.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: _results.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final row = _results[index];
+            final value = row[_reference.valueField]?.toString().trim() ?? '';
+            final selected = _selectedValues.contains(value);
+            return CheckboxListTile(
+              key: Key('acp-reference-option-${widget.field.key}-$value'),
+              value: selected,
+              title: Text(_referenceRowTitle(row)),
+              subtitle: Text(value),
+              onChanged: value.isEmpty || widget.field.readOnly
+                  ? null
+                  : (_) => _toggleValue(value, fieldState),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  String _referenceRowTitle(AcpRow row) {
+    for (final field in _reference.titleFields) {
+      final value = row[field]?.toString().trim();
+      if (value != null && value.isNotEmpty) {
+        return value;
+      }
+    }
+    return row[_reference.valueField]?.toString() ?? 'Untitled reference';
+  }
+
+  void _toggleValue(String value, FormFieldState<String> fieldState) {
+    setState(() {
+      if (_selectedValues.contains(value)) {
+        _selectedValues.remove(value);
+      } else {
+        _selectedValues.add(value);
+      }
+      widget.controller.text = jsonEncode(_selectedValues);
+    });
+    fieldState.didChange(widget.controller.text);
+    fieldState.validate();
+  }
+
+  void _queueSearch(String value) {
+    _searchDebounce?.cancel();
+    final term = value.trim();
+    if (term.length < 2) {
+      setState(() {
+        _isSearching = false;
+        _hasSearched = term.isNotEmpty;
+        _searchError = null;
+        _results = const <AcpRow>[];
+      });
+      return;
+    }
+    _searchDebounce = Timer(
+      _acpAdminSearchDebounce,
+      () => _searchReferences(term),
+    );
+  }
+
+  Future<void> _searchReferences(String term) async {
+    final generation = ++_searchGeneration;
+    setState(() {
+      _isSearching = true;
+      _hasSearched = true;
+      _searchError = null;
+    });
+    final response = await widget.search(
+      _reference,
+      term,
+      widget.extraFilters(),
+    );
+    if (!mounted || generation != _searchGeneration) {
+      return;
+    }
+    setState(() {
+      _isSearching = false;
+      _results = response.data?.items ?? const <AcpRow>[];
+      _searchError = response.failure?.message;
+    });
+  }
+}
+
 class _SelectedReferenceTile extends StatelessWidget {
   const _SelectedReferenceTile({
     required this.fieldKey,
@@ -2015,6 +2454,9 @@ class _AcpDynamicFormDialog extends StatefulWidget {
     required this.entitySet,
     required this.actionName,
     required this.initialValues,
+    required this.onSubmit,
+    required this.confirmMessage,
+    required this.confirmIcon,
   });
 
   final String title;
@@ -2027,6 +2469,9 @@ class _AcpDynamicFormDialog extends StatefulWidget {
   final String? entitySet;
   final String? actionName;
   final Map<String, dynamic> initialValues;
+  final _AcpFormSubmit? onSubmit;
+  final String? confirmMessage;
+  final IconData? confirmIcon;
 
   @override
   State<_AcpDynamicFormDialog> createState() => _AcpDynamicFormDialogState();
@@ -2037,6 +2482,8 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
   late final Map<String, TextEditingController> _textControllers;
   late final Map<String, bool> _boolValues;
   String? _formErrorText;
+  bool _isSubmitting = false;
+  bool _isConfirming = false;
 
   @override
   void initState() {
@@ -2045,22 +2492,13 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       for (final field in widget.fields)
         if (field.kind != AcpFieldKind.boolean)
           field.key: TextEditingController(
-            text: _initialTextValue(
-              field,
-              widget.initialValues.containsKey(field.key)
-                  ? widget.initialValues[field.key]
-                  : field.initialValue,
-            ),
+            text: _initialTextValue(field, _initialFieldValue(field)),
           ),
     };
     _boolValues = <String, bool>{
       for (final field in widget.fields)
         if (field.kind == AcpFieldKind.boolean)
-          field.key: _initialBoolValue(
-            widget.initialValues.containsKey(field.key)
-                ? widget.initialValues[field.key]
-                : field.initialValue,
-          ),
+          field.key: _initialBoolValue(_initialFieldValue(field)),
     };
   }
 
@@ -2128,6 +2566,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: widget.fields
+                  .where(_isFieldVisible)
                   .map((field) => _buildField(context, field))
                   .expand((widget) => [widget, const SizedBox(height: 10)])
                   .toList(growable: false),
@@ -2137,10 +2576,20 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _isSubmitting || _isConfirming
+              ? null
+              : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        FilledButton(onPressed: _submit, child: Text(widget.submitLabel)),
+        FilledButton(
+          onPressed: _isSubmitting || _isConfirming ? null : _submit,
+          child: _isSubmitting
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(_isConfirming ? 'Confirm in dialog' : widget.submitLabel),
+        ),
       ],
     );
   }
@@ -2188,6 +2637,19 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     if (field.reference != null &&
         widget.referenceSearch != null &&
         widget.referenceLookup != null) {
+      List<String> extraFilters() => _referenceFilters(field.reference!);
+      if (field.reference!.multiSelect) {
+        return _AcpMultiReferenceField(
+          key: Key('acp-dynamic-field-${field.key}'),
+          field: field,
+          controller: controller,
+          search: widget.referenceSearch!,
+          extraFilters: extraFilters,
+          helpText: helpText,
+          helpKey: helpKey,
+          validator: (value) => _validateField(field, value ?? ''),
+        );
+      }
       return _AcpReferenceField(
         key: Key('acp-dynamic-field-${field.key}'),
         field: field,
@@ -2197,6 +2659,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         helpText: helpText,
         helpKey: helpKey,
         validator: (value) => _validateField(field, value ?? ''),
+        extraFilters: extraFilters,
       );
     }
 
@@ -2242,13 +2705,18 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         onChanged: field.readOnly
             ? null
             : (value) {
-                controller.text = value ?? '';
+                setState(() {
+                  controller.text = value ?? '';
+                });
               },
         validator: (value) => _validateField(field, value ?? ''),
       );
     }
 
-    final isMultiline = field.kind == AcpFieldKind.multiline;
+    final isMultiline =
+        field.kind == AcpFieldKind.multiline ||
+        field.kind == AcpFieldKind.stringList ||
+        field.kind == AcpFieldKind.integerList;
 
     return TextFormField(
       key: Key('acp-dynamic-field-${field.key}'),
@@ -2268,6 +2736,61 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     );
   }
 
+  Object? _initialFieldValue(AcpFieldDescriptor field) {
+    if (widget.initialValues.containsKey(field.key)) {
+      return _withoutExcludedJsonKeys(
+        widget.initialValues[field.key],
+        field.excludedJsonKeys,
+      );
+    }
+    final containerKey = field.payloadContainerKey;
+    final mapKey = field.payloadMapKey;
+    if (containerKey != null && mapKey != null) {
+      final container = widget.initialValues[containerKey];
+      if (container is Map) {
+        return container[mapKey];
+      }
+    }
+    return field.initialValue;
+  }
+
+  Object? _withoutExcludedJsonKeys(Object? value, List<String> excludedKeys) {
+    if (value is! Map || excludedKeys.isEmpty) {
+      return value;
+    }
+    return <String, dynamic>{
+      for (final entry in value.entries)
+        if (!excludedKeys.contains(entry.key.toString()))
+          entry.key.toString(): entry.value,
+    };
+  }
+
+  bool _isFieldVisible(AcpFieldDescriptor field) {
+    for (final entry in field.visibleWhenEquals.entries) {
+      final actual = _currentFieldValue(entry.key);
+      if (!entry.value.any(
+        (expected) =>
+            actual?.trim().toLowerCase() ==
+            expected.toString().trim().toLowerCase(),
+      )) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  List<String> _referenceFilters(AcpFieldReferenceDescriptor reference) {
+    final filters = <String>[];
+    for (final entry in reference.filterFieldsFromForm.entries) {
+      final value = _currentFieldValue(entry.value)?.trim();
+      if (value == null || value.isEmpty) {
+        continue;
+      }
+      filters.add("${entry.key} eq '${_escapeODataString(value)}'");
+    }
+    return filters;
+  }
+
   String? _validateField(AcpFieldDescriptor field, String value) {
     final trimmed = value.trim();
     if (_isRequired(field) && trimmed.isEmpty) {
@@ -2279,16 +2802,52 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
 
     switch (field.kind) {
       case AcpFieldKind.integer:
-        if (int.tryParse(trimmed) == null) {
+        final parsed = int.tryParse(trimmed);
+        if (parsed == null) {
           return 'Enter a whole number.';
+        }
+        if (field.minimumValue != null && parsed < field.minimumValue!) {
+          return 'Enter a value of at least ${field.minimumValue}.';
+        }
+        if (field.maximumValue != null && parsed > field.maximumValue!) {
+          return 'Enter a value no greater than ${field.maximumValue}.';
+        }
+        return null;
+      case AcpFieldKind.integerList:
+        final parsed = _decodeIntegerList(trimmed);
+        if (parsed == null) {
+          return 'Enter comma-separated whole numbers or a JSON array.';
+        }
+        if (field.minimumValue case final minimum?) {
+          if (parsed.any((value) => value < minimum)) {
+            return 'Enter values of at least $minimum.';
+          }
+        }
+        if (field.maximumValue case final maximum?) {
+          if (parsed.any((value) => value > maximum)) {
+            return 'Enter values no greater than $maximum.';
+          }
+        }
+        return null;
+      case AcpFieldKind.stringList:
+        if (_decodeStringList(trimmed).isEmpty) {
+          return 'Enter at least one value.';
         }
         return null;
       case AcpFieldKind.json:
         final result = AcpJsonCodec.parse(trimmed);
         return result.isFailure ? result.failure!.message : null;
       case AcpFieldKind.dateTime:
-        if (DateTime.tryParse(trimmed) == null) {
-          return 'Enter an ISO-8601 date/time value.';
+        if (DateTime.tryParse(trimmed) == null ||
+            !RegExp(r'(?:Z|[+-]\d{2}:\d{2})$').hasMatch(trimmed)) {
+          return 'Enter an ISO-8601 date/time value with a timezone.';
+        }
+        return null;
+      case AcpFieldKind.timeOfDay:
+        if (!RegExp(
+          r'^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,6})?)?$',
+        ).hasMatch(trimmed)) {
+          return 'Enter a 24-hour time as HH:mm or HH:mm:ss.';
         }
         return null;
       case AcpFieldKind.text:
@@ -2334,7 +2893,16 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       return (_boolValues[key] ?? false).toString();
     }
 
-    final initialValue = widget.initialValues[key];
+    AcpFieldDescriptor? matchingField;
+    for (final field in widget.fields) {
+      if (field.key == key) {
+        matchingField = field;
+        break;
+      }
+    }
+    final initialValue = matchingField == null
+        ? widget.initialValues[key]
+        : _initialFieldValue(matchingField);
     return initialValue?.toString();
   }
 
@@ -2351,7 +2919,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     return options.toSet().toList(growable: false);
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final valid = _formKey.currentState?.validate() ?? false;
     if (!valid) {
       setState(() {
@@ -2364,12 +2932,12 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     });
 
     final payload = <String, dynamic>{};
-    for (final field in widget.fields) {
+    for (final field in widget.fields.where(_isFieldVisible)) {
       if (field.readOnly) {
         continue;
       }
       if (field.kind == AcpFieldKind.boolean) {
-        payload[field.key] = _boolValues[field.key] ?? false;
+        _storePayloadValue(payload, field, _boolValues[field.key] ?? false);
         continue;
       }
 
@@ -2381,31 +2949,102 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
 
       switch (field.kind) {
         case AcpFieldKind.integer:
-          payload[field.key] = int.parse(trimmed);
+          _storePayloadValue(payload, field, int.parse(trimmed));
+          break;
+        case AcpFieldKind.integerList:
+          _storePayloadValue(payload, field, _decodeIntegerList(trimmed)!);
+          break;
+        case AcpFieldKind.stringList:
+          _storePayloadValue(payload, field, _decodeStringList(trimmed));
           break;
         case AcpFieldKind.json:
-          payload[field.key] = AcpJsonCodec.parse(trimmed).data;
+          _storePayloadValue(payload, field, AcpJsonCodec.parse(trimmed).data);
           break;
         case AcpFieldKind.dateTime:
-          payload[field.key] = DateTime.parse(
-            trimmed,
-          ).toUtc().toIso8601String();
+          _storePayloadValue(
+            payload,
+            field,
+            DateTime.parse(trimmed).toUtc().toIso8601String(),
+          );
           break;
+        case AcpFieldKind.timeOfDay:
         case AcpFieldKind.text:
         case AcpFieldKind.multiline:
-          payload[field.key] = raw;
+          _storePayloadValue(payload, field, raw);
           break;
         case AcpFieldKind.boolean:
           break;
       }
     }
 
+    if (widget.confirmMessage != null) {
+      setState(() {
+        _isConfirming = true;
+      });
+      final confirmed = await showAppConfirmationDialog(
+        context: context,
+        title: widget.submitLabel,
+        message: widget.confirmMessage!,
+        confirmLabel: widget.submitLabel,
+        icon: widget.confirmIcon ?? Icons.play_circle_outline,
+      );
+      if (confirmed != true || !mounted) {
+        if (mounted) {
+          setState(() {
+            _isConfirming = false;
+          });
+        }
+        return;
+      }
+    }
+
+    final onSubmit = widget.onSubmit;
+    if (onSubmit == null) {
+      Navigator.of(context).pop(payload);
+      return;
+    }
+    setState(() {
+      _isConfirming = false;
+      _isSubmitting = true;
+      _formErrorText = null;
+    });
+    final result = await onSubmit(payload);
+    if (!mounted) {
+      return;
+    }
+    if (result.isFailure) {
+      setState(() {
+        _isSubmitting = false;
+        _formErrorText = result.failure?.message ?? 'The operation failed.';
+      });
+      return;
+    }
     Navigator.of(context).pop(payload);
+  }
+
+  void _storePayloadValue(
+    Map<String, dynamic> payload,
+    AcpFieldDescriptor field,
+    Object? value,
+  ) {
+    final storedValue = _withoutExcludedJsonKeys(value, field.excludedJsonKeys);
+    final containerKey = field.payloadContainerKey;
+    final mapKey = field.payloadMapKey;
+    if (containerKey == null || mapKey == null) {
+      payload[field.key] = storedValue;
+      return;
+    }
+    final container = switch (payload[containerKey]) {
+      final Map existing => Map<String, dynamic>.from(existing),
+      _ => <String, dynamic>{},
+    };
+    container[mapKey] = storedValue;
+    payload[containerKey] = container;
   }
 
   String _validationErrorSummary() {
     final errors = <String>[];
-    for (final field in widget.fields) {
+    for (final field in widget.fields.where(_isFieldVisible)) {
       final value = field.kind == AcpFieldKind.boolean
           ? (_boolValues[field.key] ?? false).toString()
           : (_textControllers[field.key]?.text ?? '');
@@ -2430,6 +3069,13 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       case AcpFieldKind.json:
         return AcpJsonCodec.prettyPrint(value);
       case AcpFieldKind.dateTime:
+      case AcpFieldKind.timeOfDay:
+        return value.toString();
+      case AcpFieldKind.integerList:
+      case AcpFieldKind.stringList:
+        if (value is List) {
+          return jsonEncode(value);
+        }
         return value.toString();
       case AcpFieldKind.integer:
       case AcpFieldKind.text:

@@ -107,9 +107,13 @@ void main() {
 
     test('bounds excessively long messages', () {
       final normalized = normalizeApiErrorMessage('x' * 700);
+      final complete = normalizeApiErrorMessage('x' * 700, maximumLength: null);
+      final tiny = normalizeApiErrorMessage('long', maximumLength: 1);
 
       expect(normalized.length, 600);
       expect(normalized.endsWith('…'), isTrue);
+      expect(complete.length, 700);
+      expect(tiny, '…');
     });
   });
 }

@@ -250,7 +250,8 @@ void main() {
       expect(repository.entityActionCalls.single.action.name, 'route');
       expect(repository.entityActionCalls.single.rowVersion, 7);
 
-      expect(repository.activeListCalls.length, baselineListCalls + 6);
+      expect(repository.activeListCalls.length, baselineListCalls + 4);
+      expect(repository.fetchRowCalls, 2);
       expect(controller.state.isMutating, isFalse);
       expect(controller.state.errorMessage, isNull);
     },
@@ -286,7 +287,8 @@ void main() {
         rowVersion: 3,
       );
       expect(updateResult.isFailure, isTrue);
-      expect(repository.activeListCalls.length, baselineListCalls + 1);
+      expect(repository.activeListCalls.length, baselineListCalls);
+      expect(repository.fetchRowCalls, 1);
       expect(
         controller.state.errorMessage,
         'Schemas changed on the server. Reloading list.',
@@ -310,6 +312,111 @@ void main() {
       );
       expect(createResult.isFailure, isTrue);
       expect(controller.state.errorMessage, 'Could not create schemas.');
+    },
+  );
+
+  test(
+    'create refreshes returned rows and falls back when no ID is returned',
+    () async {
+      final repository = _FakeAcpAdminRepository()
+        ..createResult = const Result<Object?>.success(<String, Object?>{
+          'Id': 'created-id',
+          'RowVersion': 4,
+        });
+      final controller = AcpAdminController(
+        repository: repository,
+        descriptors: descriptors,
+        onSessionExpired: () {},
+      );
+      await controller.loadInitialData();
+
+      final result = await controller.createRow(const <String, dynamic>{
+        'Key': 'workflow',
+      });
+
+      expect(result.isSuccess, isTrue);
+      expect(repository.createCalls.single.values, <String, dynamic>{
+        'Key': 'workflow',
+      });
+      expect(repository.updateCalls, isEmpty);
+      expect(controller.rowById('created-id')?.rowVersion, 1);
+
+      repository.createResult = const Result<Object?>.success(null);
+      final missingId = await controller.createRow(const <String, dynamic>{
+        'Key': 'second',
+      });
+      expect(missingId.isSuccess, isTrue);
+    },
+  );
+
+  test(
+    'failed exact conflict refresh falls back to the resource list',
+    () async {
+      final repository = _FakeAcpAdminRepository()
+        ..updateResult = const Result<Object?>.failure(
+          ConflictFailure(ConflictKind.staleRowVersion, 'Stale row version.'),
+        )
+        ..fetchRowFailure = const ApiFailure(500, 'Refresh failed.');
+      final controller = AcpAdminController(
+        repository: repository,
+        descriptors: descriptors,
+        onSessionExpired: () {},
+      );
+      await controller.loadInitialData();
+      final baselineListCalls = repository.activeListCalls.length;
+
+      final result = await controller.updateRow(
+        rowId: 'row-1',
+        values: const <String, dynamic>{'Title': 'Stale'},
+        rowVersion: 1,
+      );
+
+      expect(result.isFailure, isTrue);
+      expect(repository.fetchRowCalls, 1);
+      expect(repository.activeListCalls.length, baselineListCalls + 1);
+    },
+  );
+
+  test(
+    'conflicts distinguish stale row versions from lifecycle rules',
+    () async {
+      final repository = _FakeAcpAdminRepository()
+        ..updateResult = const Result<Object?>.failure(
+          ConflictFailure(
+            ConflictKind.staleRowVersion,
+            'RowVersion conflict. Refresh and retry.',
+          ),
+        );
+      final controller = AcpAdminController(
+        repository: repository,
+        descriptors: descriptors,
+        onSessionExpired: () {},
+      );
+      await controller.loadInitialData();
+
+      await controller.updateRow(
+        rowId: 'row-1',
+        values: const <String, dynamic>{'Name': 'retained'},
+        rowVersion: 2,
+      );
+      expect(controller.errorMessage, startsWith('Stale RowVersion.'));
+      expect(controller.rowById('row-1')?.rowVersion, 1);
+
+      repository.updateResult = const Result<Object?>.failure(
+        ConflictFailure(
+          ConflictKind.lifecycle,
+          'Invoice can only be issued from draft.',
+        ),
+      );
+      await controller.updateRow(
+        rowId: 'row-1',
+        values: const <String, dynamic>{'Name': 'still retained'},
+        rowVersion: 1,
+      );
+      expect(
+        controller.errorMessage,
+        'Lifecycle conflict. Invoice can only be issued from draft.',
+      );
     },
   );
 
@@ -491,8 +598,10 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
   Result<Object?> entityActionResult = const Result<Object?>.success(
     <String, Object?>{'status': 'ok'},
   );
+  Failure? fetchRowFailure;
 
   int fetchTenantsCalls = 0;
+  int fetchRowCalls = 0;
   final List<_ListCall> listCalls = <_ListCall>[];
   final List<_CreateCall> createCalls = <_CreateCall>[];
   final List<_UpdateCall> updateCalls = <_UpdateCall>[];
@@ -564,6 +673,10 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
     required String rowId,
     String? tenantId,
   }) async {
+    fetchRowCalls += 1;
+    if (fetchRowFailure case final failure?) {
+      return Result<AcpRow>.failure(failure);
+    }
     return Result<AcpRow>.success(<String, Object?>{
       'Id': rowId,
       'TenantId': tenantId,

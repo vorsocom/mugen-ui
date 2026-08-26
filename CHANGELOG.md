@@ -19,6 +19,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.14.0] - 2026-08-26
+
+### Added
+
+- Added extension-gated Core administration surfaces for tenant billing
+  operations, governance policies, workflows, SLA configuration, reporting,
+  and connectors, including guarded actions, searchable managed references,
+  operational diagnostics, and typed WhatsApp secret-reference paths.
+
+### Changed
+
+- Extended descriptor-driven ACP forms with retained input on API failures,
+  stale-versus-lifecycle conflict feedback, affected-row refresh, constrained
+  row actions, create-then-update contract support, timezone validation, and
+  searchable single- and multi-reference value semantics.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Corrected Billing Runs diagnostics to display the ACP `PeriodStart` and
+  `PeriodEnd` fields.
+
+### Security
+
 ## [0.13.0] - 2026-08-26
 
 ### Added

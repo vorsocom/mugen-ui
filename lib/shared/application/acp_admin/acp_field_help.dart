@@ -578,6 +578,10 @@ const Map<String, String> _fieldHelpByKey = <String, String>{
       'Request ID emitted by the API layer. Use this to inspect one exact HTTP request through audit traces.',
   'maxrows':
       'Maximum number of trace rows to return. Use small values for interactive inspection and raise only when investigating broad incidents.',
+  'whatsappgraphapiaccesstokenkeyrefid':
+      'Active same-tenant KeyRef row selected for graphapi.access_token. The UI submits the KeyRef UUID and never reads or stores the underlying access token.',
+  'whatsappwebhookverificationtokenkeyrefid':
+      'Active same-tenant KeyRef row selected for webhook.verification_token. The UI submits the KeyRef UUID and never reads or stores the underlying verification token.',
   'stage':
       'Trace stage filter, such as request, handler, validation, or persistence. Leave blank to inspect all stages.',
 };
@@ -588,10 +592,16 @@ String _fallbackHelp({required String label, required AcpFieldKind kind}) {
       return 'Controls whether "$label" is enabled for this backend operation. Prefer explicit values so runtime behavior is clear during audit review.';
     case AcpFieldKind.integer:
       return 'Whole-number value for "$label". Use documented backend limits and avoid negative values unless the backend contract explicitly allows them.';
+    case AcpFieldKind.integerList:
+      return 'Comma-separated whole numbers for "$label". Use documented backend limits and ordering.';
+    case AcpFieldKind.stringList:
+      return 'A searchable or comma-separated set of values for "$label". Use stable backend codes.';
     case AcpFieldKind.json:
       return 'JSON value for "$label". Use valid JSON, prefer objects for named settings and arrays for ordered lists, and avoid storing secrets unless this field is explicitly designed for secret material.';
     case AcpFieldKind.dateTime:
       return 'Timestamp for "$label". Use ISO-8601 with timezone, for example "2026-05-19T12:00:00Z".';
+    case AcpFieldKind.timeOfDay:
+      return 'Time of day for "$label" in 24-hour HH:mm or HH:mm:ss format.';
     case AcpFieldKind.multiline:
       return 'Free-text value for "$label". Keep it concise, audit-safe, and free of secrets.';
     case AcpFieldKind.text:

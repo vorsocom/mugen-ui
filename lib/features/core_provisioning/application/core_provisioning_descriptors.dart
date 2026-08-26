@@ -1,0 +1,207 @@
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+
+AcpColumnDescriptor coreColumn(String key, String label, {int flex = 1}) {
+  return AcpColumnDescriptor(key: key, label: label, flex: flex);
+}
+
+AcpFieldDescriptor coreText(
+  String key,
+  String label, {
+  bool required = false,
+  Map<String, List<String>> requiredWhenEquals = const <String, List<String>>{},
+  String? hintText,
+  Object? initialValue,
+  List<String> options = const <String>[],
+  bool applyAfterCreate = false,
+  Map<String, List<Object>> visibleWhenEquals = const <String, List<Object>>{},
+  AcpFieldReferenceDescriptor? reference,
+  String? payloadContainerKey,
+  String? payloadMapKey,
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    required: required,
+    requiredWhenEquals: requiredWhenEquals,
+    hintText: hintText,
+    initialValue: initialValue,
+    options: options,
+    applyAfterCreate: applyAfterCreate,
+    visibleWhenEquals: visibleWhenEquals,
+    reference: reference,
+    payloadContainerKey: payloadContainerKey,
+    payloadMapKey: payloadMapKey,
+  );
+}
+
+AcpFieldDescriptor coreMultiline(
+  String key,
+  String label, {
+  bool required = false,
+  bool applyAfterCreate = false,
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.multiline,
+    required: required,
+    minLines: 3,
+    maxLines: 6,
+    applyAfterCreate: applyAfterCreate,
+  );
+}
+
+AcpFieldDescriptor coreBool(
+  String key,
+  String label, {
+  Object? initialValue,
+  bool applyAfterCreate = false,
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.boolean,
+    initialValue: initialValue,
+    applyAfterCreate: applyAfterCreate,
+  );
+}
+
+AcpFieldDescriptor coreInteger(
+  String key,
+  String label, {
+  bool required = false,
+  int? minimumValue,
+  int? maximumValue,
+  Object? initialValue,
+  bool applyAfterCreate = false,
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.integer,
+    required: required,
+    minimumValue: minimumValue,
+    maximumValue: maximumValue,
+    initialValue: initialValue,
+    applyAfterCreate: applyAfterCreate,
+  );
+}
+
+AcpFieldDescriptor coreJson(
+  String key,
+  String label, {
+  bool required = false,
+  Object? initialValue,
+  bool applyAfterCreate = false,
+  List<String> excludedJsonKeys = const <String>[],
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.json,
+    required: required,
+    minLines: 5,
+    maxLines: 10,
+    initialValue: initialValue,
+    applyAfterCreate: applyAfterCreate,
+    excludedJsonKeys: excludedJsonKeys,
+  );
+}
+
+AcpFieldDescriptor coreDateTime(
+  String key,
+  String label, {
+  bool required = false,
+  bool applyAfterCreate = false,
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.dateTime,
+    required: required,
+    hintText: 'ISO-8601 with timezone, for example 2026-08-26T12:00:00Z',
+    applyAfterCreate: applyAfterCreate,
+  );
+}
+
+AcpFieldDescriptor coreTimeOfDay(
+  String key,
+  String label, {
+  bool applyAfterCreate = false,
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.timeOfDay,
+    hintText: '24-hour time, for example 09:00 or 17:30:00',
+    applyAfterCreate: applyAfterCreate,
+  );
+}
+
+AcpFieldDescriptor coreIntegerList(
+  String key,
+  String label, {
+  int? minimumValue,
+  int? maximumValue,
+  bool applyAfterCreate = false,
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.integerList,
+    hintText: 'Comma-separated whole numbers or a JSON array',
+    minimumValue: minimumValue,
+    maximumValue: maximumValue,
+    applyAfterCreate: applyAfterCreate,
+  );
+}
+
+AcpFieldDescriptor coreStringList(
+  String key,
+  String label, {
+  AcpFieldReferenceDescriptor? reference,
+  bool applyAfterCreate = false,
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.stringList,
+    reference: reference,
+    applyAfterCreate: applyAfterCreate,
+  );
+}
+
+AcpFieldDescriptor coreReference(
+  String key,
+  String label, {
+  required String entitySet,
+  required AcpScopeMode scopeMode,
+  bool required = false,
+  bool applyAfterCreate = false,
+  String valueField = 'Id',
+  List<String> searchFields = const <String>[],
+  List<String> titleFields = const <String>[],
+  List<String> subtitleFields = const <String>[],
+  String? defaultOrderBy,
+  List<String> extraFilters = const <String>[],
+  Map<String, String> filterFieldsFromForm = const <String, String>{},
+}) {
+  return coreText(
+    key,
+    label,
+    required: required,
+    applyAfterCreate: applyAfterCreate,
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: entitySet,
+      scopeMode: scopeMode,
+      title: label,
+      valueField: valueField,
+      searchFields: searchFields,
+      titleFields: titleFields,
+      subtitleFields: subtitleFields,
+      defaultOrderBy: defaultOrderBy,
+      extraFilters: extraFilters,
+      filterFieldsFromForm: filterFieldsFromForm,
+    ),
+  );
+}

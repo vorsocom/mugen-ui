@@ -11,6 +11,7 @@ const String _defaultApiErrorMessage = 'API request failed.';
 String normalizeApiErrorMessage(
   String? raw, {
   String fallback = _defaultApiErrorMessage,
+  int? maximumLength = _maximumApiErrorLength,
 }) {
   final normalizedFallback = _normalizeCandidate(fallback);
   final resolvedFallback = normalizedFallback.isEmpty
@@ -18,12 +19,15 @@ String normalizeApiErrorMessage(
       : normalizedFallback;
   final trimmed = raw?.trim() ?? '';
   if (trimmed.isEmpty) {
-    return _bounded(resolvedFallback);
+    return _bounded(resolvedFallback, maximumLength: maximumLength);
   }
 
   final structured = _decodeStructuredMessage(trimmed);
   final normalized = _normalizeCandidate(structured ?? trimmed);
-  return _bounded(normalized.isEmpty ? resolvedFallback : normalized);
+  return _bounded(
+    normalized.isEmpty ? resolvedFallback : normalized,
+    maximumLength: maximumLength,
+  );
 }
 
 String? _decodeStructuredMessage(String raw) {
@@ -237,9 +241,12 @@ String _normalizeWhitespace(String value) {
       .trim();
 }
 
-String _bounded(String value) {
-  if (value.length <= _maximumApiErrorLength) {
+String _bounded(String value, {required int? maximumLength}) {
+  if (maximumLength == null || value.length <= maximumLength) {
     return value;
   }
-  return '${value.substring(0, _maximumApiErrorLength - 1).trimRight()}…';
+  if (maximumLength <= 1) {
+    return '…';
+  }
+  return '${value.substring(0, maximumLength - 1).trimRight()}…';
 }

@@ -197,6 +197,29 @@ void main() {
     expect(find.byKey(const Key('auth-guard-loading-indicator')), findsNothing);
     expect(navigator.lastRoute, isNull);
   });
+
+  testWidgets('AuthGuard renders login for an unauthenticated login route', (
+    WidgetTester tester,
+  ) async {
+    final authController = _TestAuthController(
+      initialState: const AuthControllerState(isLoading: false, session: null),
+    );
+    final navigator = _FakeNavigator(route: RouteIds.login);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          authControllerProvider.overrideWith(() => authController),
+          appNavigatorProvider.overrideWith((ref) => navigator),
+        ],
+        child: const MaterialApp(home: AuthGuard(child: Text('login-child'))),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('login-child'), findsOneWidget);
+    expect(navigator.lastRoute, isNull);
+  });
 }
 
 class _TestAuthController extends AuthController {

@@ -19,6 +19,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.13.0] - 2026-08-26
+
+### Added
+
+- Added a configurable public muGen portal with responsive landing, production
+  login, Terms of Use, and Privacy Policy screens, official brand assets, and
+  a fail-closed optional WhatsApp Embedded Signup launcher contract.
+
+### Changed
+
+- Changed the default and unknown browser route destination to the public
+  portal while preserving authentication guards for the application and
+  invitation flows, and changed logout to return to the portal.
+- Added typed downstream portal definitions for logo, pattern, semantic theme
+  tokens, company branding, page copy, and ordered legal content.
+- Replaced the default Flutter web favicon and installable-app icons with the
+  official muGen mark, including safe-area-aware maskable variants.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [0.12.0] - 2026-08-26
 
 ### Added

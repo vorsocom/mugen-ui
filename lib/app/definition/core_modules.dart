@@ -16,6 +16,8 @@ import 'package:mugen_ui/features/context_admin/presentation/widgets/context_eng
 import 'package:mugen_ui/features/human_handoff/presentation/widgets/human_handoff_panel.dart';
 import 'package:mugen_ui/features/knowledge_pack_admin/presentation/widgets/knowledge_pack_panel.dart';
 import 'package:mugen_ui/features/orchestration_admin/presentation/widgets/channel_orchestration_panel.dart';
+import 'package:mugen_ui/features/portal/presentation/pages/portal_document_page.dart';
+import 'package:mugen_ui/features/portal/presentation/pages/portal_landing_page.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/widgets/rbac_management_panel.dart';
 import 'package:mugen_ui/features/runtime_admin/presentation/widgets/runtime_control_panel.dart';
 import 'package:mugen_ui/features/shell/presentation/pages/shell_page.dart';
@@ -28,6 +30,7 @@ MugenUiAppDefinition buildDefaultAppDefinition() {
     config: AppConfig.defaults(),
     defaultShellRouteId: CoreShellRouteIds.chat,
     modules: <MugenUiModule>[
+      _corePortalModule,
       _coreAuthModule,
       _coreShellModule,
       _coreHumanHandoffModule,
@@ -45,6 +48,27 @@ MugenUiAppDefinition buildDefaultAppDefinition() {
     ],
   );
 }
+
+final MugenUiModule _corePortalModule = MugenUiModule(
+  id: 'core.portal',
+  topLevelRoutes: <TopLevelRouteDefinition>[
+    TopLevelRouteDefinition.exact(
+      id: 'core.portal.landing',
+      path: AppRoutePaths.portal,
+      builder: (_) => const PortalLandingPage(),
+    ),
+    TopLevelRouteDefinition.exact(
+      id: 'core.portal.terms',
+      path: AppRoutePaths.terms,
+      builder: (_) => const PortalTermsPage(),
+    ),
+    TopLevelRouteDefinition.exact(
+      id: 'core.portal.privacy',
+      path: AppRoutePaths.privacy,
+      builder: (_) => const PortalPrivacyPage(),
+    ),
+  ],
+);
 
 final MugenUiModule _coreAuthModule = MugenUiModule(
   id: 'core.auth',

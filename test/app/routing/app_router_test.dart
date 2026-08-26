@@ -8,6 +8,11 @@ void main() {
   test('AppRouter handles configured routes and unknown fallbacks', () {
     final routes = <TopLevelRouteDefinition>[
       TopLevelRouteDefinition.exact(
+        id: 'portal.landing',
+        path: AppRoutePaths.portal,
+        builder: _buildPortalMarker,
+      ),
+      TopLevelRouteDefinition.exact(
         id: 'shell.app',
         path: AppRoutePaths.app,
         builder: _buildShellMarker,
@@ -48,17 +53,18 @@ void main() {
     final rootRoute = AppRouter.onGenerateRouteWithDefinitions(
       settings: const RouteSettings(name: '/'),
       topLevelRoutes: routes,
-      fallbackRoutePath: AppRoutePaths.app,
+      fallbackRoutePath: AppRoutePaths.portal,
     );
-    expect(rootRoute, isNull);
+    expect(rootRoute, isA<MaterialPageRoute<dynamic>>());
+    expect(rootRoute?.settings.name, AppRoutePaths.portal);
 
     final unknownRoute = AppRouter.onGenerateRouteWithDefinitions(
       settings: const RouteSettings(name: '/unknown'),
       topLevelRoutes: routes,
-      fallbackRoutePath: AppRoutePaths.app,
+      fallbackRoutePath: AppRoutePaths.portal,
     );
     expect(unknownRoute, isA<MaterialPageRoute<dynamic>>());
-    expect(unknownRoute?.settings.name, AppRoutePaths.app);
+    expect(unknownRoute?.settings.name, AppRoutePaths.portal);
 
     final inviteRoute = AppRouter.onGenerateRouteWithDefinitions(
       settings: const RouteSettings(
@@ -179,6 +185,10 @@ void main() {
   });
 
   test('RouteIds invite helpers remain compatible aliases', () {
+    expect(RouteIds.portal, '/');
+    expect(RouteIds.login, '/login');
+    expect(RouteIds.terms, '/terms');
+    expect(RouteIds.privacy, '/privacy');
     expect(
       RouteIds.buildInviteRoute(tenantId: 'tenant', invitationId: 'invite'),
       '/invite/tenant/invite',
@@ -231,6 +241,8 @@ _OrderRouteMatch? _parseOrderRoute(String? routeName) {
 }
 
 Widget _buildShellMarker(BuildContext context) => const Text('Shell');
+
+Widget _buildPortalMarker(BuildContext context) => const Text('Portal');
 
 Widget _buildLoginMarker(BuildContext context) => const Text('Login');
 

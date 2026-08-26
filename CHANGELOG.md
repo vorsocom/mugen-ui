@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.14.0] - 2026-08-26
+
+### Added
+
 - Added extension-gated Core administration surfaces for tenant billing
   operations, governance policies, workflows, SLA configuration, reporting,
   and connectors, including guarded actions, searchable managed references,

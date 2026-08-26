@@ -14,7 +14,7 @@ frontend:
     build:
       commands:
         - export PATH="$PATH:/tmp/flutter/bin"
-        - flutter build web --release --no-wasm-dry-run --dart-define=MUGEN_UI_API_BASE_URL="$MUGEN_UI_API_BASE_URL"
+        - flutter build web --release --no-wasm-dry-run --dart-define=MUGEN_UI_API_BASE_URL="$MUGEN_UI_API_BASE_URL" --dart-define=MUGEN_UI_WHATSAPP_EMBEDDED_SIGNUP_ENABLED="${MUGEN_UI_WHATSAPP_EMBEDDED_SIGNUP_ENABLED:-false}"
   artifacts:
     baseDirectory: build/web
     files:

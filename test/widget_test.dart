@@ -126,14 +126,16 @@ void main() {
     );
   });
 
-  testWidgets('smoke test navigates unauthenticated users to login', (
+  testWidgets('smoke test opens the public portal landing page', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const ProviderScope(child: MugenApp()));
 
     await tester.pumpAndSettle();
 
-    expect(find.text('Log in'), findsOneWidget);
+    expect(find.byKey(const Key('portal-landing-title')), findsOneWidget);
+    expect(find.text('Sign in to your account'), findsOneWidget);
+    expect(find.byKey(const Key('portal-whatsapp-card')), findsNothing);
   });
 
   testWidgets('screen tabs use a graphite underline and neutral count badges', (

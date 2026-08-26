@@ -1,36 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/pages/login_page.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/tenant_invite/presentation/providers/pending_invite_providers.dart';
-import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
-  testWidgets('LoginPage renders username/password fields', (
+  testWidgets('LoginPage renders branded production login controls', (
     WidgetTester tester,
   ) async {
     final authController = _TestAuthController(
       initialState: const AuthControllerState(isLoading: false, session: null),
     );
-    final navigator = _FakeAppNavigator();
-    final snackBars = _RecordingSnackBarDispatcher();
+    await _pumpLoginPage(tester, authController: authController);
 
-    await _pumpLoginPage(
-      tester,
-      authController: authController,
-      navigator: navigator,
-      snackBars: snackBars,
-    );
-
-    expect(find.text('Log in'), findsOneWidget);
+    expect(find.text('WELCOME BACK.'), findsOneWidget);
+    expect(find.text('ONE ACCESS POINT. EVERY CONVERSATION.'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
-    expect(find.text('Login'), findsOneWidget);
+    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Remember me'), findsNothing);
+    expect(find.textContaining('Forgot'), findsNothing);
+    expect(find.byKey(const Key('portal-back-link')), findsOneWidget);
+
     final guidance = tester
         .widgetList<AppFieldHelpIcon>(find.byType(AppFieldHelpIcon))
         .map((icon) => icon.message)
@@ -38,6 +35,11 @@ void main() {
     expect(guidance, hasLength(2));
     expect(guidance, anyElement(contains('local account you want to sign in')));
     expect(guidance, anyElement(contains('authenticate this sign-in attempt')));
+
+    final submit = tester.widget<FilledButton>(
+      find.byKey(const Key('login-submit-button')),
+    );
+    expect(submit.style?.minimumSize?.resolve(<WidgetState>{})?.height, 52);
   });
 
   testWidgets('LoginPage validates required fields and toggles visibility', (
@@ -46,26 +48,15 @@ void main() {
     final authController = _TestAuthController(
       initialState: const AuthControllerState(isLoading: false, session: null),
     );
-    final navigator = _FakeAppNavigator();
-    final snackBars = _RecordingSnackBarDispatcher();
-
-    await _pumpLoginPage(
-      tester,
-      authController: authController,
-      navigator: navigator,
-      snackBars: snackBars,
-    );
+    await _pumpLoginPage(tester, authController: authController);
 
     expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
-
-    await tester.tap(find.byIcon(Icons.visibility_outlined));
+    await tester.tap(find.byKey(const Key('login-password-visibility')));
     await tester.pump();
-
     expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
 
-    await tester.tap(find.text('Login'));
-    await tester.pumpAndSettle();
-
+    await tester.tap(find.byKey(const Key('login-submit-button')));
+    await tester.pump();
     expect(find.text('Field cannot be empty.'), findsNWidgets(2));
     expect(authController.loginCallCount, 0);
   });
@@ -77,35 +68,29 @@ void main() {
       initialState: const AuthControllerState(isLoading: false, session: null),
     )..loginResult = true;
     final navigator = _FakeAppNavigator();
-    final snackBars = _RecordingSnackBarDispatcher();
-
     await _pumpLoginPage(
       tester,
       authController: authController,
       navigator: navigator,
-      snackBars: snackBars,
     );
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'alice');
-    await tester.enterText(find.byType(TextFormField).at(1), 'secret');
-    await tester.tap(find.text('Login'));
+    await _enterCredentials(tester);
+    await tester.tap(find.byKey(const Key('login-submit-button')));
     await tester.pumpAndSettle();
 
     expect(authController.loginCallCount, 1);
     expect(authController.lastUsername, 'alice');
     expect(authController.lastPassword, 'secret');
-    expect(navigator.lastRoute, RouteIds.app);
-    expect(snackBars.messages, isEmpty);
+    expect(navigator.lastRoute, AppRoutePaths.app);
   });
 
-  testWidgets('LoginPage navigates to pending invite route when available', (
+  testWidgets('LoginPage navigates to pending invitation after login', (
     WidgetTester tester,
   ) async {
     final authController = _TestAuthController(
       initialState: const AuthControllerState(isLoading: false, session: null),
     )..loginResult = true;
     final navigator = _FakeAppNavigator();
-    final snackBars = _RecordingSnackBarDispatcher();
     final pendingInviteController = PendingInviteController()
       ..setPending(
         const InviteRouteMatch(
@@ -114,87 +99,141 @@ void main() {
           token: 'abc',
         ),
       );
-
     await _pumpLoginPage(
       tester,
       authController: authController,
       navigator: navigator,
-      snackBars: snackBars,
       pendingInviteController: pendingInviteController,
     );
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'alice');
-    await tester.enterText(find.byType(TextFormField).at(1), 'secret');
-    await tester.tap(find.text('Login'));
+    await _enterCredentials(tester);
+    await tester.tap(find.byKey(const Key('login-submit-button')));
     await tester.pumpAndSettle();
 
-    expect(navigator.lastRoute, '/invite/tenant-1/invite-2');
+    expect(navigator.lastRoute, '/invite/tenant-1/invite-2?token=abc');
+    expect(pendingInviteController.state, isNull);
   });
 
-  testWidgets('LoginPage shows snackbar on submit failure via Enter key', (
+  testWidgets('LoginPage submits with Enter and renders failure as an alert', (
     WidgetTester tester,
   ) async {
     final authController = _TestAuthController(
       initialState: const AuthControllerState(isLoading: false, session: null),
     )..loginResult = false;
     final navigator = _FakeAppNavigator();
-    final snackBars = _RecordingSnackBarDispatcher();
-
     await _pumpLoginPage(
       tester,
       authController: authController,
       navigator: navigator,
-      snackBars: snackBars,
     );
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'alice');
-    await tester.enterText(find.byType(TextFormField).at(1), 'wrong');
-    await tester.tap(find.byType(TextFormField).at(1));
-    await tester.pump();
+    await _enterCredentials(tester);
+    await tester.tap(find.byKey(const Key('login-password-field')));
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
 
     expect(authController.loginCallCount, 1);
     expect(navigator.lastRoute, isNull);
-    expect(snackBars.messages, <String>['Login failed. Please try again.']);
+    expect(find.byType(AppErrorAlert), findsOneWidget);
+    expect(find.text('Login failed. Please try again.'), findsOneWidget);
   });
 
-  testWidgets('LoginPage shows progress indicator when loading', (
+  testWidgets(
+    'LoginPage disables submission and shows progress while loading',
+    (WidgetTester tester) async {
+      final authController = _TestAuthController(
+        initialState: const AuthControllerState(isLoading: true, session: null),
+      );
+      await _pumpLoginPage(tester, authController: authController);
+
+      final button = tester.widget<FilledButton>(
+        find.byKey(const Key('login-submit-button')),
+      );
+      expect(button.onPressed, isNull);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Sign in'), findsNothing);
+    },
+  );
+
+  testWidgets('LoginPage stacks panels below the 900px breakpoint', (
     WidgetTester tester,
   ) async {
     final authController = _TestAuthController(
-      initialState: const AuthControllerState(isLoading: true, session: null),
+      initialState: const AuthControllerState(isLoading: false, session: null),
     );
-    final navigator = _FakeAppNavigator();
-    final snackBars = _RecordingSnackBarDispatcher();
-
     await _pumpLoginPage(
       tester,
       authController: authController,
-      navigator: navigator,
-      snackBars: snackBars,
+      size: const Size(768, 1024),
     );
 
-    final button = tester.widget<FilledButton>(find.byType(FilledButton));
-    expect(button.onPressed, isNull);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('Login'), findsNothing);
-
-    await tester.pumpWidget(const SizedBox.shrink());
+    final story = tester.getTopLeft(
+      find.byKey(const Key('portal-login-story-title')),
+    );
+    final account = tester.getTopLeft(
+      find.byKey(const Key('portal-login-title')),
+    );
+    expect(account.dy, greaterThan(story.dy));
+    await tester.ensureVisible(
+      find.byKey(const Key('login-password-visibility')),
+    );
+    await tester.tap(find.byKey(const Key('login-password-visibility')));
+    await tester.pump();
+    expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
+
+  testWidgets('LoginPage keeps panels side by side on desktop', (
+    WidgetTester tester,
+  ) async {
+    final authController = _TestAuthController(
+      initialState: const AuthControllerState(isLoading: false, session: null),
+    );
+    await _pumpLoginPage(
+      tester,
+      authController: authController,
+      size: const Size(1440, 900),
+    );
+
+    final story = tester.getCenter(
+      find.byKey(const Key('portal-login-story-title')),
+    );
+    final account = tester.getCenter(
+      find.byKey(const Key('portal-login-title')),
+    );
+    expect(account.dx, greaterThan(story.dx));
+    expect(tester.takeException(), isNull);
+  });
+}
+
+Future<void> _enterCredentials(WidgetTester tester) async {
+  await tester.enterText(
+    find.byKey(const Key('login-username-field')),
+    'alice',
+  );
+  await tester.enterText(
+    find.byKey(const Key('login-password-field')),
+    'secret',
+  );
 }
 
 Future<void> _pumpLoginPage(
   WidgetTester tester, {
   required _TestAuthController authController,
-  required _FakeAppNavigator navigator,
-  required _RecordingSnackBarDispatcher snackBars,
+  _FakeAppNavigator? navigator,
   PendingInviteController? pendingInviteController,
+  Size size = const Size(1200, 900),
 }) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
   final overrides = <Override>[
     authControllerProvider.overrideWith(() => authController),
-    appNavigatorProvider.overrideWith((Ref ref) => navigator),
-    snackBarDispatcherProvider.overrideWith((Ref ref) => snackBars),
+    appNavigatorProvider.overrideWith(
+      (Ref ref) => navigator ?? _FakeAppNavigator(),
+    ),
   ];
   if (pendingInviteController != null) {
     overrides.add(
@@ -207,10 +246,11 @@ Future<void> _pumpLoginPage(
   await tester.pumpWidget(
     ProviderScope(
       overrides: overrides,
-      child: const MaterialApp(home: Scaffold(body: LoginPage())),
+      child: const MaterialApp(home: LoginPage()),
     ),
   );
   await tester.pump();
+  await tester.pump(const Duration(milliseconds: 200));
 }
 
 class _TestAuthController extends AuthController {
@@ -233,6 +273,12 @@ class _TestAuthController extends AuthController {
     loginCallCount += 1;
     lastUsername = username;
     lastPassword = password;
+    if (!loginResult) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Login failed. Please try again.',
+      );
+    }
     return loginResult;
   }
 
@@ -249,14 +295,5 @@ class _FakeAppNavigator extends AppNavigator {
   @override
   Future<void> navigateTo(String routeName) async {
     lastRoute = routeName;
-  }
-}
-
-class _RecordingSnackBarDispatcher extends SnackBarDispatcher {
-  final List<String> messages = <String>[];
-
-  @override
-  void show(AppNavigator navigator, String content) {
-    messages.add(content);
   }
 }

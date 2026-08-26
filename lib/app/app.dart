@@ -365,7 +365,7 @@ class MugenApp extends ConsumerWidget {
           waitDuration: const Duration(milliseconds: 350),
         ),
       ),
-      initialRoute: AppRoutePaths.app,
+      initialRoute: AppRoutePaths.portal,
       onGenerateRoute: AppRouter.onGenerateRoute,
       navigatorKey: navigator.navigatorKey,
     );

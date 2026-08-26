@@ -49,6 +49,8 @@ final MugenUiAppDefinition appDefinition = MugenUiAppDefinition(
 - app metadata: `appName`, `appVersion`
 - API config: `api.baseUrl` and typed endpoint paths
 - role catalog: `activeRoles`
+- optional compile-time capability presentation:
+  `whatsappEmbeddedSignupEnabled`
 
 Routes, settings panels, and provider overrides now live on modules.
 
@@ -177,9 +179,68 @@ Top-level route resolution is deterministic:
 1. modules are evaluated in app-definition order
 2. routes are evaluated in module order
 3. the first matching route wins
-4. if nothing matches, the router falls back to the configured `/app` route
+4. if nothing matches, the host router falls back to the public `/` route
 
-Built-in `/app`, `/login`, and invite routes now use the same typed registry model.
+Built-in `/`, `/login`, `/terms`, `/privacy`, `/app`, and invite routes use the
+same typed registry model. The public portal and legal routes are unguarded;
+`/app` and invitation redemption remain authentication-protected.
+
+## Public Portal Customization
+
+The public portal has two typed downstream seams:
+
+- `portalDefinitionProvider` controls the logo asset, logo semantic label,
+  technical background asset, semantic theme tokens, display/body fonts,
+  footer/company branding, landing and login copy, and ordered Terms and
+  Privacy content.
+- `portalWhatsAppSignupLauncherProvider` supplies an optional production
+  WhatsApp Embedded Signup action and returns a structured `Result<void>`.
+
+All nested portal content types expose `copyWith`, so downstream applications
+can change one value without duplicating the upstream definition. For example:
+
+```dart
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mugen_ui/app/providers.dart';
+import 'package:mugen_ui/features/portal/application/portal_whatsapp_signup_launcher.dart';
+import 'package:mugen_ui/features/portal/presentation/providers/portal_providers.dart';
+import 'package:mugen_ui/shared/presentation/portal/portal_definition.dart';
+
+final PortalDefinition acmePortalDefinition = defaultPortalDefinition.copyWith(
+  logoAssetPath: 'assets/acme/acme-logotype.png',
+  logoSemanticLabel: 'ACME portal home',
+  footer: defaultPortalDefinition.footer.copyWith(
+    companyName: 'ACME Operations, Inc.',
+  ),
+  landing: defaultPortalDefinition.landing.copyWith(
+    title: 'Choose an ACME service.',
+  ),
+);
+
+List<Override> buildAcmePortalOverrides(
+  PortalWhatsAppSignupLauncher launcher,
+) {
+  return <Override>[
+    portalDefinitionProvider.overrideWithValue(acmePortalDefinition),
+    portalWhatsAppSignupLauncherProvider.overrideWithValue(launcher),
+  ];
+}
+```
+
+Register these overrides on a downstream `MugenUiModule`. If no launcher is
+registered, the enabled WhatsApp action uses the shared information-dialog
+base and clearly states that signup is not connected.
+
+The card is also gated by the compile-time
+`MUGEN_UI_WHATSAPP_EMBEDDED_SIGNUP_ENABLED` boolean, which defaults to `false`.
+Set it to `true` only when the deployment enables
+`core.fw.whatsapp_wacapi`; the compile-time flag controls presentation and is
+not a backend authorization mechanism.
+
+For layout-level customization, exclude the module whose id is `core.portal`
+from `buildDefaultAppDefinition().modules`, then contribute a replacement
+module that owns `/`, `/terms`, and `/privacy`. Preserve those public routes,
+the protected `/app` boundary, and the login/invitation redirect contracts.
 
 ## Settings Panels
 
@@ -228,7 +289,7 @@ string ids for downstream shell routes.
 When customizing, preserve these externally visible contracts unless intentionally
 changing behavior:
 
-1. browser routes used by auth flow (`/app`, `/login`)
+1. public and auth browser routes (`/`, `/terms`, `/privacy`, `/app`, `/login`)
 2. invite route shape and parser assumptions (`/invite/{tenant_id}/{invitation_id}`)
 3. ACP payload/field casing expected by backend endpoints
 4. auth refresh/logout behavior tied to the configured endpoint paths

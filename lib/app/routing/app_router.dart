@@ -11,7 +11,7 @@ class AppRouter {
     return onGenerateRouteWithDefinitions(
       settings: settings,
       topLevelRoutes: appDefinition.topLevelRoutes,
-      fallbackRoutePath: AppRoutePaths.app,
+      fallbackRoutePath: AppRoutePaths.portal,
     );
   }
 
@@ -20,10 +20,6 @@ class AppRouter {
     required List<TopLevelRouteDefinition> topLevelRoutes,
     required String fallbackRoutePath,
   }) {
-    if (settings.name == '/') {
-      return null;
-    }
-
     final matchedRoute = _matchTopLevelRoute(
       routeName: settings.name,
       topLevelRoutes: topLevelRoutes,

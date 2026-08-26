@@ -337,6 +337,7 @@ class AppConfig {
     required this.appVersion,
     required this.api,
     required this.activeRoles,
+    required this.whatsappEmbeddedSignupEnabled,
     this.browserTitle,
     this.faviconHref,
   });
@@ -347,11 +348,16 @@ class AppConfig {
   final String appVersion;
   final ApiConfig api;
   final List<AppRoleConfig> activeRoles;
+  final bool whatsappEmbeddedSignupEnabled;
 
   factory AppConfig.defaults() {
     return AppConfig(
       appName: 'muGen UI',
       appVersion: '0.1',
+      whatsappEmbeddedSignupEnabled: const bool.fromEnvironment(
+        'MUGEN_UI_WHATSAPP_EMBEDDED_SIGNUP_ENABLED',
+        defaultValue: false,
+      ),
       api: const ApiConfig(
         baseUrl: String.fromEnvironment(
           'MUGEN_UI_API_BASE_URL',
@@ -450,6 +456,9 @@ class AppConfig {
       appVersion: override.appVersion ?? appVersion,
       api: api.merge(override.api),
       activeRoles: override.activeRoles ?? activeRoles,
+      whatsappEmbeddedSignupEnabled:
+          override.whatsappEmbeddedSignupEnabled ??
+          whatsappEmbeddedSignupEnabled,
     );
   }
 }
@@ -462,6 +471,7 @@ class AppConfigurationOverride {
     this.appVersion,
     this.api,
     this.activeRoles,
+    this.whatsappEmbeddedSignupEnabled,
   });
 
   final String? appName;
@@ -470,4 +480,5 @@ class AppConfigurationOverride {
   final String? appVersion;
   final ApiConfigOverride? api;
   final List<AppRoleConfig>? activeRoles;
+  final bool? whatsappEmbeddedSignupEnabled;
 }

@@ -759,7 +759,7 @@ Future<void> _handleLogout(WidgetRef ref) async {
   if (!success) {
     return;
   }
-  await ref.read(appNavigatorProvider).navigateTo(AppRoutePaths.login);
+  await ref.read(appNavigatorProvider).navigateTo(AppRoutePaths.portal);
 }
 
 String _buildUserInitials(String displayName) {

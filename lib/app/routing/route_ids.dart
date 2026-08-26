@@ -13,8 +13,11 @@ class InviteRouteMatch {
 }
 
 abstract class AppRoutePaths {
+  static const String portal = '/';
   static const String app = '/app';
   static const String login = '/login';
+  static const String terms = '/terms';
+  static const String privacy = '/privacy';
   static const String invitePrefix = '/invite';
 
   static String buildInviteRoute({
@@ -80,8 +83,11 @@ abstract class CoreShellRouteIds {
 }
 
 abstract class RouteIds {
+  static const String portal = AppRoutePaths.portal;
   static const String app = AppRoutePaths.app;
   static const String login = AppRoutePaths.login;
+  static const String terms = AppRoutePaths.terms;
+  static const String privacy = AppRoutePaths.privacy;
   static const String invitePrefix = AppRoutePaths.invitePrefix;
 
   static const String dashboard = CoreShellRouteIds.dashboard;

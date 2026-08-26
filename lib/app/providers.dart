@@ -13,6 +13,7 @@ import 'package:mugen_ui/shared/infrastructure/http/authenticated_http_client.da
 import 'package:mugen_ui/shared/infrastructure/http/http_transport.dart';
 import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
+import 'package:mugen_ui/shared/presentation/portal/portal_definition.dart';
 
 part 'providers.g.dart';
 
@@ -28,6 +29,9 @@ final Provider<List<SettingsPanelDefinition>> settingsPanelDefinitionsProvider =
     Provider<List<SettingsPanelDefinition>>(
       (ref) => ref.watch(appDefinitionProvider).settingsPanels,
     );
+
+final Provider<PortalDefinition> portalDefinitionProvider =
+    Provider<PortalDefinition>((ref) => defaultPortalDefinition);
 
 final Provider<AuthSessionRefreshBus> authSessionRefreshBusProvider =
     Provider<AuthSessionRefreshBus>((ref) {

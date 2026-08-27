@@ -73,6 +73,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     String? tenantId,
     String? searchTerm,
     List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
   }) async {
     final path = AcpPathBuilder.collectionPath(
       endpoints: appConfig.api.endpoints,
@@ -94,6 +95,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
           searchTerm: searchTerm,
           searchFields: descriptor.searchFields,
           extraFilters: extraFilters,
+          deletedView: deletedView,
         ),
       ),
     );

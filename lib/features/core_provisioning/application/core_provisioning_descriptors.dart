@@ -1,7 +1,25 @@
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 
-AcpColumnDescriptor coreColumn(String key, String label, {int flex = 1}) {
-  return AcpColumnDescriptor(key: key, label: label, flex: flex);
+AcpColumnDescriptor coreColumn(
+  String key,
+  String label, {
+  int flex = 1,
+  bool money = false,
+  String minorUnitKey = '_CurrencyMinorUnit',
+  String currencyCodeKey = 'Currency',
+  int defaultMinorUnit = 2,
+  AcpColumnValueBuilder? valueBuilder,
+}) {
+  return AcpColumnDescriptor(
+    key: key,
+    label: label,
+    flex: flex,
+    money: money,
+    minorUnitKey: minorUnitKey,
+    currencyCodeKey: currencyCodeKey,
+    defaultMinorUnit: defaultMinorUnit,
+    valueBuilder: valueBuilder,
+  );
 }
 
 AcpFieldDescriptor coreText(
@@ -17,6 +35,13 @@ AcpFieldDescriptor coreText(
   AcpFieldReferenceDescriptor? reference,
   String? payloadContainerKey,
   String? payloadMapKey,
+  bool hidden = false,
+  bool includeInPayload = true,
+  bool clearWhenHidden = false,
+  bool submitNullWhenHidden = false,
+  AcpInitialValueFactory? initialValueFactory,
+  AcpComputedValueBuilder? computedValueBuilder,
+  bool readOnly = false,
 }) {
   return AcpFieldDescriptor(
     key: key,
@@ -31,6 +56,60 @@ AcpFieldDescriptor coreText(
     reference: reference,
     payloadContainerKey: payloadContainerKey,
     payloadMapKey: payloadMapKey,
+    hidden: hidden,
+    includeInPayload: includeInPayload,
+    clearWhenHidden: clearWhenHidden,
+    submitNullWhenHidden: submitNullWhenHidden,
+    initialValueFactory: initialValueFactory,
+    computedValueBuilder: computedValueBuilder,
+    readOnly: readOnly,
+  );
+}
+
+AcpFieldDescriptor coreComputed(
+  String key,
+  String label,
+  AcpComputedValueBuilder builder,
+) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.computed,
+    readOnly: true,
+    includeInPayload: false,
+    computedValueBuilder: builder,
+  );
+}
+
+AcpFieldDescriptor coreMoney(
+  String key,
+  String label, {
+  bool required = false,
+  bool applyAfterCreate = false,
+  String minorUnitFieldKey = '_CurrencyMinorUnit',
+  String currencyCodeFieldKey = '_CurrencyCode',
+  int defaultMinorUnit = 2,
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.money,
+    required: required,
+    applyAfterCreate: applyAfterCreate,
+    minorUnitFieldKey: minorUnitFieldKey,
+    currencyCodeFieldKey: currencyCodeFieldKey,
+    defaultMinorUnit: defaultMinorUnit,
+    hintText: 'Enter the amount in major currency units.',
+  );
+}
+
+AcpFieldDescriptor coreInternalText(String key, {Object? initialValue}) {
+  return coreText(
+    key,
+    key,
+    hidden: true,
+    includeInPayload: false,
+    initialValue: initialValue,
   );
 }
 
@@ -185,12 +264,24 @@ AcpFieldDescriptor coreReference(
   String? defaultOrderBy,
   List<String> extraFilters = const <String>[],
   Map<String, String> filterFieldsFromForm = const <String, String>{},
+  Map<String, String> copyFieldsFromSelection = const <String, String>{},
+  bool retainHistoricalSelection = false,
+  Map<String, List<Object>> visibleWhenEquals = const <String, List<Object>>{},
+  bool clearWhenHidden = false,
+  bool submitNullWhenHidden = false,
+  String? hintText,
+  AcpInitialValueFactory? initialValueFactory,
 }) {
   return coreText(
     key,
     label,
     required: required,
     applyAfterCreate: applyAfterCreate,
+    visibleWhenEquals: visibleWhenEquals,
+    clearWhenHidden: clearWhenHidden,
+    submitNullWhenHidden: submitNullWhenHidden,
+    hintText: hintText,
+    initialValueFactory: initialValueFactory,
     reference: AcpFieldReferenceDescriptor(
       entitySet: entitySet,
       scopeMode: scopeMode,
@@ -202,6 +293,8 @@ AcpFieldDescriptor coreReference(
       defaultOrderBy: defaultOrderBy,
       extraFilters: extraFilters,
       filterFieldsFromForm: filterFieldsFromForm,
+      copyFieldsFromSelection: copyFieldsFromSelection,
+      retainHistoricalSelection: retainHistoricalSelection,
     ),
   );
 }

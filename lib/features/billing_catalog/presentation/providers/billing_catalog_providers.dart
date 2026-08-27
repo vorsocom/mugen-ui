@@ -4,9 +4,14 @@ import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/billing_catalog/application/billing_catalog_access_service.dart';
+import 'package:mugen_ui/features/billing_catalog/application/billing_catalog_admin_controller.dart';
 import 'package:mugen_ui/features/billing_catalog/application/billing_catalog_controller.dart';
 import 'package:mugen_ui/features/billing_catalog/domain/repositories/billing_catalog_repository.dart';
 import 'package:mugen_ui/features/billing_catalog/infrastructure/repositories/billing_catalog_repository_impl.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_repository.dart';
+import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
+import 'package:mugen_ui/shared/infrastructure/acp_admin/billing_acp_admin_repository.dart';
 
 final billingCatalogRepositoryProvider = Provider<BillingCatalogRepository>((
   ref,
@@ -57,6 +62,27 @@ final billingCatalogControllerProvider =
     StateNotifierProvider<BillingCatalogController, BillingCatalogState>((ref) {
       return BillingCatalogController(
         repository: ref.read(billingCatalogRepositoryProvider),
+        onSessionExpired: () {
+          ref.read(authControllerProvider.notifier).refreshSession();
+        },
+      );
+    });
+
+final billingCatalogAdminRepositoryProvider = Provider<AcpAdminRepository>((
+  ref,
+) {
+  return BillingAcpAdminRepository(
+    AcpAdminRepositoryImpl(
+      appConfig: ref.watch(appConfigProvider),
+      authenticatedHttpClient: ref.watch(authenticatedHttpClientProvider),
+    ),
+  );
+});
+
+final billingCatalogAdminControllerProvider =
+    StateNotifierProvider<BillingCatalogAdminController, AcpAdminState>((ref) {
+      return BillingCatalogAdminController(
+        repository: ref.read(billingCatalogAdminRepositoryProvider),
         onSessionExpired: () {
           ref.read(authControllerProvider.notifier).refreshSession();
         },

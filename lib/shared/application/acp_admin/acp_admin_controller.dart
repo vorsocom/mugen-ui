@@ -17,6 +17,7 @@ class AcpResourceState {
     required this.searchTerm,
     required this.isLoading,
     required this.optionalScopeSelection,
+    required this.deletedView,
     this.tabCount,
   });
 
@@ -27,6 +28,7 @@ class AcpResourceState {
   final String searchTerm;
   final bool isLoading;
   final AcpOptionalScopeSelection optionalScopeSelection;
+  final AcpDeletedView deletedView;
   final int? tabCount;
 
   int get pages {
@@ -46,6 +48,7 @@ class AcpResourceState {
     String? searchTerm,
     bool? isLoading,
     AcpOptionalScopeSelection? optionalScopeSelection,
+    AcpDeletedView? deletedView,
     int? tabCount,
     bool clearTabCount = false,
   }) {
@@ -58,6 +61,7 @@ class AcpResourceState {
       isLoading: isLoading ?? this.isLoading,
       optionalScopeSelection:
           optionalScopeSelection ?? this.optionalScopeSelection,
+      deletedView: deletedView ?? this.deletedView,
       tabCount: clearTabCount ? null : (tabCount ?? this.tabCount),
     );
   }
@@ -150,6 +154,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
                  searchTerm: '',
                  isLoading: false,
                  optionalScopeSelection: AcpOptionalScopeSelection.global,
+                 deletedView: descriptor.deletedViews.first,
                  tabCount: null,
                ),
            },
@@ -262,7 +267,29 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       return;
     }
 
-    state = state.copyWith(selectedTenantId: tenantId, clearError: true);
+    final clearedStates = <String, AcpResourceState>{...state.resourceStates};
+    for (final descriptor in descriptors) {
+      final resourceState = resourceStateFor(descriptor.key);
+      final usesTenant =
+          descriptor.scopeMode == AcpScopeMode.required ||
+          (descriptor.scopeMode == AcpScopeMode.optional &&
+              resourceState.optionalScopeSelection ==
+                  AcpOptionalScopeSelection.tenant);
+      if (!usesTenant) {
+        continue;
+      }
+      clearedStates[descriptor.key] = resourceState.copyWith(
+        rows: const <AcpRow>[],
+        total: 0,
+        page: 1,
+        tabCount: 0,
+      );
+    }
+    state = state.copyWith(
+      selectedTenantId: tenantId,
+      resourceStates: clearedStates,
+      clearError: true,
+    );
     if (activeDescriptor.scopeMode == AcpScopeMode.none) {
       await refreshResourceCounts();
       return;
@@ -308,6 +335,22 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     );
   }
 
+  Future<void> setDeletedView(AcpDeletedView value) async {
+    final descriptor = activeDescriptor;
+    if (!descriptor.deletedViews.contains(value)) {
+      return;
+    }
+    final resourceState = resourceStateFor(descriptor.key);
+    if (resourceState.deletedView == value) {
+      return;
+    }
+    _replaceResourceState(
+      descriptor.key,
+      resourceState.copyWith(deletedView: value, page: 1),
+    );
+    await loadActiveResource();
+  }
+
   Future<void> setPage(int page) async {
     final descriptor = activeDescriptor;
     final resourceState = resourceStateFor(descriptor.key);
@@ -345,6 +388,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
         descriptor: descriptor,
         pageRequest: const PageRequest(page: 1, pageSize: 1),
         tenantId: tenantId,
+        deletedView: resourceState.deletedView,
       );
       if (result.isFailure) {
         continue;
@@ -391,6 +435,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       conflictMessage:
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage: 'Could not create ${descriptor.title.toLowerCase()}.',
+      refreshResourceKeys: descriptor.refreshResourceKeys,
     );
   }
 
@@ -423,6 +468,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       conflictMessage:
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage: 'Could not update ${descriptor.title.toLowerCase()}.',
+      refreshResourceKeys: descriptor.refreshResourceKeys,
     );
   }
 
@@ -453,6 +499,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       conflictMessage:
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage: 'Could not delete ${descriptor.title.toLowerCase()}.',
+      refreshResourceKeys: descriptor.refreshResourceKeys,
     );
   }
 
@@ -483,6 +530,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       conflictMessage:
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage: 'Could not restore ${descriptor.title.toLowerCase()}.',
+      refreshResourceKeys: descriptor.refreshResourceKeys,
     );
   }
 
@@ -514,6 +562,10 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage:
           'Could not run ${action.label.toLowerCase()} for ${descriptor.title.toLowerCase()}.',
+      refreshResourceKeys: <String>{
+        ...descriptor.refreshResourceKeys,
+        ...action.refreshResourceKeys,
+      }.toList(growable: false),
     );
   }
 
@@ -549,6 +601,10 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
           '${descriptor.title} changed on the server. Reloading list.',
       fallbackMessage:
           'Could not run ${action.label.toLowerCase()} for ${descriptor.title.toLowerCase()}.',
+      refreshResourceKeys: <String>{
+        ...descriptor.refreshResourceKeys,
+        ...action.refreshResourceKeys,
+      }.toList(growable: false),
     );
   }
 
@@ -586,6 +642,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       ),
       tenantId: tenantId,
       searchTerm: resourceState.searchTerm,
+      deletedView: resourceState.deletedView,
     );
 
     if (result.isFailure) {
@@ -620,6 +677,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     required String? tenantId,
     required String conflictMessage,
     required String fallbackMessage,
+    List<String> refreshResourceKeys = const <String>[],
   }) async {
     state = state.copyWith(isMutating: false);
     if (result.isSuccess) {
@@ -627,6 +685,10 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
         descriptor: descriptor,
         rowId: rowId,
         tenantId: tenantId,
+      );
+      await _refreshRelatedResources(
+        refreshResourceKeys,
+        excluding: descriptor.key,
       );
       await refreshResourceCounts();
       return result;
@@ -650,10 +712,15 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     required String? tenantId,
     required String conflictMessage,
     required String fallbackMessage,
+    List<String> refreshResourceKeys = const <String>[],
   }) async {
     state = state.copyWith(isMutating: false);
     if (result.isSuccess) {
       await loadActiveResource();
+      await _refreshRelatedResources(
+        refreshResourceKeys,
+        excluding: descriptor.key,
+      );
       await refreshResourceCounts();
       return result;
     }
@@ -667,6 +734,18 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       fallbackMessage: fallbackMessage,
     );
     return result;
+  }
+
+  Future<void> _refreshRelatedResources(
+    List<String> resourceKeys, {
+    required String excluding,
+  }) async {
+    for (final key in resourceKeys.toSet()) {
+      if (key == excluding || !_descriptorsByKey.containsKey(key)) {
+        continue;
+      }
+      await _loadResource(descriptorForKey(key));
+    }
   }
 
   Future<void> _handleMutationFailure(
@@ -687,7 +766,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       final message = switch (failure) {
         ConflictFailure(kind: ConflictKind.staleRowVersion) =>
           'Stale RowVersion. The latest row was refreshed; review your retained input and retry. ${failure.message}',
-        ConflictFailure() => 'Lifecycle conflict. ${failure.message}',
+        ConflictFailure() => 'Conflict. ${failure.message}',
         _ => conflictMessage,
       };
       state = state.copyWith(errorMessage: message);

@@ -189,6 +189,121 @@ void main() {
   );
 
   test(
+    'soft-delete views reload supported resources and reject others',
+    () async {
+      const lifecycleDescriptor = AcpResourceDescriptor(
+        key: 'products',
+        title: 'Products',
+        entitySet: 'Products',
+        scopeMode: AcpScopeMode.none,
+        columns: <AcpColumnDescriptor>[],
+        deletedViews: <AcpDeletedView>[
+          AcpDeletedView.active,
+          AcpDeletedView.all,
+          AcpDeletedView.archived,
+        ],
+      );
+      final repository = _FakeAcpAdminRepository();
+      final controller = AcpAdminController(
+        repository: repository,
+        descriptors: const <AcpResourceDescriptor>[lifecycleDescriptor],
+        onSessionExpired: () {},
+      );
+      addTearDown(controller.dispose);
+      await controller.loadInitialData();
+
+      await controller.setDeletedView(AcpDeletedView.archived);
+      expect(
+        controller.state.activeResourceState.deletedView,
+        AcpDeletedView.archived,
+      );
+      expect(
+        repository.activeListCalls.last.deletedView,
+        AcpDeletedView.archived,
+      );
+      final baseline = repository.activeListCalls.length;
+      await controller.setDeletedView(AcpDeletedView.archived);
+      await controller.setDeletedView(AcpDeletedView.all);
+      expect(repository.activeListCalls.length, baseline + 1);
+
+      final unsupported = AcpAdminController(
+        repository: repository,
+        descriptors: <AcpResourceDescriptor>[descriptors[1]],
+        onSessionExpired: () {},
+      );
+      addTearDown(unsupported.dispose);
+      await unsupported.setDeletedView(AcpDeletedView.archived);
+      expect(
+        unsupported.state.activeResourceState.deletedView,
+        AcpDeletedView.active,
+      );
+    },
+  );
+
+  test(
+    'tenant switches clear tenant rows before the replacement load',
+    () async {
+      final repository = _FakeAcpAdminRepository();
+      final controller = AcpAdminController(
+        repository: repository,
+        descriptors: <AcpResourceDescriptor>[descriptors[2]],
+        onSessionExpired: () {},
+      );
+      addTearDown(controller.dispose);
+      await controller.loadInitialData();
+      expect(controller.state.activeResourceState.rows, isNotEmpty);
+
+      final switching = controller.selectTenant('tenant-1');
+      expect(controller.state.activeResourceState.rows, isEmpty);
+      expect(controller.state.activeResourceState.total, 0);
+      await switching;
+      expect(
+        controller.state.activeResourceState.rows.single['TenantId'],
+        'tenant-1',
+      );
+    },
+  );
+
+  test('successful mutations refresh declared related resources', () async {
+    const first = AcpResourceDescriptor(
+      key: 'first',
+      title: 'First',
+      entitySet: 'FirstRows',
+      scopeMode: AcpScopeMode.none,
+      columns: <AcpColumnDescriptor>[],
+      allowCreate: true,
+      refreshResourceKeys: <String>['second', 'missing', 'first', 'second'],
+    );
+    const second = AcpResourceDescriptor(
+      key: 'second',
+      title: 'Second',
+      entitySet: 'SecondRows',
+      scopeMode: AcpScopeMode.none,
+      columns: <AcpColumnDescriptor>[],
+    );
+    final repository = _FakeAcpAdminRepository();
+    final controller = AcpAdminController(
+      repository: repository,
+      descriptors: const <AcpResourceDescriptor>[first, second],
+      onSessionExpired: () {},
+    );
+    addTearDown(controller.dispose);
+    await controller.loadInitialData();
+    final secondBaseline = repository.activeListCalls
+        .where((call) => call.entitySet == 'SecondRows')
+        .length;
+
+    await controller.createRow(const <String, Object?>{'Code': 'one'});
+
+    expect(
+      repository.activeListCalls
+          .where((call) => call.entitySet == 'SecondRows')
+          .length,
+      secondBaseline + 1,
+    );
+  });
+
+  test(
     'successful mutations refresh the active resource and pass row metadata',
     () async {
       final repository = _FakeAcpAdminRepository();
@@ -415,7 +530,7 @@ void main() {
       );
       expect(
         controller.errorMessage,
-        'Lifecycle conflict. Invoice can only be issued from draft.',
+        'Conflict. Invoice can only be issued from draft.',
       );
     },
   );
@@ -484,6 +599,7 @@ class _ListCall {
     required this.page,
     required this.pageSize,
     required this.searchTerm,
+    required this.deletedView,
   });
 
   final String entitySet;
@@ -491,6 +607,7 @@ class _ListCall {
   final int page;
   final int pageSize;
   final String? searchTerm;
+  final AcpDeletedView deletedView;
 }
 
 class _CreateCall {
@@ -636,6 +753,7 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
     String? tenantId,
     String? searchTerm,
     List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
   }) async {
     listCalls.add(
       _ListCall(
@@ -644,6 +762,7 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
         searchTerm: searchTerm,
+        deletedView: deletedView,
       ),
     );
 

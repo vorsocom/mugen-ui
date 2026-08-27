@@ -4,17 +4,26 @@ enum AcpScopeMode { none, required, optional }
 
 enum AcpActionTarget { collection, entity }
 
+enum AcpDeletedView { active, all, archived }
+
 enum AcpFieldKind {
   text,
   multiline,
   boolean,
   integer,
+  money,
+  computed,
   integerList,
   stringList,
   json,
   dateTime,
   timeOfDay,
 }
+
+typedef AcpPayloadValidator = String? Function(Map<String, dynamic> payload);
+typedef AcpColumnValueBuilder = Object? Function(AcpRow row);
+typedef AcpInitialValueFactory = Object? Function();
+typedef AcpComputedValueBuilder = String Function(Map<String, String> values);
 
 typedef AcpRow = Map<String, dynamic>;
 
@@ -40,6 +49,15 @@ class AcpFieldDescriptor {
     this.payloadContainerKey,
     this.payloadMapKey,
     this.excludedJsonKeys = const <String>[],
+    this.hidden = false,
+    this.includeInPayload = true,
+    this.clearWhenHidden = false,
+    this.submitNullWhenHidden = false,
+    this.minorUnitFieldKey,
+    this.currencyCodeFieldKey,
+    this.defaultMinorUnit = 2,
+    this.initialValueFactory,
+    this.computedValueBuilder,
   });
 
   final String key;
@@ -62,6 +80,15 @@ class AcpFieldDescriptor {
   final String? payloadContainerKey;
   final String? payloadMapKey;
   final List<String> excludedJsonKeys;
+  final bool hidden;
+  final bool includeInPayload;
+  final bool clearWhenHidden;
+  final bool submitNullWhenHidden;
+  final String? minorUnitFieldKey;
+  final String? currencyCodeFieldKey;
+  final int defaultMinorUnit;
+  final AcpInitialValueFactory? initialValueFactory;
+  final AcpComputedValueBuilder? computedValueBuilder;
 }
 
 class AcpFieldReferenceDescriptor {
@@ -79,6 +106,8 @@ class AcpFieldReferenceDescriptor {
     this.multiSelect = false,
     this.extraFilters = const <String>[],
     this.filterFieldsFromForm = const <String, String>{},
+    this.copyFieldsFromSelection = const <String, String>{},
+    this.retainHistoricalSelection = false,
   });
 
   final String entitySet;
@@ -97,6 +126,14 @@ class AcpFieldReferenceDescriptor {
   /// Maps a referenced resource field to the current form field supplying its
   /// filter value, for example `WorkflowVersionId -> WorkflowVersionId`.
   final Map<String, String> filterFieldsFromForm;
+
+  /// Maps fields on the selected row to other form fields. This supports
+  /// dependent typed inputs without placing reference records in payloads.
+  final Map<String, String> copyFieldsFromSelection;
+
+  /// Exact-ID hydration ignores active-only search filters so an existing
+  /// historical relationship remains understandable.
+  final bool retainHistoricalSelection;
 }
 
 class AcpColumnDescriptor {
@@ -104,11 +141,21 @@ class AcpColumnDescriptor {
     required this.key,
     required this.label,
     this.flex = 1,
+    this.money = false,
+    this.minorUnitKey = '_CurrencyMinorUnit',
+    this.currencyCodeKey = 'Currency',
+    this.defaultMinorUnit = 2,
+    this.valueBuilder,
   });
 
   final String key;
   final String label;
   final int flex;
+  final bool money;
+  final String minorUnitKey;
+  final String currencyCodeKey;
+  final int defaultMinorUnit;
+  final AcpColumnValueBuilder? valueBuilder;
 }
 
 class AcpActionDescriptor {
@@ -126,6 +173,8 @@ class AcpActionDescriptor {
     this.prefillFieldsFromRow = false,
     this.showAsRowButton = false,
     this.visibleWhenEquals = const <String, List<Object>>{},
+    this.refreshResourceKeys = const <String>[],
+    this.payloadValidator,
   });
 
   final String name;
@@ -141,6 +190,8 @@ class AcpActionDescriptor {
   final bool prefillFieldsFromRow;
   final bool showAsRowButton;
   final Map<String, List<Object>> visibleWhenEquals;
+  final List<String> refreshResourceKeys;
+  final AcpPayloadValidator? payloadValidator;
 
   bool isVisibleFor(AcpRow row) => acpRowMatches(row, visibleWhenEquals);
 }
@@ -167,6 +218,10 @@ class AcpResourceDescriptor {
     this.pageSize = 15,
     this.actionsColumnLeading = false,
     this.updateWhenEquals = const <String, List<Object>>{},
+    this.group,
+    this.refreshResourceKeys = const <String>[],
+    this.payloadValidator,
+    this.deletedViews = const <AcpDeletedView>[AcpDeletedView.active],
   });
 
   final String key;
@@ -189,6 +244,10 @@ class AcpResourceDescriptor {
   final int pageSize;
   final bool actionsColumnLeading;
   final Map<String, List<Object>> updateWhenEquals;
+  final String? group;
+  final List<String> refreshResourceKeys;
+  final AcpPayloadValidator? payloadValidator;
+  final List<AcpDeletedView> deletedViews;
 
   bool canUpdate(AcpRow row) =>
       allowUpdate && acpRowMatches(row, updateWhenEquals);

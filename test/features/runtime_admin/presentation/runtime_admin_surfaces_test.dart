@@ -441,6 +441,7 @@ class _KeyRefRecordingAcpAdminRepository extends FakeAcpAdminRepository {
     String? tenantId,
     String? searchTerm,
     List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
   }) async {
     if (descriptor.key != 'key-refs') {
       return super.listRows(

@@ -592,6 +592,10 @@ String _fallbackHelp({required String label, required AcpFieldKind kind}) {
       return 'Controls whether "$label" is enabled for this backend operation. Prefer explicit values so runtime behavior is clear during audit review.';
     case AcpFieldKind.integer:
       return 'Whole-number value for "$label". Use documented backend limits and avoid negative values unless the backend contract explicitly allows them.';
+    case AcpFieldKind.money:
+      return 'Currency amount for "$label" in major units. Decimal precision follows the selected global currency definition.';
+    case AcpFieldKind.computed:
+      return 'Calculated preview for "$label" based on the current form values.';
     case AcpFieldKind.integerList:
       return 'Comma-separated whole numbers for "$label". Use documented backend limits and ordering.';
     case AcpFieldKind.stringList:

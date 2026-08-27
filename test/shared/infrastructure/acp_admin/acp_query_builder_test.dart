@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_query_builder.dart';
 
@@ -33,5 +34,29 @@ void main() {
     );
 
     expect(query, <String, dynamic>{r'$count': true});
+  });
+
+  test('buildListQuery applies explicit soft-delete lifecycle views', () {
+    expect(
+      AcpQueryBuilder.buildListQuery(
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        deletedView: AcpDeletedView.active,
+      ).containsKey(r'$deleted'),
+      isFalse,
+    );
+    expect(
+      AcpQueryBuilder.buildListQuery(
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        deletedView: AcpDeletedView.all,
+      )[r'$deleted'],
+      'all',
+    );
+    expect(
+      AcpQueryBuilder.buildListQuery(
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        deletedView: AcpDeletedView.archived,
+      )[r'$deleted'],
+      'archived',
+    );
   });
 }

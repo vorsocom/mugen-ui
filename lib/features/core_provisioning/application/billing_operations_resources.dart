@@ -4,165 +4,253 @@ import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 final List<AcpResourceDescriptor>
 billingOperationsResources = <AcpResourceDescriptor>[
   AcpResourceDescriptor(
-    key: 'billing-entitlement-buckets',
-    title: 'Entitlement Buckets',
-    entitySet: 'BillingEntitlementBuckets',
+    key: 'billing-accounts',
+    group: 'Customer Adoption',
+    title: 'Accounts',
+    entitySet: 'BillingAccounts',
     scopeMode: AcpScopeMode.required,
     description:
-        'Tenant billing allowances for a metered period. Buckets cannot be deleted.',
+        'Tenant customer accounts with optional defaults inherited by subscriptions and invoices.',
     columns: <AcpColumnDescriptor>[
-      coreColumn('MeterCode', 'Meter Code'),
-      coreColumn('IncludedQuantity', 'Included'),
-      coreColumn('PeriodStart', 'Period Start', flex: 2),
-      coreColumn('PeriodEnd', 'Period End', flex: 2),
-      coreColumn('AccountId', 'Account', flex: 2),
-      coreColumn('SubscriptionId', 'Subscription', flex: 2),
+      coreColumn('Code', 'Code'),
+      coreColumn('DisplayName', 'Display Name', flex: 2),
+      coreColumn('Email', 'Email', flex: 2),
+      coreColumn('ExternalRef', 'External Reference'),
+      coreColumn('RowVersion', 'Row Version'),
     ],
-    createFields: <AcpFieldDescriptor>[
-      _billingAccount(required: true),
-      _billingSubscription(applyAfterCreate: true),
-      coreText('MeterCode', 'Meter Code', required: true),
-      coreDateTime('PeriodStart', 'Period Start', required: true),
-      coreDateTime('PeriodEnd', 'Period End', required: true),
-      coreInteger(
-        'IncludedQuantity',
-        'Included Quantity',
-        required: true,
-        minimumValue: 0,
-      ),
-      coreReference(
-        'PriceId',
-        'Price',
-        entitySet: 'BillingPrices',
-        scopeMode: AcpScopeMode.none,
-        applyAfterCreate: true,
-        searchFields: const <String>['Code', 'MeterCode', 'Currency'],
-        titleFields: const <String>['Code'],
-        subtitleFields: const <String>['PriceType', 'Currency', 'MeterCode'],
-        defaultOrderBy: 'Code asc',
-      ),
-      coreInteger(
-        'RolloverQuantity',
-        'Rollover Quantity',
-        minimumValue: 0,
-        applyAfterCreate: true,
-      ),
-      coreText('ExternalRef', 'External Reference', applyAfterCreate: true),
-      coreJson('Attributes', 'Attributes', applyAfterCreate: true),
-    ],
-    updateFields: <AcpFieldDescriptor>[
-      _billingAccount(),
-      _billingSubscription(),
-      coreText('MeterCode', 'Meter Code'),
-      coreDateTime('PeriodStart', 'Period Start'),
-      coreDateTime('PeriodEnd', 'Period End'),
-      coreInteger('IncludedQuantity', 'Included Quantity', minimumValue: 0),
-      coreInteger('RolloverQuantity', 'Rollover Quantity', minimumValue: 0),
-      coreText('ExternalRef', 'External Reference'),
-      coreJson('Attributes', 'Attributes'),
-    ],
-    searchFields: const <String>['MeterCode', 'ExternalRef'],
-    defaultOrderBy: 'PeriodStart desc, MeterCode asc',
+    createFields: _accountCreateFields,
+    updateFields: _accountUpdateFields,
+    searchFields: const <String>['Code', 'DisplayName', 'Email', 'ExternalRef'],
+    defaultOrderBy: 'DisplayName asc',
     allowCreate: true,
     allowUpdate: true,
   ),
   AcpResourceDescriptor(
+    key: 'billing-subscriptions',
+    group: 'Customer Adoption',
+    title: 'Subscriptions',
+    entitySet: 'BillingSubscriptions',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Tenant adoption of active recurring global Prices. Creation and reconciliation generate current-period buckets exactly once.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Status', 'Status'),
+      coreColumn('AccountId', 'Account', flex: 2),
+      coreColumn('PriceId', 'Price', flex: 2),
+      coreColumn('CurrentPeriodStart', 'Period Start', flex: 2),
+      coreColumn('CurrentPeriodEnd', 'Period End', flex: 2),
+      coreColumn('ExternalRef', 'External Reference'),
+      coreColumn('RowVersion', 'Row Version'),
+    ],
+    createFields: _subscriptionCreateFields,
+    updateFields: _subscriptionUpdateFields,
+    entityActions: _subscriptionActions,
+    searchFields: const <String>['Status', 'ExternalRef'],
+    defaultOrderBy: 'CreatedAt desc',
+    allowCreate: true,
+    allowUpdate: true,
+    payloadValidator: validateSubscriptionPayload,
+    refreshResourceKeys: const <String>[
+      'billing-entitlement-buckets',
+      'billing-entitlement-adjustments',
+    ],
+  ),
+  AcpResourceDescriptor(
+    key: 'billing-entitlement-buckets',
+    group: 'Usage & Entitlements',
+    title: 'Entitlement Buckets',
+    entitySet: 'BillingEntitlementBuckets',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Generated operational balances with Price-rule, meter, subscription, period, and reconciliation provenance. Original allowances are not editable.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('MeterCode', 'Meter Code'),
+      coreColumn('IncludedQuantity', 'Included'),
+      coreColumn('ConsumedQuantity', 'Consumed'),
+      coreColumn('RolloverQuantity', 'Rollover'),
+      coreColumn('AdjustmentQuantity', 'Adjustments'),
+      coreColumn(
+        'RemainingQuantity',
+        'Remaining',
+        valueBuilder: remainingEntitlementQuantity,
+      ),
+      coreColumn('PeriodStart', 'Period Start', flex: 2),
+      coreColumn('PeriodEnd', 'Period End', flex: 2),
+      coreColumn('SubscriptionId', 'Subscription', flex: 2),
+      coreColumn('PriceId', 'Price', flex: 2),
+      coreColumn('PriceEntitlementId', 'Price Rule', flex: 2),
+      coreColumn('MeterDefinitionId', 'Meter Definition', flex: 2),
+      coreColumn('GenerationSource', 'Generated By'),
+      coreColumn('RowVersion', 'Row Version'),
+    ],
+    entityActions: <AcpActionDescriptor>[_entitlementAdjustAction],
+    searchFields: const <String>['MeterCode', 'ExternalRef'],
+    defaultOrderBy: 'PeriodStart desc, MeterCode asc',
+    refreshResourceKeys: const <String>['billing-entitlement-adjustments'],
+  ),
+  _readOnlyResource(
+    key: 'billing-entitlement-adjustments',
+    group: 'Usage & Entitlements',
+    title: 'Adjustment History',
+    entitySet: 'BillingEntitlementAdjustments',
+    description: 'Append-only audited entitlement capacity adjustments.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('BucketId', 'Bucket', flex: 2),
+      coreColumn('QuantityDelta', 'Delta'),
+      coreColumn('AdjustmentBefore', 'Before'),
+      coreColumn('AdjustmentAfter', 'After'),
+      coreColumn('CapacityAfter', 'Capacity After'),
+      coreColumn('Reason', 'Reason', flex: 3),
+      coreColumn('IdempotencyKey', 'Idempotency Key', flex: 2),
+      coreColumn('OccurredAt', 'Occurred At', flex: 2),
+      coreColumn('ActorUserId', 'Actor', flex: 2),
+    ],
+  ),
+  AcpResourceDescriptor(
+    key: 'billing-usage-events',
+    group: 'Usage & Entitlements',
+    title: 'Usage Events',
+    entitySet: 'BillingUsageEvents',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Append-only metered usage events. Existing events cannot be edited or deleted.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('MeterCode', 'Meter Code'),
+      coreColumn('Quantity', 'Quantity'),
+      coreColumn('OccurredAt', 'Occurred At', flex: 2),
+      coreColumn('Status', 'Status'),
+      coreColumn('AccountId', 'Account', flex: 2),
+      coreColumn('SubscriptionId', 'Subscription', flex: 2),
+      coreColumn('PriceId', 'Price', flex: 2),
+    ],
+    createFields: <AcpFieldDescriptor>[
+      _billingAccount(required: true),
+      _globalMeter(required: true),
+      coreInteger('Quantity', 'Quantity', required: true),
+    ],
+    searchFields: const <String>['MeterCode', 'Status', 'ExternalRef'],
+    defaultOrderBy: 'OccurredAt desc',
+    allowCreate: true,
+    refreshResourceKeys: const <String>[
+      'billing-usage-allocations',
+      'billing-entitlement-buckets',
+    ],
+  ),
+  AcpResourceDescriptor(
+    key: 'billing-usage-allocations',
+    group: 'Usage & Entitlements',
+    title: 'Usage Allocations',
+    entitySet: 'BillingUsageAllocations',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Append-only links between tenant usage events and entitlement buckets.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('UsageEventId', 'Usage Event', flex: 2),
+      coreColumn('EntitlementBucketId', 'Bucket', flex: 2),
+      coreColumn('AllocatedQuantity', 'Allocated'),
+      coreColumn('CreatedAt', 'Created At', flex: 2),
+    ],
+    createFields: <AcpFieldDescriptor>[
+      _tenantReference(
+        'UsageEventId',
+        'Usage Event',
+        entitySet: 'BillingUsageEvents',
+        required: true,
+        searchFields: const <String>['MeterCode', 'ExternalRef'],
+        titleFields: const <String>['MeterCode', 'Id'],
+        subtitleFields: const <String>['OccurredAt', 'Quantity', 'Status'],
+      ),
+      _tenantReference(
+        'EntitlementBucketId',
+        'Entitlement Bucket',
+        entitySet: 'BillingEntitlementBuckets',
+        required: true,
+        searchFields: const <String>['MeterCode', 'ExternalRef'],
+        titleFields: const <String>['MeterCode', 'Id'],
+        subtitleFields: const <String>[
+          'PeriodStart',
+          'PeriodEnd',
+          'ConsumedQuantity',
+        ],
+      ),
+      coreInteger(
+        'AllocatedQuantity',
+        'Allocated Quantity',
+        required: true,
+        minimumValue: 0,
+      ),
+    ],
+    defaultOrderBy: 'CreatedAt desc',
+    allowCreate: true,
+    refreshResourceKeys: const <String>['billing-entitlement-buckets'],
+  ),
+  AcpResourceDescriptor(
+    key: 'billing-runs',
+    group: 'Execution & Invoicing',
+    title: 'Billing Runs',
+    entitySet: 'BillingRuns',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Tenant execution history for global Run Definitions. Schedule editing remains in the Billing Catalog.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Status', 'Status'),
+      coreColumn('DefinitionId', 'Run Definition', flex: 2),
+      coreColumn('AccountId', 'Account', flex: 2),
+      coreColumn('SubscriptionId', 'Subscription', flex: 2),
+      coreColumn('PeriodStart', 'Period Start', flex: 2),
+      coreColumn('PeriodEnd', 'Period End', flex: 2),
+      coreColumn('AttemptNumber', 'Attempt'),
+      coreColumn('RetryOfRunId', 'Retry Of', flex: 2),
+      coreColumn('StartedAt', 'Started', flex: 2),
+      coreColumn('CompletedAt', 'Completed', flex: 2),
+      coreColumn('FailureDetail', 'Failure', flex: 3),
+      coreColumn('RowVersion', 'Row Version'),
+    ],
+    createFields: _billingRunCreateFields,
+    updateFields: <AcpFieldDescriptor>[
+      coreText('ExternalRef', 'External Reference'),
+      coreJson('Attributes', 'Attributes'),
+    ],
+    entityActions: _billingRunActions,
+    searchFields: const <String>[
+      'Status',
+      'IdempotencyKey',
+      'ExternalRef',
+      'FailureCode',
+      'FailureDetail',
+    ],
+    defaultOrderBy: 'CreatedAt desc',
+    allowCreate: true,
+    allowUpdate: true,
+    payloadValidator: validateBillingRunPayload,
+    refreshResourceKeys: const <String>[
+      'billing-invoices',
+      'billing-entitlement-buckets',
+    ],
+  ),
+  AcpResourceDescriptor(
     key: 'billing-invoices',
+    group: 'Execution & Invoicing',
     title: 'Invoices',
     entitySet: 'BillingInvoices',
     scopeMode: AcpScopeMode.required,
     description:
-        'Create and edit draft invoices, then use guarded lifecycle actions.',
+        'Tenant draft invoices with inherited global defaults and guarded issue, void, and payment actions.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Number', 'Number'),
       coreColumn('Status', 'Status'),
       coreColumn('Currency', 'Currency'),
-      coreColumn('TotalAmount', 'Total'),
+      coreColumn('TotalAmount', 'Total', money: true),
+      coreColumn('AmountDue', 'Amount Due', money: true),
       coreColumn('DueAt', 'Due At', flex: 2),
       coreColumn('AccountId', 'Account', flex: 2),
+      coreColumn('SubscriptionId', 'Subscription', flex: 2),
+      coreColumn('BillingRunId', 'Billing Run', flex: 2),
+      coreColumn('RowVersion', 'Row Version'),
     ],
-    createFields: <AcpFieldDescriptor>[
-      _billingAccount(required: true),
-      coreText(
-        'Currency',
-        'Currency',
-        required: true,
-        initialValue: 'USD',
-        options: const <String>['USD', 'EUR', 'GBP', 'GYD'],
-      ),
-      _billingSubscription(applyAfterCreate: true),
-      coreText('Number', 'Invoice Number', applyAfterCreate: true),
-      coreDateTime('DueAt', 'Due At', applyAfterCreate: true),
-      coreInteger(
-        'SubtotalAmount',
-        'Subtotal Amount',
-        minimumValue: 0,
-        applyAfterCreate: true,
-      ),
-      coreInteger(
-        'TaxAmount',
-        'Tax Amount',
-        minimumValue: 0,
-        applyAfterCreate: true,
-      ),
-      coreInteger(
-        'TotalAmount',
-        'Total Amount',
-        minimumValue: 0,
-        applyAfterCreate: true,
-      ),
-      coreJson('Attributes', 'Attributes', applyAfterCreate: true),
-    ],
-    updateFields: <AcpFieldDescriptor>[
-      _billingAccount(),
-      _billingSubscription(),
-      coreText('Number', 'Invoice Number'),
-      coreText(
-        'Currency',
-        'Currency',
-        options: const <String>['USD', 'EUR', 'GBP', 'GYD'],
-      ),
-      coreDateTime('DueAt', 'Due At'),
-      coreInteger('SubtotalAmount', 'Subtotal Amount', minimumValue: 0),
-      coreInteger('TaxAmount', 'Tax Amount', minimumValue: 0),
-      coreInteger('TotalAmount', 'Total Amount', minimumValue: 0),
-      coreJson('Attributes', 'Attributes'),
-    ],
-    entityActions: <AcpActionDescriptor>[
-      AcpActionDescriptor(
-        name: 'issue',
-        label: 'Issue',
-        target: AcpActionTarget.entity,
-        includeRowVersion: true,
-        confirmMessage: 'Issue this draft invoice?',
-        successMessage: 'Invoice issued.',
-        visibleWhenEquals: const <String, List<Object>>{
-          'Status': <Object>['draft'],
-        },
-      ),
-      AcpActionDescriptor(
-        name: 'void',
-        label: 'Void',
-        target: AcpActionTarget.entity,
-        includeRowVersion: true,
-        confirmMessage: 'Void this invoice? This cannot be undone.',
-        successMessage: 'Invoice voided.',
-        visibleWhenEquals: const <String, List<Object>>{
-          'Status': <Object>['draft', 'issued'],
-        },
-      ),
-      AcpActionDescriptor(
-        name: 'mark_paid',
-        label: 'Mark Paid',
-        target: AcpActionTarget.entity,
-        includeRowVersion: true,
-        confirmMessage: 'Mark this invoice as paid?',
-        successMessage: 'Invoice marked paid.',
-        visibleWhenEquals: const <String, List<Object>>{
-          'Status': <Object>['issued'],
-        },
-      ),
-    ],
+    createFields: _invoiceCreateFields,
+    updateFields: _invoiceUpdateFields,
+    entityActions: _invoiceActions,
     searchFields: const <String>['Number', 'Status', 'Currency'],
     defaultOrderBy: 'CreatedAt desc',
     allowCreate: true,
@@ -170,9 +258,15 @@ billingOperationsResources = <AcpResourceDescriptor>[
     updateWhenEquals: const <String, List<Object>>{
       'Status': <Object>['draft'],
     },
+    payloadValidator: validateInvoicePayload,
+    refreshResourceKeys: const <String>[
+      'billing-invoice-lines',
+      'billing-payment-allocations',
+    ],
   ),
   AcpResourceDescriptor(
     key: 'billing-invoice-lines',
+    group: 'Execution & Invoicing',
     title: 'Invoice Lines',
     entitySet: 'BillingInvoiceLines',
     scopeMode: AcpScopeMode.required,
@@ -181,142 +275,1008 @@ billingOperationsResources = <AcpResourceDescriptor>[
     columns: <AcpColumnDescriptor>[
       coreColumn('Description', 'Description', flex: 2),
       coreColumn('Quantity', 'Quantity'),
-      coreColumn('UnitAmount', 'Unit Amount'),
-      coreColumn('Amount', 'Amount'),
+      coreColumn('UnitAmount', 'Unit Amount', money: true),
+      coreColumn('Amount', 'Amount', money: true),
       coreColumn('InvoiceId', 'Invoice', flex: 2),
       coreColumn('PriceId', 'Price', flex: 2),
+      coreColumn('TaxCodeId', 'Tax Code', flex: 2),
+      coreColumn('TaxRateId', 'Tax Rate', flex: 2),
     ],
-    createFields: <AcpFieldDescriptor>[
-      _invoice(required: true),
-      coreInteger(
-        'Quantity',
-        'Quantity',
-        required: true,
-        minimumValue: 1,
-        initialValue: 1,
-      ),
-      coreInteger('Amount', 'Amount', required: true, minimumValue: 0),
-      _price(applyAfterCreate: true),
-      coreText('Description', 'Description', applyAfterCreate: true),
-      coreDateTime('PeriodStart', 'Period Start', applyAfterCreate: true),
-      coreDateTime('PeriodEnd', 'Period End', applyAfterCreate: true),
-      coreInteger(
-        'UnitAmount',
-        'Unit Amount',
-        minimumValue: 0,
-        applyAfterCreate: true,
-      ),
-      coreJson('Attributes', 'Attributes', applyAfterCreate: true),
-    ],
-    updateFields: <AcpFieldDescriptor>[
-      _price(),
-      coreText('Description', 'Description'),
-      coreDateTime('PeriodStart', 'Period Start'),
-      coreDateTime('PeriodEnd', 'Period End'),
-      coreInteger('Quantity', 'Quantity', minimumValue: 1),
-      coreInteger('UnitAmount', 'Unit Amount', minimumValue: 0),
-      coreInteger('Amount', 'Amount', minimumValue: 0),
-      coreJson('Attributes', 'Attributes'),
-    ],
+    createFields: _invoiceLineCreateFields,
+    updateFields: _invoiceLineUpdateFields,
     searchFields: const <String>['Description'],
     defaultOrderBy: 'CreatedAt desc',
     allowCreate: true,
     allowUpdate: true,
+    refreshResourceKeys: const <String>['billing-invoices'],
   ),
-  _diagnostic(
-    key: 'billing-usage-allocations',
-    title: 'Usage Allocations',
-    entitySet: 'BillingUsageAllocations',
+  AcpResourceDescriptor(
+    key: 'billing-credit-notes',
+    group: 'Financial Records',
+    title: 'Credit Notes',
+    entitySet: 'BillingCreditNotes',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Tenant invoice corrections. Lifecycle status and timestamps remain display-only until guarded Core actions are available.',
     columns: <AcpColumnDescriptor>[
-      coreColumn('MeterCode', 'Meter Code'),
-      coreColumn('Quantity', 'Quantity'),
-      coreColumn('AllocatedAt', 'Allocated At', flex: 2),
+      coreColumn('Number', 'Number'),
+      coreColumn('Status', 'Status'),
+      coreColumn('Currency', 'Currency'),
+      coreColumn('TotalAmount', 'Total', money: true),
       coreColumn('AccountId', 'Account', flex: 2),
+      coreColumn('InvoiceId', 'Invoice', flex: 2),
+      coreColumn('IssuedAt', 'Issued At', flex: 2),
+      coreColumn('VoidedAt', 'Voided At', flex: 2),
+      coreColumn('RowVersion', 'Row Version'),
+    ],
+    createFields: _creditNoteCreateFields,
+    updateFields: _creditNoteUpdateFields,
+    searchFields: const <String>['Number', 'Status', 'Currency', 'ExternalRef'],
+    defaultOrderBy: 'CreatedAt desc',
+    allowCreate: true,
+    allowUpdate: true,
+  ),
+  AcpResourceDescriptor(
+    key: 'billing-adjustments',
+    group: 'Financial Records',
+    title: 'Financial Adjustments',
+    entitySet: 'BillingAdjustments',
+    scopeMode: AcpScopeMode.required,
+    description: 'Auditable tenant debit and credit corrections.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Kind', 'Kind'),
+      coreColumn('Currency', 'Currency'),
+      coreColumn('Amount', 'Amount', money: true),
+      coreColumn('OccurredAt', 'Occurred At', flex: 2),
+      coreColumn('Reason', 'Reason', flex: 3),
+      coreColumn('AccountId', 'Account', flex: 2),
+      coreColumn('InvoiceId', 'Invoice', flex: 2),
+      coreColumn('CreditNoteId', 'Credit Note', flex: 2),
+      coreColumn('RowVersion', 'Row Version'),
+    ],
+    createFields: _adjustmentCreateFields,
+    updateFields: _adjustmentUpdateFields,
+    searchFields: const <String>['Kind', 'Currency', 'Reason', 'ExternalRef'],
+    defaultOrderBy: 'OccurredAt desc',
+    allowCreate: true,
+    allowUpdate: true,
+    refreshResourceKeys: const <String>[
+      'billing-invoices',
+      'billing-credit-notes',
     ],
   ),
-  _diagnostic(
-    key: 'billing-runs',
-    title: 'Billing Runs',
-    entitySet: 'BillingRuns',
+  AcpResourceDescriptor(
+    key: 'billing-payments',
+    group: 'Financial Records',
+    title: 'Payments',
+    entitySet: 'BillingPayments',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Tenant payment records. Provider lifecycle status remains display-only until guarded Core actions are available.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Status', 'Status'),
-      coreColumn('PeriodStart', 'Period Start', flex: 2),
-      coreColumn('PeriodEnd', 'Period End', flex: 2),
-      coreColumn('CreatedAt', 'Created At', flex: 2),
+      coreColumn('Currency', 'Currency'),
+      coreColumn('Amount', 'Amount', money: true),
+      coreColumn('Provider', 'Provider'),
+      coreColumn('ExternalRef', 'External Reference'),
+      coreColumn('AccountId', 'Account', flex: 2),
+      coreColumn('InvoiceId', 'Invoice', flex: 2),
+      coreColumn('ReceivedAt', 'Received At', flex: 2),
+      coreColumn('FailedAt', 'Failed At', flex: 2),
+      coreColumn('RowVersion', 'Row Version'),
     ],
+    createFields: _paymentCreateFields,
+    updateFields: _paymentUpdateFields,
+    searchFields: const <String>[
+      'Status',
+      'Currency',
+      'Provider',
+      'ExternalRef',
+    ],
+    defaultOrderBy: 'CreatedAt desc',
+    allowCreate: true,
+    allowUpdate: true,
+  ),
+  AcpResourceDescriptor(
+    key: 'billing-payment-allocations',
+    group: 'Financial Records',
+    title: 'Payment Allocations',
+    entitySet: 'BillingPaymentAllocations',
+    scopeMode: AcpScopeMode.required,
+    description:
+        'Append-only payment-to-invoice allocations with guarded invoice synchronization.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('PaymentId', 'Payment', flex: 2),
+      coreColumn('InvoiceId', 'Invoice', flex: 2),
+      coreColumn('Amount', 'Amount', money: true),
+      coreColumn('AllocatedAt', 'Allocated At', flex: 2),
+      coreColumn('ExternalRef', 'External Reference'),
+      coreColumn('RowVersion', 'Row Version'),
+    ],
+    createFields: <AcpFieldDescriptor>[
+      _payment(required: true),
+      _invoice(required: true),
+      ..._currencyInternals,
+      coreMoney('Amount', 'Amount', required: true),
+    ],
+    entityActions: <AcpActionDescriptor>[
+      AcpActionDescriptor(
+        name: 'sync_invoice',
+        label: 'Sync Invoice',
+        target: AcpActionTarget.entity,
+        includeRowVersion: true,
+        confirmMessage:
+            'Recompute the related invoice totals and status from allocations?',
+        successMessage: 'Invoice synchronized.',
+        refreshResourceKeys: const <String>['billing-invoices'],
+      ),
+    ],
+    defaultOrderBy: 'AllocatedAt desc',
+    allowCreate: true,
+    refreshResourceKeys: const <String>['billing-invoices', 'billing-payments'],
+  ),
+  AcpResourceDescriptor(
+    key: 'billing-ledger-entries',
+    group: 'Financial Records',
+    title: 'Ledger Entries',
+    entitySet: 'BillingLedgerEntries',
+    scopeMode: AcpScopeMode.required,
+    description: 'Append-only tenant accounting ledger records.',
+    columns: <AcpColumnDescriptor>[
+      coreColumn('Direction', 'Direction'),
+      coreColumn('Currency', 'Currency'),
+      coreColumn('Amount', 'Amount', money: true),
+      coreColumn('OccurredAt', 'Occurred At', flex: 2),
+      coreColumn('Description', 'Description', flex: 3),
+      coreColumn('AccountId', 'Account', flex: 2),
+      coreColumn('InvoiceId', 'Invoice', flex: 2),
+      coreColumn('PaymentId', 'Payment', flex: 2),
+    ],
+    createFields: <AcpFieldDescriptor>[
+      _billingAccount(required: true),
+      _currency(required: true),
+      ..._currencyInternals,
+      coreText(
+        'Direction',
+        'Direction',
+        required: true,
+        options: const <String>['debit', 'credit'],
+      ),
+      coreMoney('Amount', 'Amount', required: true),
+    ],
+    searchFields: const <String>[
+      'Direction',
+      'Currency',
+      'Description',
+      'ExternalRef',
+    ],
+    defaultOrderBy: 'OccurredAt desc',
+    allowCreate: true,
   ),
 ];
 
+final List<AcpFieldDescriptor> _accountCreateFields = <AcpFieldDescriptor>[
+  coreText('Code', 'Code', required: true),
+  coreText('DisplayName', 'Display Name', required: true),
+  coreText('Email', 'Email', applyAfterCreate: true),
+  coreText('ExternalRef', 'External Reference', applyAfterCreate: true),
+  ..._accountDefaultReferences(applyAfterCreate: true),
+  coreJson('Attributes', 'Attributes', applyAfterCreate: true),
+];
+
+final List<AcpFieldDescriptor> _accountUpdateFields = <AcpFieldDescriptor>[
+  coreText('Code', 'Code', required: true),
+  coreText('DisplayName', 'Display Name', required: true),
+  coreText('Email', 'Email'),
+  coreText('ExternalRef', 'External Reference'),
+  ..._accountDefaultReferences(),
+  coreJson('Attributes', 'Attributes'),
+];
+
+List<AcpFieldDescriptor> _accountDefaultReferences({
+  bool applyAfterCreate = false,
+}) {
+  return <AcpFieldDescriptor>[
+    _currency(applyAfterCreate: applyAfterCreate),
+    ..._currencyInternals,
+    _taxCode(applyAfterCreate: applyAfterCreate),
+    _globalDefinition(
+      'PaymentTermId',
+      'Payment Terms',
+      'BillingPaymentTerms',
+      applyAfterCreate: applyAfterCreate,
+    ),
+    _globalDefinition(
+      'InvoiceTemplateId',
+      'Invoice Template',
+      'BillingInvoiceTemplates',
+      applyAfterCreate: applyAfterCreate,
+    ),
+    _globalDefinition(
+      'DiscountDefinitionId',
+      'Discount',
+      'BillingDiscountDefinitions',
+      applyAfterCreate: applyAfterCreate,
+    ),
+  ];
+}
+
+final List<AcpFieldDescriptor> _subscriptionCreateFields = <AcpFieldDescriptor>[
+  _billingAccount(required: true),
+  _recurringPrice(required: true),
+  _runDefinition(),
+  ..._inheritableReferences(),
+  coreDateTime('StartedAt', 'Started At'),
+  coreDateTime('CurrentPeriodStart', 'Current Period Start'),
+  coreDateTime('CurrentPeriodEnd', 'Current Period End'),
+  coreText('ExternalRef', 'External Reference'),
+  coreJson('Attributes', 'Attributes'),
+];
+
+final List<AcpFieldDescriptor> _subscriptionUpdateFields = <AcpFieldDescriptor>[
+  _runDefinition(),
+  ..._inheritableReferences(),
+  coreDateTime('CancelAt', 'Cancel At'),
+  coreText('ExternalRef', 'External Reference'),
+  coreJson('Attributes', 'Attributes'),
+];
+
+List<AcpFieldDescriptor> _inheritableReferences() {
+  return <AcpFieldDescriptor>[
+    _taxCode(hintText: 'Leave blank to inherit the Billing Account default.'),
+    _globalDefinition(
+      'PaymentTermId',
+      'Payment Terms',
+      'BillingPaymentTerms',
+      hintText: 'Leave blank to inherit the Billing Account default.',
+    ),
+    _globalDefinition(
+      'InvoiceTemplateId',
+      'Invoice Template',
+      'BillingInvoiceTemplates',
+      hintText: 'Leave blank to inherit the Billing Account default.',
+    ),
+    _globalDefinition(
+      'DiscountDefinitionId',
+      'Discount',
+      'BillingDiscountDefinitions',
+      hintText: 'Leave blank to inherit the Billing Account default.',
+    ),
+  ];
+}
+
+final List<AcpActionDescriptor> _subscriptionActions = <AcpActionDescriptor>[
+  _rowVersionAction(
+    'cancel',
+    'Cancel',
+    'Cancel this Subscription?',
+    statuses: const <Object>['active', 'trialing', 'paused'],
+  ),
+  _rowVersionAction(
+    'reactivate',
+    'Reactivate',
+    'Reactivate this Subscription and reconcile current entitlements?',
+    statuses: const <Object>['canceled', 'paused'],
+    refreshResourceKeys: const <String>['billing-entitlement-buckets'],
+  ),
+  AcpActionDescriptor(
+    name: 'advance_period',
+    label: 'Advance Period',
+    target: AcpActionTarget.entity,
+    includeRowVersion: true,
+    confirmMessage:
+        'Open the next Subscription period and provision entitlements?',
+    successMessage: 'Subscription period advanced.',
+    fields: _optionalPeriodFields,
+    payloadValidator: validateOptionalPeriodPayload,
+    visibleWhenEquals: const <String, List<Object>>{
+      'Status': <Object>['active', 'trialing'],
+    },
+    refreshResourceKeys: const <String>['billing-entitlement-buckets'],
+  ),
+  AcpActionDescriptor(
+    name: 'reconcile_entitlements',
+    label: 'Reconcile Entitlements',
+    target: AcpActionTarget.entity,
+    includeRowVersion: true,
+    confirmMessage:
+        'Idempotently reconcile missing current-period entitlement buckets?',
+    successMessage: 'Subscription entitlements reconciled.',
+    fields: _optionalPeriodFields,
+    payloadValidator: validateOptionalPeriodPayload,
+    visibleWhenEquals: const <String, List<Object>>{
+      'Status': <Object>['active', 'trialing', 'paused'],
+    },
+    refreshResourceKeys: const <String>['billing-entitlement-buckets'],
+  ),
+];
+
+final List<AcpFieldDescriptor> _optionalPeriodFields = <AcpFieldDescriptor>[
+  coreDateTime('PeriodStart', 'Period Start'),
+  coreDateTime('PeriodEnd', 'Period End'),
+];
+
+final AcpActionDescriptor _entitlementAdjustAction = AcpActionDescriptor(
+  name: 'adjust',
+  label: 'Adjust Balance',
+  target: AcpActionTarget.entity,
+  includeRowVersion: true,
+  confirmMessage: 'Apply this audited entitlement adjustment?',
+  successMessage: 'Entitlement adjustment applied.',
+  fields: <AcpFieldDescriptor>[
+    coreText('IncludedQuantity', 'Original Included Quantity', readOnly: true),
+    coreText('ConsumedQuantity', 'Consumed Quantity', readOnly: true),
+    coreText('RolloverQuantity', 'Rollover Quantity', readOnly: true),
+    coreText('AdjustmentQuantity', 'Existing Adjustments', readOnly: true),
+    coreInteger('QuantityDelta', 'Quantity Delta', required: true),
+    coreComputed(
+      'BalanceImpact',
+      'Resulting Balance Impact',
+      adjustmentPreview,
+    ),
+    coreMultiline('Reason', 'Reason', required: true),
+    coreText(
+      'IdempotencyKey',
+      'Idempotency Key',
+      required: true,
+      initialValueFactory: newBillingIdempotencyKey,
+    ),
+  ],
+  payloadValidator: validateEntitlementAdjustmentPayload,
+  refreshResourceKeys: const <String>['billing-entitlement-adjustments'],
+);
+
+final List<AcpFieldDescriptor> _billingRunCreateFields = <AcpFieldDescriptor>[
+  _billingRunDefinition(required: true),
+  _billingAccount(),
+  _billingSubscription(),
+  coreDateTime('PeriodStart', 'Period Start', required: true),
+  coreDateTime('PeriodEnd', 'Period End', required: true),
+  coreText(
+    'IdempotencyKey',
+    'Idempotency Key',
+    required: true,
+    initialValueFactory: newBillingIdempotencyKey,
+  ),
+  coreText('ExternalRef', 'External Reference'),
+  coreJson('Attributes', 'Attributes'),
+];
+
+final List<AcpActionDescriptor> _billingRunActions = <AcpActionDescriptor>[
+  _rowVersionAction(
+    'start',
+    'Start',
+    'Start this Billing Run?',
+    statuses: const <Object>['pending'],
+  ),
+  _rowVersionAction(
+    'complete',
+    'Complete',
+    'Complete this Billing Run?',
+    statuses: const <Object>['running'],
+    refreshResourceKeys: const <String>[
+      'billing-invoices',
+      'billing-entitlement-buckets',
+    ],
+  ),
+  AcpActionDescriptor(
+    name: 'fail',
+    label: 'Fail',
+    target: AcpActionTarget.entity,
+    includeRowVersion: true,
+    confirmMessage: 'Mark this Billing Run failed?',
+    fields: <AcpFieldDescriptor>[
+      coreText('FailureCode', 'Failure Code', required: true),
+      coreMultiline('FailureDetail', 'Failure Detail', required: true),
+    ],
+    visibleWhenEquals: const <String, List<Object>>{
+      'Status': <Object>['running'],
+    },
+  ),
+  _rowVersionAction(
+    'cancel',
+    'Cancel',
+    'Cancel this Billing Run?',
+    statuses: const <Object>['pending', 'running'],
+  ),
+  AcpActionDescriptor(
+    name: 'retry',
+    label: 'Retry',
+    target: AcpActionTarget.entity,
+    includeRowVersion: true,
+    confirmMessage: 'Create a retry attempt for this failed Billing Run?',
+    fields: <AcpFieldDescriptor>[
+      coreText(
+        'IdempotencyKey',
+        'Idempotency Key',
+        required: true,
+        initialValueFactory: newBillingIdempotencyKey,
+      ),
+    ],
+    visibleWhenEquals: const <String, List<Object>>{
+      'Status': <Object>['failed'],
+    },
+  ),
+  _rowVersionAction(
+    'reconcile_entitlements',
+    'Reconcile Entitlements',
+    'Idempotently reconcile this Billing Run entitlement output?',
+    statuses: const <Object>['running', 'succeeded', 'failed'],
+    refreshResourceKeys: const <String>['billing-entitlement-buckets'],
+  ),
+];
+
+final List<AcpFieldDescriptor> _invoiceCreateFields = <AcpFieldDescriptor>[
+  _billingAccount(required: true),
+  _billingSubscription(),
+  _billingRun(),
+  _currency(
+    hintText:
+        'Leave blank to inherit the Subscription Price or Billing Account currency.',
+  ),
+  ..._currencyInternals,
+  ..._inheritableReferences(),
+  coreText('Number', 'Invoice Number', applyAfterCreate: true),
+  coreDateTime('DueAt', 'Due At', applyAfterCreate: true),
+  coreMoney('SubtotalAmount', 'Subtotal Amount', applyAfterCreate: true),
+  coreMoney('TaxAmount', 'Tax Amount', applyAfterCreate: true),
+  coreMoney('TotalAmount', 'Total Amount', applyAfterCreate: true),
+  coreJson('Attributes', 'Attributes', applyAfterCreate: true),
+];
+
+final List<AcpFieldDescriptor> _invoiceUpdateFields = <AcpFieldDescriptor>[
+  _billingAccount(required: true),
+  _billingSubscription(),
+  _billingRun(),
+  _currency(),
+  ..._currencyInternals,
+  ..._inheritableReferences(),
+  coreText('Number', 'Invoice Number'),
+  coreDateTime('DueAt', 'Due At'),
+  coreMoney('SubtotalAmount', 'Subtotal Amount'),
+  coreMoney('TaxAmount', 'Tax Amount'),
+  coreMoney('TotalAmount', 'Total Amount'),
+  coreJson('Attributes', 'Attributes'),
+];
+
+final List<AcpActionDescriptor> _invoiceActions = <AcpActionDescriptor>[
+  _rowVersionAction(
+    'issue',
+    'Issue',
+    'Issue this draft Invoice?',
+    statuses: const <Object>['draft'],
+  ),
+  _rowVersionAction(
+    'void',
+    'Void',
+    'Void this Invoice? This cannot be undone.',
+    statuses: const <Object>['draft', 'issued'],
+  ),
+  _rowVersionAction(
+    'mark_paid',
+    'Mark Paid',
+    'Mark this issued Invoice as paid?',
+    statuses: const <Object>['issued'],
+  ),
+];
+
+final List<AcpFieldDescriptor> _invoiceLineCreateFields = <AcpFieldDescriptor>[
+  _invoice(required: true, draftOnly: true),
+  coreInternalText('_CurrencyMinorUnit'),
+  coreInternalText('_CurrencyCode'),
+  _globalPrice(),
+  _taxCode(),
+  _taxRate(),
+  coreInteger(
+    'Quantity',
+    'Quantity',
+    required: true,
+    minimumValue: 1,
+    initialValue: 1,
+  ),
+  coreMoney('Amount', 'Amount', required: true),
+  coreMultiline('Description', 'Description', applyAfterCreate: true),
+  coreDateTime('PeriodStart', 'Period Start', applyAfterCreate: true),
+  coreDateTime('PeriodEnd', 'Period End', applyAfterCreate: true),
+  coreMoney('UnitAmount', 'Unit Amount', applyAfterCreate: true),
+  coreJson('Attributes', 'Attributes', applyAfterCreate: true),
+];
+
+final List<AcpFieldDescriptor> _invoiceLineUpdateFields = <AcpFieldDescriptor>[
+  ..._currencyInternals,
+  _globalPrice(),
+  _taxCode(),
+  _taxRate(),
+  coreMultiline('Description', 'Description'),
+  coreDateTime('PeriodStart', 'Period Start'),
+  coreDateTime('PeriodEnd', 'Period End'),
+  coreInteger('Quantity', 'Quantity', required: true, minimumValue: 1),
+  coreMoney('UnitAmount', 'Unit Amount'),
+  coreMoney('Amount', 'Amount', required: true),
+  coreJson('Attributes', 'Attributes'),
+];
+
+final List<AcpFieldDescriptor> _creditNoteCreateFields = <AcpFieldDescriptor>[
+  _billingAccount(required: true),
+  _currency(required: true),
+  ..._currencyInternals,
+  _invoice(applyAfterCreate: true),
+  coreText('Number', 'Number', applyAfterCreate: true),
+  coreMoney(
+    'TotalAmount',
+    'Total Amount',
+    required: true,
+    applyAfterCreate: true,
+  ),
+  coreText('ExternalRef', 'External Reference', applyAfterCreate: true),
+  coreJson('Attributes', 'Attributes', applyAfterCreate: true),
+];
+
+final List<AcpFieldDescriptor> _creditNoteUpdateFields = <AcpFieldDescriptor>[
+  _invoice(),
+  _currency(required: true),
+  ..._currencyInternals,
+  coreText('Number', 'Number'),
+  coreMoney('TotalAmount', 'Total Amount', required: true),
+  coreText('ExternalRef', 'External Reference'),
+  coreJson('Attributes', 'Attributes'),
+];
+
+final List<AcpFieldDescriptor> _adjustmentCreateFields = <AcpFieldDescriptor>[
+  _billingAccount(required: true),
+  _currency(required: true),
+  ..._currencyInternals,
+  coreText(
+    'Kind',
+    'Kind',
+    required: true,
+    options: const <String>['credit', 'debit'],
+  ),
+  coreMoney('Amount', 'Amount', required: true),
+  _invoice(applyAfterCreate: true),
+  _creditNote(applyAfterCreate: true),
+  coreDateTime('OccurredAt', 'Occurred At', applyAfterCreate: true),
+  coreMultiline('Reason', 'Reason', applyAfterCreate: true),
+  coreText('ExternalRef', 'External Reference', applyAfterCreate: true),
+  coreJson('Attributes', 'Attributes', applyAfterCreate: true),
+];
+
+final List<AcpFieldDescriptor> _adjustmentUpdateFields = <AcpFieldDescriptor>[
+  _invoice(),
+  _creditNote(),
+  _currency(required: true),
+  ..._currencyInternals,
+  coreDateTime('OccurredAt', 'Occurred At'),
+  coreMultiline('Reason', 'Reason'),
+  coreText('ExternalRef', 'External Reference'),
+  coreJson('Attributes', 'Attributes'),
+];
+
+final List<AcpFieldDescriptor> _paymentCreateFields = <AcpFieldDescriptor>[
+  _billingAccount(required: true),
+  _currency(required: true),
+  ..._currencyInternals,
+  coreMoney('Amount', 'Amount', required: true),
+  _invoice(applyAfterCreate: true),
+  coreText('Provider', 'Provider', applyAfterCreate: true),
+  coreText('ExternalRef', 'External Reference', applyAfterCreate: true),
+  coreJson('Attributes', 'Attributes', applyAfterCreate: true),
+];
+
+final List<AcpFieldDescriptor> _paymentUpdateFields = <AcpFieldDescriptor>[
+  _invoice(),
+  _currency(required: true),
+  ..._currencyInternals,
+  coreMoney('Amount', 'Amount', required: true),
+  coreText('Provider', 'Provider'),
+  coreText('ExternalRef', 'External Reference'),
+  coreJson('Attributes', 'Attributes'),
+];
+
+List<AcpFieldDescriptor> get _currencyInternals => <AcpFieldDescriptor>[
+  coreInternalText('_CurrencyMinorUnit'),
+  coreInternalText('_CurrencyCode'),
+];
+
 AcpFieldDescriptor _billingAccount({bool required = false}) {
-  return coreReference(
+  return _tenantReference(
     'AccountId',
     'Billing Account',
     entitySet: 'BillingAccounts',
-    scopeMode: AcpScopeMode.required,
     required: required,
-    searchFields: const <String>['AccountNumber', 'DisplayName', 'ExternalRef'],
-    titleFields: const <String>['DisplayName', 'AccountNumber'],
-    subtitleFields: const <String>['AccountNumber', 'Status', 'Id'],
-    defaultOrderBy: 'DisplayName asc',
+    searchFields: const <String>['Code', 'DisplayName', 'Email', 'ExternalRef'],
+    titleFields: const <String>['DisplayName', 'Code'],
+    subtitleFields: const <String>['Code', 'Email', 'ExternalRef'],
   );
 }
 
-AcpFieldDescriptor _billingSubscription({bool applyAfterCreate = false}) {
-  return coreReference(
+AcpFieldDescriptor _billingSubscription({bool required = false}) {
+  return _tenantReference(
     'SubscriptionId',
     'Subscription',
     entitySet: 'BillingSubscriptions',
-    scopeMode: AcpScopeMode.required,
-    applyAfterCreate: applyAfterCreate,
+    required: required,
     searchFields: const <String>['ExternalRef', 'Status'],
     titleFields: const <String>['ExternalRef', 'Id'],
-    subtitleFields: const <String>['Status', 'Id'],
-    defaultOrderBy: 'CreatedAt desc',
+    subtitleFields: const <String>['Status', 'CurrentPeriodStart', 'Id'],
+    filterFieldsFromForm: const <String, String>{'AccountId': 'AccountId'},
   );
 }
 
-AcpFieldDescriptor _invoice({bool required = false}) {
-  return coreReference(
+AcpFieldDescriptor _invoice({
+  bool required = false,
+  bool draftOnly = false,
+  bool applyAfterCreate = false,
+}) {
+  return _tenantReference(
     'InvoiceId',
     'Invoice',
     entitySet: 'BillingInvoices',
-    scopeMode: AcpScopeMode.required,
     required: required,
+    applyAfterCreate: applyAfterCreate,
     searchFields: const <String>['Number', 'Status', 'Currency'],
     titleFields: const <String>['Number', 'Id'],
-    subtitleFields: const <String>['Status', 'Currency', 'Id'],
-    defaultOrderBy: 'CreatedAt desc',
-    extraFilters: const <String>["Status eq 'draft'"],
+    subtitleFields: const <String>['Status', 'Currency', 'TotalAmount'],
+    extraFilters: draftOnly ? const <String>["Status eq 'draft'"] : const [],
+    filterFieldsFromForm: const <String, String>{'AccountId': 'AccountId'},
+    retainHistoricalSelection: true,
+    copyFieldsFromSelection: const <String, String>{
+      'Currency': '_CurrencyCode',
+      '_CurrencyMinorUnit': '_CurrencyMinorUnit',
+    },
   );
 }
 
-AcpFieldDescriptor _price({bool applyAfterCreate = false}) {
+AcpFieldDescriptor _payment({bool required = false}) {
+  return _tenantReference(
+    'PaymentId',
+    'Payment',
+    entitySet: 'BillingPayments',
+    required: required,
+    searchFields: const <String>['ExternalRef', 'Status', 'Currency'],
+    titleFields: const <String>['ExternalRef', 'Id'],
+    subtitleFields: const <String>['Status', 'Currency', 'Amount'],
+    copyFieldsFromSelection: const <String, String>{
+      'Currency': '_CurrencyCode',
+      '_CurrencyMinorUnit': '_CurrencyMinorUnit',
+    },
+  );
+}
+
+AcpFieldDescriptor _creditNote({bool applyAfterCreate = false}) {
+  return _tenantReference(
+    'CreditNoteId',
+    'Credit Note',
+    entitySet: 'BillingCreditNotes',
+    applyAfterCreate: applyAfterCreate,
+    searchFields: const <String>['Number', 'Status', 'ExternalRef'],
+    titleFields: const <String>['Number', 'Id'],
+    subtitleFields: const <String>['Status', 'Currency', 'TotalAmount'],
+  );
+}
+
+AcpFieldDescriptor _billingRun() {
+  return _tenantReference(
+    'BillingRunId',
+    'Billing Run',
+    entitySet: 'BillingRuns',
+    searchFields: const <String>['Status', 'ExternalRef', 'IdempotencyKey'],
+    titleFields: const <String>['ExternalRef', 'Id'],
+    subtitleFields: const <String>['Status', 'PeriodStart', 'PeriodEnd'],
+  );
+}
+
+AcpFieldDescriptor _tenantReference(
+  String key,
+  String label, {
+  required String entitySet,
+  bool required = false,
+  bool applyAfterCreate = false,
+  List<String> searchFields = const <String>[],
+  List<String> titleFields = const <String>[],
+  List<String> subtitleFields = const <String>[],
+  List<String> extraFilters = const <String>[],
+  Map<String, String> filterFieldsFromForm = const <String, String>{},
+  Map<String, String> copyFieldsFromSelection = const <String, String>{},
+  bool retainHistoricalSelection = false,
+}) {
+  return coreReference(
+    key,
+    label,
+    entitySet: entitySet,
+    scopeMode: AcpScopeMode.required,
+    required: required,
+    applyAfterCreate: applyAfterCreate,
+    searchFields: searchFields,
+    titleFields: titleFields,
+    subtitleFields: subtitleFields,
+    defaultOrderBy: 'CreatedAt desc',
+    extraFilters: extraFilters,
+    filterFieldsFromForm: filterFieldsFromForm,
+    copyFieldsFromSelection: copyFieldsFromSelection,
+    retainHistoricalSelection: retainHistoricalSelection,
+  );
+}
+
+AcpFieldDescriptor _recurringPrice({bool required = false}) {
+  return coreReference(
+    'PriceId',
+    'Recurring Package Price',
+    entitySet: 'BillingPrices',
+    scopeMode: AcpScopeMode.none,
+    required: required,
+    searchFields: const <String>['Code', 'Currency'],
+    titleFields: const <String>['Code'],
+    subtitleFields: const <String>[
+      'Currency',
+      'UnitAmount',
+      'IntervalUnit',
+      'IntervalCount',
+    ],
+    defaultOrderBy: 'Code asc',
+    extraFilters: const <String>["PriceType eq 'recurring'"],
+    retainHistoricalSelection: true,
+  );
+}
+
+AcpFieldDescriptor _globalPrice() {
   return coreReference(
     'PriceId',
     'Price',
     entitySet: 'BillingPrices',
     scopeMode: AcpScopeMode.none,
-    applyAfterCreate: applyAfterCreate,
-    searchFields: const <String>['Code', 'MeterCode', 'Currency'],
+    searchFields: const <String>['Code', 'Currency', 'MeterCode'],
     titleFields: const <String>['Code'],
-    subtitleFields: const <String>['PriceType', 'Currency', 'MeterCode', 'Id'],
+    subtitleFields: const <String>['PriceType', 'Currency', 'MeterCode'],
     defaultOrderBy: 'Code asc',
+    retainHistoricalSelection: true,
   );
 }
 
-AcpResourceDescriptor _diagnostic({
+AcpFieldDescriptor _globalMeter({bool required = false}) {
+  return coreReference(
+    'MeterDefinitionId',
+    'Meter Definition',
+    entitySet: 'BillingMeterDefinitions',
+    scopeMode: AcpScopeMode.none,
+    required: required,
+    searchFields: const <String>['Code', 'Unit', 'Description'],
+    titleFields: const <String>['Code'],
+    subtitleFields: const <String>['Unit', 'AggregationMode', 'IsActive'],
+    defaultOrderBy: 'Code asc',
+    extraFilters: const <String>['IsActive eq true'],
+    retainHistoricalSelection: true,
+  );
+}
+
+AcpFieldDescriptor _currency({
+  bool required = false,
+  bool applyAfterCreate = false,
+  String? hintText,
+}) {
+  return coreReference(
+    'CurrencyDefinitionId',
+    'Currency',
+    entitySet: 'BillingCurrencyDefinitions',
+    scopeMode: AcpScopeMode.none,
+    required: required,
+    applyAfterCreate: applyAfterCreate,
+    searchFields: const <String>['Code', 'NumericCode', 'DisplayName'],
+    titleFields: const <String>['Code', 'DisplayName'],
+    subtitleFields: const <String>['DisplayName', 'MinorUnit', 'IsActive'],
+    defaultOrderBy: 'Code asc',
+    extraFilters: const <String>['IsActive eq true'],
+    copyFieldsFromSelection: const <String, String>{
+      'MinorUnit': '_CurrencyMinorUnit',
+      'Code': '_CurrencyCode',
+    },
+    retainHistoricalSelection: true,
+    hintText: hintText,
+  );
+}
+
+AcpFieldDescriptor _taxCode({bool applyAfterCreate = false, String? hintText}) {
+  return _globalDefinition(
+    'TaxCodeId',
+    'Tax Code',
+    'BillingTaxCodes',
+    applyAfterCreate: applyAfterCreate,
+    hintText: hintText,
+  );
+}
+
+AcpFieldDescriptor _taxRate() {
+  return _globalDefinition(
+    'TaxRateId',
+    'Tax Rate',
+    'BillingTaxRates',
+    filterFieldsFromForm: const <String, String>{'TaxCodeId': 'TaxCodeId'},
+  );
+}
+
+AcpFieldDescriptor _runDefinition({bool required = false}) {
+  return _globalDefinition(
+    'RunDefinitionId',
+    'Run Definition',
+    'BillingRunDefinitions',
+    required: required,
+  );
+}
+
+AcpFieldDescriptor _billingRunDefinition({bool required = false}) {
+  return _globalDefinition(
+    'DefinitionId',
+    'Run Definition',
+    'BillingRunDefinitions',
+    required: required,
+  );
+}
+
+AcpFieldDescriptor _globalDefinition(
+  String key,
+  String label,
+  String entitySet, {
+  bool required = false,
+  bool applyAfterCreate = false,
+  String? hintText,
+  Map<String, String> filterFieldsFromForm = const <String, String>{},
+}) {
+  return coreReference(
+    key,
+    label,
+    entitySet: entitySet,
+    scopeMode: AcpScopeMode.none,
+    required: required,
+    applyAfterCreate: applyAfterCreate,
+    searchFields: const <String>['Code', 'DisplayName', 'Description'],
+    titleFields: const <String>['Code', 'DisplayName'],
+    subtitleFields: const <String>['DisplayName', 'Description', 'IsActive'],
+    defaultOrderBy: 'Code asc',
+    extraFilters: const <String>['IsActive eq true'],
+    filterFieldsFromForm: filterFieldsFromForm,
+    retainHistoricalSelection: true,
+    hintText: hintText,
+  );
+}
+
+AcpActionDescriptor _rowVersionAction(
+  String name,
+  String label,
+  String confirmMessage, {
+  required List<Object> statuses,
+  List<String> refreshResourceKeys = const <String>[],
+}) {
+  return AcpActionDescriptor(
+    name: name,
+    label: label,
+    target: AcpActionTarget.entity,
+    includeRowVersion: true,
+    confirmMessage: confirmMessage,
+    successMessage: '$label completed.',
+    visibleWhenEquals: <String, List<Object>>{'Status': statuses},
+    refreshResourceKeys: refreshResourceKeys,
+  );
+}
+
+AcpResourceDescriptor _readOnlyResource({
   required String key,
+  required String group,
   required String title,
   required String entitySet,
+  required String description,
   required List<AcpColumnDescriptor> columns,
 }) {
   return AcpResourceDescriptor(
     key: key,
+    group: group,
     title: title,
     entitySet: entitySet,
     scopeMode: AcpScopeMode.required,
-    description: 'Read-only operational diagnostics.',
+    description: description,
     columns: columns,
     defaultOrderBy: 'CreatedAt desc',
   );
+}
+
+Object? remainingEntitlementQuantity(AcpRow row) {
+  int value(String key) => int.tryParse(row[key]?.toString() ?? '') ?? 0;
+  return value('IncludedQuantity') +
+      value('RolloverQuantity') +
+      value('AdjustmentQuantity') -
+      value('ConsumedQuantity');
+}
+
+String adjustmentPreview(Map<String, String> values) {
+  int value(String key) => int.tryParse(values[key] ?? '') ?? 0;
+  final included = value('IncludedQuantity');
+  final consumed = value('ConsumedQuantity');
+  final rollover = value('RolloverQuantity');
+  final adjustmentBefore = value('AdjustmentQuantity');
+  final delta = value('QuantityDelta');
+  final adjustmentAfter = adjustmentBefore + delta;
+  final capacityAfter = included + rollover + adjustmentAfter;
+  final remainingAfter = capacityAfter - consumed;
+  return 'Adjustment: $adjustmentBefore → $adjustmentAfter; '
+      'capacity after: $capacityAfter; remaining after: $remainingAfter.';
+}
+
+Object newBillingIdempotencyKey() {
+  return 'billing-ui-${DateTime.now().microsecondsSinceEpoch}';
+}
+
+String? validateSubscriptionPayload(Map<String, dynamic> payload) {
+  return _validatePeriodPair(payload, 'CurrentPeriodStart', 'CurrentPeriodEnd');
+}
+
+String? validateOptionalPeriodPayload(Map<String, dynamic> payload) {
+  return _validatePeriodPair(payload, 'PeriodStart', 'PeriodEnd');
+}
+
+String? validateBillingRunPayload(Map<String, dynamic> payload) {
+  final periodError = _validatePeriodPair(
+    payload,
+    'PeriodStart',
+    'PeriodEnd',
+    required: true,
+  );
+  if (periodError != null) {
+    return periodError;
+  }
+  if (payload['SubscriptionId'] != null && payload['AccountId'] == null) {
+    return 'Subscription-scoped Billing Runs also require a Billing Account.';
+  }
+  return null;
+}
+
+String? validateInvoicePayload(Map<String, dynamic> payload) {
+  final hasManualAmount = <String>[
+    'SubtotalAmount',
+    'TaxAmount',
+    'TotalAmount',
+  ].any((key) => payload[key] != null);
+  if (hasManualAmount && payload['CurrencyDefinitionId'] == null) {
+    return 'Select an explicit Currency when entering invoice amounts; leave amounts blank to use inherited defaults and line totals.';
+  }
+  return null;
+}
+
+String? validateEntitlementAdjustmentPayload(Map<String, dynamic> payload) {
+  final delta = payload['QuantityDelta'];
+  if (delta is! int || delta == 0) {
+    return 'Quantity Delta must be a non-zero whole number.';
+  }
+  if ((payload['Reason']?.toString().trim() ?? '').isEmpty) {
+    return 'A reason is required for the audit history.';
+  }
+  if ((payload['IdempotencyKey']?.toString().trim() ?? '').isEmpty) {
+    return 'An Idempotency Key is required.';
+  }
+  return null;
+}
+
+String? _validatePeriodPair(
+  Map<String, dynamic> payload,
+  String startKey,
+  String endKey, {
+  bool required = false,
+}) {
+  final startValue = payload[startKey]?.toString();
+  final endValue = payload[endKey]?.toString();
+  final hasStart = startValue != null && startValue.isNotEmpty;
+  final hasEnd = endValue != null && endValue.isNotEmpty;
+  if (required && (!hasStart || !hasEnd)) {
+    return '$startKey and $endKey are required.';
+  }
+  if (hasStart != hasEnd) {
+    return '$startKey and $endKey must be provided together.';
+  }
+  if (!hasStart) {
+    return null;
+  }
+  final start = DateTime.tryParse(startValue);
+  final end = DateTime.tryParse(endValue!);
+  if (start == null || end == null || !end.isAfter(start)) {
+    return '$endKey must be later than $startKey.';
+  }
+  return null;
 }

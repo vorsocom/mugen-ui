@@ -10,7 +10,8 @@ abstract class AcpAdminRepository {
     required PageRequest pageRequest,
     String? tenantId,
     String? searchTerm,
-    List<String> extraFilters,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
   });
 
   Future<Result<AcpRow>> fetchRow({

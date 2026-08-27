@@ -1,3 +1,4 @@
+import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 
 class AcpQueryBuilder {
@@ -9,8 +10,15 @@ class AcpQueryBuilder {
     String? searchTerm,
     List<String> searchFields = const <String>[],
     List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
   }) {
     final queryParameters = <String, dynamic>{r'$count': true};
+
+    if (deletedView != AcpDeletedView.active) {
+      queryParameters[r'$deleted'] = deletedView == AcpDeletedView.all
+          ? 'all'
+          : 'archived';
+    }
 
     if (orderBy != null && orderBy.trim().isNotEmpty) {
       queryParameters[r'$orderby'] = orderBy.trim();

@@ -17,6 +17,7 @@ import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart'
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_repository.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
+import 'package:mugen_ui/shared/infrastructure/acp_admin/billing_acp_admin_repository.dart';
 
 const String billingPluginToken = 'core.fw.billing';
 const String connectorPluginToken = 'core.fw.ops_connector';
@@ -98,6 +99,13 @@ final billingOperationsControllerProvider =
     StateNotifierProvider<BillingOperationsController, AcpAdminState>((ref) {
       return BillingOperationsController(ref);
     });
+final billingOperationsAdminRepositoryProvider = Provider<AcpAdminRepository>((
+  ref,
+) {
+  return BillingAcpAdminRepository(
+    ref.watch(coreProvisioningAdminRepositoryProvider),
+  );
+});
 final connectorAdminControllerProvider =
     StateNotifierProvider<ConnectorAdminController, AcpAdminState>((ref) {
       return ConnectorAdminController(ref);
@@ -120,18 +128,27 @@ final reportingAdminControllerProvider =
     });
 
 abstract class _CoreProvisioningController extends AcpAdminController {
-  _CoreProvisioningController(Ref ref, List<AcpResourceDescriptor> descriptors)
-    : super(
-        repository: ref.read(coreProvisioningAdminRepositoryProvider),
-        descriptors: descriptors,
-        onSessionExpired: () {
-          ref.read(authControllerProvider.notifier).refreshSession();
-        },
-      );
+  _CoreProvisioningController(
+    Ref ref,
+    List<AcpResourceDescriptor> descriptors, {
+    AcpAdminRepository? repository,
+  }) : super(
+         repository:
+             repository ?? ref.read(coreProvisioningAdminRepositoryProvider),
+         descriptors: descriptors,
+         onSessionExpired: () {
+           ref.read(authControllerProvider.notifier).refreshSession();
+         },
+       );
 }
 
 class BillingOperationsController extends _CoreProvisioningController {
-  BillingOperationsController(Ref ref) : super(ref, billingOperationsResources);
+  BillingOperationsController(Ref ref)
+    : super(
+        ref,
+        billingOperationsResources,
+        repository: ref.read(billingOperationsAdminRepositoryProvider),
+      );
 }
 
 class ConnectorAdminController extends _CoreProvisioningController {

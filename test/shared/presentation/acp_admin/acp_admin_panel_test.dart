@@ -626,6 +626,243 @@ void main() {
     expect(repository.createPayloads.single['BusinessDays'], <int>[1, 3, 7]);
   });
 
+  testWidgets(
+    'money fields use selected currency precision and omit helper metadata',
+    (WidgetTester tester) async {
+      final repository = _ReferenceAcpAdminRepository();
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: const <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'payments',
+            title: 'Payments',
+            entitySet: 'Payments',
+            scopeMode: AcpScopeMode.none,
+            columns: <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Amount', label: 'Amount', money: true),
+            ],
+            createFields: <AcpFieldDescriptor>[
+              AcpFieldDescriptor(
+                key: 'CurrencyDefinitionId',
+                label: 'Currency',
+                required: true,
+                reference: AcpFieldReferenceDescriptor(
+                  entitySet: 'BillingCurrencyDefinitions',
+                  scopeMode: AcpScopeMode.none,
+                  title: 'Currencies',
+                  extraFilters: <String>['IsActive eq true'],
+                  copyFieldsFromSelection: <String, String>{
+                    'MinorUnit': '_CurrencyMinorUnit',
+                    'Code': '_CurrencyCode',
+                  },
+                ),
+              ),
+              AcpFieldDescriptor(
+                key: '_CurrencyMinorUnit',
+                label: 'Minor Unit',
+                hidden: true,
+                includeInPayload: false,
+              ),
+              AcpFieldDescriptor(
+                key: '_CurrencyCode',
+                label: 'Currency Code',
+                hidden: true,
+                includeInPayload: false,
+              ),
+              AcpFieldDescriptor(
+                key: 'Amount',
+                label: 'Amount',
+                kind: AcpFieldKind.money,
+                required: true,
+                minorUnitFieldKey: '_CurrencyMinorUnit',
+                currencyCodeFieldKey: '_CurrencyCode',
+              ),
+            ],
+            allowCreate: true,
+          ),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('acp-reference-search-CurrencyDefinitionId')),
+        'KWD',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          const Key('acp-reference-option-CurrencyDefinitionId-currency-kwd'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Amount')),
+        '12.3456',
+      );
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('3 decimal places'), findsWidgets);
+      expect(repository.createPayloads, isEmpty);
+
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Amount')),
+        '12.345',
+      );
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(repository.createPayloads.single, <String, Object?>{
+        'CurrencyDefinitionId': 'currency-kwd',
+        'Amount': 12345,
+      });
+      expect(repository.referenceFilters, contains('IsActive eq true'));
+    },
+  );
+
+  testWidgets('conditional references clear stale values and preview impacts', (
+    WidgetTester tester,
+  ) async {
+    final repository = _ReferenceAcpAdminRepository();
+    await _pumpPanel(
+      tester,
+      repository: repository,
+      descriptors: <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'prices',
+          title: 'Prices',
+          entitySet: 'Prices',
+          scopeMode: AcpScopeMode.none,
+          columns: const <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'PriceType', label: 'Type'),
+          ],
+          createFields: <AcpFieldDescriptor>[
+            const AcpFieldDescriptor(
+              key: 'PriceType',
+              label: 'Price Type',
+              initialValue: 'metered',
+              options: <String>['metered', 'recurring'],
+            ),
+            const AcpFieldDescriptor(
+              key: 'MeterDefinitionId',
+              label: 'Meter',
+              visibleWhenEquals: <String, List<Object>>{
+                'PriceType': <Object>['metered'],
+              },
+              clearWhenHidden: true,
+              submitNullWhenHidden: true,
+              reference: AcpFieldReferenceDescriptor(
+                entitySet: 'BillingMeterDefinitions',
+                scopeMode: AcpScopeMode.none,
+                title: 'Meters',
+              ),
+            ),
+            const AcpFieldDescriptor(
+              key: 'QuantityDelta',
+              label: 'Quantity Delta',
+              kind: AcpFieldKind.integer,
+            ),
+            AcpFieldDescriptor(
+              key: 'Impact',
+              label: 'Impact',
+              kind: AcpFieldKind.computed,
+              readOnly: true,
+              includeInPayload: false,
+              computedValueBuilder: (values) =>
+                  'Result: ${values['QuantityDelta'] ?? '0'}',
+            ),
+          ],
+          allowCreate: true,
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('acp-reference-search-MeterDefinitionId')),
+      'api',
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('acp-reference-option-MeterDefinitionId-meter-api')),
+    );
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-QuantityDelta')),
+      '8',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('acp-dynamic-field-Impact')),
+        matching: find.text('Result: 8'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('acp-dynamic-field-PriceType')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('recurring').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('acp-reference-search-MeterDefinitionId')),
+      findsNothing,
+    );
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(repository.createPayloads.single, <String, Object?>{
+      'PriceType': 'recurring',
+      'MeterDefinitionId': null,
+      'QuantityDelta': 8,
+    });
+  });
+
+  testWidgets('archived lifecycle view offers restore without archive', (
+    WidgetTester tester,
+  ) async {
+    final repository = _ArchivedAcpAdminRepository();
+    await _pumpPanel(
+      tester,
+      repository: repository,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'products',
+          title: 'Products',
+          entitySet: 'Products',
+          scopeMode: AcpScopeMode.none,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'Code', label: 'Code'),
+          ],
+          entityActions: <AcpActionDescriptor>[
+            AcpActionDescriptor(
+              name: 'archive',
+              label: 'Archive',
+              target: AcpActionTarget.entity,
+              includeRowVersion: true,
+            ),
+          ],
+          allowRestore: true,
+          deletedViews: <AcpDeletedView>[
+            AcpDeletedView.active,
+            AcpDeletedView.archived,
+          ],
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-deleted-view-products')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archived').last);
+    await tester.pumpAndSettle();
+
+    expect(repository.deletedView, AcpDeletedView.archived);
+    expect(find.byTooltip('Restore row'), findsOneWidget);
+    expect(find.byTooltip('More actions'), findsNothing);
+  });
+
   testWidgets('row detail dialog copies object ID to the clipboard', (
     WidgetTester tester,
   ) async {
@@ -726,6 +963,7 @@ class _TenantRowAcpAdminRepository extends FakeAcpAdminRepository {
     String? tenantId,
     String? searchTerm,
     List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
   }) async {
     return Result<AcpRowPage>.success(
       AcpRowPage(
@@ -756,6 +994,85 @@ class _TenantRowAcpAdminRepository extends FakeAcpAdminRepository {
     updateTenantId = tenantId;
     updateValues = Map<String, dynamic>.from(values);
     return updateResult;
+  }
+}
+
+class _ReferenceAcpAdminRepository extends FakeAcpAdminRepository {
+  final List<String> referenceFilters = <String>[];
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+  }) async {
+    referenceFilters.addAll(extraFilters);
+    final rows = switch (descriptor.entitySet) {
+      'BillingCurrencyDefinitions' => const <AcpRow>[
+        <String, Object?>{
+          'Id': 'currency-kwd',
+          'Code': 'KWD',
+          'DisplayName': 'Kuwaiti dinar',
+          'MinorUnit': 3,
+          'IsActive': true,
+        },
+      ],
+      'BillingMeterDefinitions' => const <AcpRow>[
+        <String, Object?>{
+          'Id': 'meter-api',
+          'Code': 'api_calls',
+          'Unit': 'unit',
+          'IsActive': true,
+        },
+      ],
+      _ => const <AcpRow>[
+        <String, Object?>{'Id': 'row-1', 'RowVersion': 1},
+      ],
+    };
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: rows,
+        total: rows.length,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
+class _ArchivedAcpAdminRepository extends FakeAcpAdminRepository {
+  AcpDeletedView deletedView = AcpDeletedView.active;
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+  }) async {
+    this.deletedView = deletedView;
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: <AcpRow>[
+          <String, Object?>{
+            'Id': 'product-1',
+            'Code': 'PRO',
+            'DeletedAt': deletedView == AcpDeletedView.archived
+                ? '2026-08-27T00:00:00Z'
+                : null,
+            'RowVersion': 2,
+          },
+        ],
+        total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
   }
 }
 

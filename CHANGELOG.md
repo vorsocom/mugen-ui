@@ -9,13 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added the complete global Billing Catalog for meters, Price entitlements,
+  run definitions, currencies, tax, payment terms, invoice templates, and
+  discounts, plus tenant subscription, usage, entitlement, execution,
+  invoicing, payment, adjustment, and ledger operations.
+
 ### Changed
+
+- Changed billing provisioning to use canonical global meters and Prices,
+  generated subscription entitlement buckets, audited balance adjustments,
+  global billing-cycle schedules, active global reference selectors, and
+  currency-aware major-unit amount entry.
 
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+
+- Fixed billing administration boundaries so tenants cannot recreate meter
+  semantics, edit generated allowances, or directly change lifecycle-owned
+  financial statuses, while preserving actionable RowVersion conflicts.
 
 ### Security
 

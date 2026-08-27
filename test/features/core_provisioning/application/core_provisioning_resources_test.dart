@@ -19,11 +19,20 @@ void main() {
     expect(
       billingOperationsResources.map((resource) => resource.entitySet),
       <String>[
+        'BillingAccounts',
+        'BillingSubscriptions',
         'BillingEntitlementBuckets',
-        'BillingInvoices',
-        'BillingInvoiceLines',
+        'BillingEntitlementAdjustments',
+        'BillingUsageEvents',
         'BillingUsageAllocations',
         'BillingRuns',
+        'BillingInvoices',
+        'BillingInvoiceLines',
+        'BillingCreditNotes',
+        'BillingAdjustments',
+        'BillingPayments',
+        'BillingPaymentAllocations',
+        'BillingLedgerEntries',
       ],
     );
     expect(governanceResources.map((resource) => resource.entitySet), <String>[
@@ -64,11 +73,7 @@ void main() {
     expect(allResources.every((resource) => !resource.allowDelete), isTrue);
     expect(
       allResources
-          .where(
-            (resource) =>
-                resource.entitySet != 'OpsConnectorTypes' &&
-                resource.entitySet != 'BillingPrices',
-          )
+          .where((resource) => resource.entitySet != 'OpsConnectorTypes')
           .every((resource) => resource.scopeMode == AcpScopeMode.required),
       isTrue,
     );
@@ -78,7 +83,7 @@ void main() {
     );
   });
 
-  test('billing descriptors guard draft editing and invoice actions', () {
+  test('billing descriptors separate catalog adoption from operations', () {
     final buckets = _resource(
       billingOperationsResources,
       'BillingEntitlementBuckets',
@@ -87,28 +92,81 @@ void main() {
     final lines = _resource(billingOperationsResources, 'BillingInvoiceLines');
     final runs = _resource(billingOperationsResources, 'BillingRuns');
 
-    expect(buckets.allowCreate, isTrue);
-    expect(buckets.allowUpdate, isTrue);
+    final subscriptions = _resource(
+      billingOperationsResources,
+      'BillingSubscriptions',
+    );
+    expect(buckets.allowCreate, isFalse);
+    expect(buckets.allowUpdate, isFalse);
     expect(buckets.allowDelete, isFalse);
     expect(
-      _field(buckets.createFields, 'SubscriptionId').applyAfterCreate,
-      isTrue,
+      buckets.columns.map((column) => column.key),
+      containsAll(<String>[
+        'SubscriptionId',
+        'PriceId',
+        'PriceEntitlementId',
+        'MeterDefinitionId',
+        'GenerationSource',
+        'RemainingQuantity',
+      ]),
+    );
+    final adjust = buckets.entityActions.single;
+    expect(adjust.name, 'adjust');
+    expect(adjust.includeRowVersion, isTrue);
+    expect(_field(adjust.fields, 'Reason').required, isTrue);
+    expect(_field(adjust.fields, 'BalanceImpact').kind, AcpFieldKind.computed);
+
+    expect(
+      _field(subscriptions.createFields, 'PriceId').reference?.scopeMode,
+      AcpScopeMode.none,
     );
     expect(
-      _field(buckets.createFields, 'AccountId').reference?.entitySet,
-      'BillingAccounts',
+      _field(subscriptions.createFields, 'PriceId').reference?.extraFilters,
+      <String>["PriceType eq 'recurring'"],
+    );
+    expect(
+      subscriptions.refreshResourceKeys,
+      contains('billing-entitlement-buckets'),
+    );
+    expect(
+      subscriptions.entityActions
+          .firstWhere((action) => action.name == 'reconcile_entitlements')
+          .includeRowVersion,
+      isTrue,
     );
     expect(
       _field(lines.createFields, 'PriceId').reference?.scopeMode,
       AcpScopeMode.none,
     );
     expect(lines.allowDelete, isFalse);
-    expect(runs.columns.map((column) => column.key), <String>[
-      'Status',
-      'PeriodStart',
-      'PeriodEnd',
-      'CreatedAt',
+    expect(
+      _field(runs.createFields, 'DefinitionId').reference?.entitySet,
+      'BillingRunDefinitions',
+    );
+    expect(
+      runs.columns.map((column) => column.key),
+      containsAll(<String>[
+        'DefinitionId',
+        'Status',
+        'PeriodStart',
+        'PeriodEnd',
+        'StartedAt',
+        'CompletedAt',
+        'FailureDetail',
+      ]),
+    );
+    expect(runs.entityActions.map((action) => action.name), <String>[
+      'start',
+      'complete',
+      'fail',
+      'cancel',
+      'retry',
+      'reconcile_entitlements',
     ]);
+    expect(
+      runs.entityActions.every((action) => action.includeRowVersion),
+      isTrue,
+    );
 
     expect(invoices.canUpdate(<String, dynamic>{'Status': 'draft'}), isTrue);
     expect(invoices.canUpdate(<String, dynamic>{'Status': 'issued'}), isFalse);
@@ -136,6 +194,202 @@ void main() {
     expect(
       actions['mark_paid']!.isVisibleFor(<String, dynamic>{'Status': 'paid'}),
       isFalse,
+    );
+  });
+
+  test('billing financial suite uses typed global references and money', () {
+    expect(
+      billingOperationsResources.every(
+        (resource) =>
+            resource.scopeMode == AcpScopeMode.required &&
+            !resource.allowDelete,
+      ),
+      isTrue,
+    );
+    final accounts = _resource(billingOperationsResources, 'BillingAccounts');
+    final accountCurrency = _field(
+      accounts.createFields,
+      'CurrencyDefinitionId',
+    );
+    expect(accountCurrency.applyAfterCreate, isTrue);
+    expect(accountCurrency.reference?.scopeMode, AcpScopeMode.none);
+    expect(accountCurrency.reference?.extraFilters, <String>[
+      'IsActive eq true',
+    ]);
+
+    for (final entitySet in <String>[
+      'BillingInvoices',
+      'BillingCreditNotes',
+      'BillingAdjustments',
+      'BillingPayments',
+    ]) {
+      final resource = _resource(billingOperationsResources, entitySet);
+      expect(
+        resource.updateFields.any((field) => field.key == 'Status'),
+        isFalse,
+        reason: '$entitySet must not edit lifecycle status',
+      );
+      expect(
+        resource.createFields.any((field) => field.kind == AcpFieldKind.money),
+        isTrue,
+      );
+    }
+
+    final lines = _resource(billingOperationsResources, 'BillingInvoiceLines');
+    expect(
+      _field(lines.createFields, 'InvoiceId').reference?.extraFilters,
+      <String>["Status eq 'draft'"],
+    );
+    expect(
+      _field(lines.createFields, 'PriceId').reference?.scopeMode,
+      AcpScopeMode.none,
+    );
+    expect(
+      _field(lines.createFields, 'PeriodStart').required,
+      isFalse,
+      reason: 'one-time setup charges do not require a recurring period',
+    );
+
+    final paymentAllocations = _resource(
+      billingOperationsResources,
+      'BillingPaymentAllocations',
+    );
+    expect(paymentAllocations.allowCreate, isTrue);
+    expect(paymentAllocations.allowUpdate, isFalse);
+    expect(paymentAllocations.entityActions.single.name, 'sync_invoice');
+    expect(paymentAllocations.entityActions.single.includeRowVersion, isTrue);
+
+    for (final entitySet in <String>[
+      'BillingEntitlementAdjustments',
+      'BillingEntitlementBuckets',
+    ]) {
+      final resource = _resource(billingOperationsResources, entitySet);
+      expect(resource.allowCreate, isFalse);
+      expect(resource.allowUpdate, isFalse);
+    }
+    for (final entitySet in <String>[
+      'BillingUsageEvents',
+      'BillingUsageAllocations',
+      'BillingPaymentAllocations',
+      'BillingLedgerEntries',
+    ]) {
+      final resource = _resource(billingOperationsResources, entitySet);
+      expect(resource.allowCreate, isTrue);
+      expect(resource.allowUpdate, isFalse);
+    }
+  });
+
+  test('billing period and adjustment helpers enforce operator contracts', () {
+    expect(
+      remainingEntitlementQuantity(<String, Object?>{
+        'IncludedQuantity': 100,
+        'ConsumedQuantity': '25',
+        'RolloverQuantity': 10,
+        'AdjustmentQuantity': -5,
+      }),
+      80,
+    );
+    expect(remainingEntitlementQuantity(const <String, Object?>{}), 0);
+    expect(
+      adjustmentPreview(<String, String>{
+        'IncludedQuantity': '100',
+        'ConsumedQuantity': '25',
+        'RolloverQuantity': '10',
+        'AdjustmentQuantity': '-5',
+        'QuantityDelta': '8',
+      }),
+      'Adjustment: -5 → 3; capacity after: 113; remaining after: 88.',
+    );
+    expect(
+      adjustmentPreview(const <String, String>{}),
+      contains('remaining after: 0'),
+    );
+    expect(newBillingIdempotencyKey().toString(), startsWith('billing-ui-'));
+
+    expect(
+      validateSubscriptionPayload(<String, Object?>{
+        'CurrentPeriodStart': '2026-08-27T00:00:00Z',
+      }),
+      contains('must be provided together'),
+    );
+    expect(
+      validateSubscriptionPayload(<String, Object?>{
+        'CurrentPeriodStart': '2026-08-27T00:00:00Z',
+        'CurrentPeriodEnd': '2026-08-28T00:00:00Z',
+      }),
+      isNull,
+    );
+    expect(validateOptionalPeriodPayload(const <String, Object?>{}), isNull);
+    expect(
+      validateOptionalPeriodPayload(<String, Object?>{
+        'PeriodStart': 'invalid',
+        'PeriodEnd': 'also-invalid',
+      }),
+      contains('must be later'),
+    );
+    expect(
+      validateBillingRunPayload(const <String, Object?>{}),
+      'PeriodStart and PeriodEnd are required.',
+    );
+    expect(
+      validateBillingRunPayload(<String, Object?>{
+        'PeriodStart': '2026-08-27T00:00:00Z',
+        'PeriodEnd': '2026-08-28T00:00:00Z',
+        'SubscriptionId': 'subscription-1',
+      }),
+      contains('also require a Billing Account'),
+    );
+    expect(
+      validateBillingRunPayload(<String, Object?>{
+        'PeriodStart': '2026-08-27T00:00:00Z',
+        'PeriodEnd': '2026-08-28T00:00:00Z',
+        'SubscriptionId': 'subscription-1',
+        'AccountId': 'account-1',
+      }),
+      isNull,
+    );
+    expect(validateInvoicePayload(const <String, Object?>{}), isNull);
+    expect(
+      validateInvoicePayload(<String, Object?>{'TotalAmount': 100}),
+      contains('Select an explicit Currency'),
+    );
+    expect(
+      validateInvoicePayload(<String, Object?>{
+        'TotalAmount': 100,
+        'CurrencyDefinitionId': 'currency-1',
+      }),
+      isNull,
+    );
+
+    expect(
+      validateEntitlementAdjustmentPayload(<String, Object?>{
+        'QuantityDelta': 0,
+      }),
+      contains('non-zero whole number'),
+    );
+    expect(
+      validateEntitlementAdjustmentPayload(<String, Object?>{
+        'QuantityDelta': 1,
+        'Reason': ' ',
+        'IdempotencyKey': 'adjust-1',
+      }),
+      contains('reason is required'),
+    );
+    expect(
+      validateEntitlementAdjustmentPayload(<String, Object?>{
+        'QuantityDelta': 1,
+        'Reason': 'correction',
+        'IdempotencyKey': ' ',
+      }),
+      contains('Idempotency Key'),
+    );
+    expect(
+      validateEntitlementAdjustmentPayload(<String, Object?>{
+        'QuantityDelta': -2,
+        'Reason': 'correction',
+        'IdempotencyKey': 'adjust-1',
+      }),
+      isNull,
     );
   });
 

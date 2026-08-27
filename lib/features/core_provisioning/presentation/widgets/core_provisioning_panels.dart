@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 
 import 'package:mugen_ui/features/core_provisioning/presentation/providers/core_provisioning_providers.dart';
+import 'package:mugen_ui/features/core_provisioning/application/billing_workspace_target.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_admin_panel.dart';
 
 class BillingOperationsPanel extends StatelessWidget {
-  const BillingOperationsPanel({super.key}); // coverage:ignore-line
+  const BillingOperationsPanel({
+    super.key,
+    this.target,
+  }); // coverage:ignore-line
+
+  final BillingWorkspaceTarget? target;
 
   @override
   Widget build(BuildContext context) {
@@ -12,7 +18,16 @@ class BillingOperationsPanel extends StatelessWidget {
       controllerProvider: billingOperationsControllerProvider,
       title: 'Billing Operations',
       description:
-          'Provision tenant entitlements, draft invoices, one-time invoice lines, and inspect billing operations.',
+          'Manage tenant adoption, generated entitlements, billing executions, invoices, payments, corrections, allocations, and ledger records.',
+      initialResourceKey: target?.workspace == BillingWorkspace.operations
+          ? target?.resourceKey
+          : null,
+      initialTenantId: target?.workspace == BillingWorkspace.operations
+          ? target?.tenantId
+          : null,
+      initialRowId: target?.workspace == BillingWorkspace.operations
+          ? target?.rowId
+          : null,
     );
   }
 }

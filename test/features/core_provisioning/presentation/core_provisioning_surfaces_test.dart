@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/core_provisioning/domain/entities/core_plugin_access.dart';
+import 'package:mugen_ui/features/core_provisioning/application/billing_workspace_target.dart';
 import 'package:mugen_ui/features/core_provisioning/domain/repositories/core_plugin_repository.dart';
 import 'package:mugen_ui/features/core_provisioning/infrastructure/repositories/core_plugin_repository_impl.dart';
 import 'package:mugen_ui/features/core_provisioning/presentation/providers/core_provisioning_providers.dart';
@@ -39,7 +40,7 @@ void main() {
         container
             .read(billingOperationsControllerProvider.notifier)
             .descriptors,
-        hasLength(5),
+        hasLength(14),
       );
       expect(
         container.read(connectorAdminControllerProvider.notifier).descriptors,
@@ -280,6 +281,42 @@ void main() {
 
     expect(repository.createPayloads.single['SecretRef'], 'managed-key');
     expect(repository.referenceFilters.single, contains("Status eq 'active'"));
+  });
+
+  testWidgets('billing operation targets select tenant resource and row', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          coreProvisioningAdminRepositoryProvider.overrideWithValue(
+            _AdminRepository(),
+          ),
+          authControllerProvider.overrideWith(
+            () => _AuthController(session: _session),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: BillingOperationsPanel(
+              target: BillingWorkspaceTarget(
+                workspace: BillingWorkspace.values.last,
+                resourceKey: 'billing-invoices',
+                tenantId: 'tenant-1',
+                rowId: 'invoice-1',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Invoices'), findsWidgets);
+    expect(find.text('invoice-1'), findsWidgets);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -588,6 +625,7 @@ class _AdminRepository implements AcpAdminRepository {
     String? tenantId,
     String? searchTerm,
     List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
   }) async {
     if (descriptor.entitySet == 'KeyRefs') {
       referenceFilters.add(List<String>.from(extraFilters));

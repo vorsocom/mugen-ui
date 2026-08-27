@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_money_codec.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
@@ -50,11 +51,19 @@ class AcpAdminPanel<T extends AcpAdminController>
     super.key,
     this.title,
     this.description,
+    this.mutationsEnabled = true,
+    this.initialResourceKey,
+    this.initialTenantId,
+    this.initialRowId,
   });
 
   final StateNotifierProvider<T, AcpAdminState> controllerProvider;
   final String? title;
   final String? description;
+  final bool mutationsEnabled;
+  final String? initialResourceKey;
+  final String? initialTenantId;
+  final String? initialRowId;
 
   @override
   ConsumerState<AcpAdminPanel<T>> createState() => _AcpAdminPanelState<T>();
@@ -69,7 +78,38 @@ class _AcpAdminPanelState<T extends AcpAdminController>
   void initState() {
     super.initState();
     Future<void>.microtask(() async {
-      await ref.read(widget.controllerProvider.notifier).loadInitialData();
+      final controller = ref.read(widget.controllerProvider.notifier);
+      await controller.loadInitialData();
+      final tenantId = widget.initialTenantId?.trim();
+      if (tenantId != null && tenantId.isNotEmpty) {
+        await controller.selectTenant(tenantId);
+      }
+      final resourceKey = widget.initialResourceKey?.trim();
+      if (resourceKey != null &&
+          resourceKey.isNotEmpty &&
+          controller.descriptors.any((item) => item.key == resourceKey)) {
+        await controller.selectResource(resourceKey);
+      }
+      final rowId = widget.initialRowId?.trim();
+      if (!mounted || rowId == null || rowId.isEmpty) {
+        return;
+      }
+      final descriptor = controller.activeDescriptor;
+      final tenantScope = controller.usesTenantScope(descriptor)
+          ? ref.read(widget.controllerProvider).selectedTenantId
+          : null;
+      final result = await controller.repository.fetchRow(
+        descriptor: descriptor,
+        rowId: rowId,
+        tenantId: tenantScope,
+      );
+      if (!mounted || result.isFailure) {
+        return;
+      }
+      setState(() {
+        _selectedRow = result.data;
+        _selectedResourceKey = descriptor.key;
+      });
     });
   }
 
@@ -84,10 +124,7 @@ class _AcpAdminPanelState<T extends AcpAdminController>
     final controller = ref.read(widget.controllerProvider.notifier);
     final descriptor = controller.activeDescriptor;
     final resourceState = state.activeResourceState;
-    _syncSelectedRow(
-      resourceKey: state.activeResourceKey,
-      rows: resourceState.rows,
-    );
+    _syncSelectedRow(resourceKey: state.activeResourceKey);
     final pageTitle = widget.title?.trim().isNotEmpty == true
         ? widget.title!.trim()
         : descriptor.title;
@@ -111,7 +148,7 @@ class _AcpAdminPanelState<T extends AcpAdminController>
         AdminPageHeader(
           title: pageTitle,
           subtitle: pageDescription,
-          primaryAction: descriptor.allowCreate
+          primaryAction: widget.mutationsEnabled && descriptor.allowCreate
               ? FilledButton.icon(
                   key: const Key('acp-admin-create-button'),
                   onPressed: tenantMissing
@@ -143,6 +180,7 @@ class _AcpAdminPanelState<T extends AcpAdminController>
           descriptor: descriptor,
           tenantMissing: tenantMissing,
           showCreate: false,
+          mutationsEnabled: widget.mutationsEnabled,
         ),
         if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
           Padding(
@@ -171,6 +209,7 @@ class _AcpAdminPanelState<T extends AcpAdminController>
                       _selectedResourceKey = state.activeResourceKey;
                     });
                   },
+                  mutationsEnabled: widget.mutationsEnabled,
                 ),
               );
               final drawer = _selectedRow == null
@@ -219,23 +258,9 @@ class _AcpAdminPanelState<T extends AcpAdminController>
     );
   }
 
-  void _syncSelectedRow({
-    required String resourceKey,
-    required List<AcpRow> rows,
-  }) {
+  void _syncSelectedRow({required String resourceKey}) {
     if (_selectedResourceKey != resourceKey) {
       _selectedResourceKey = resourceKey;
-      _selectedRow = null;
-      return;
-    }
-
-    final selectedId = _selectedRow?.id;
-    if (selectedId == null) {
-      return;
-    }
-
-    final stillVisible = rows.any((row) => row.id == selectedId);
-    if (!stillVisible) {
       _selectedRow = null;
     }
   }
@@ -314,6 +339,35 @@ class _ToolbarRowState<T extends AcpAdminController>
 
     return AdminToolbar(
       children: [
+        if (descriptor.deletedViews.length > 1)
+          SizedBox(
+            width: 200,
+            child: DropdownButtonFormField<AcpDeletedView>(
+              key: Key('acp-admin-deleted-view-${descriptor.key}'),
+              initialValue: resourceState.deletedView,
+              decoration: appFormInputDecoration(
+                labelText: 'Lifecycle',
+                helpText:
+                    'Choose active, archived, or all records for this resource.',
+              ),
+              items: [
+                for (final view in descriptor.deletedViews)
+                  DropdownMenuItem<AcpDeletedView>(
+                    value: view,
+                    child: Text(switch (view) {
+                      AcpDeletedView.active => 'Active',
+                      AcpDeletedView.all => 'All',
+                      AcpDeletedView.archived => 'Archived',
+                    }),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) {
+                  unawaited(controller.setDeletedView(value));
+                }
+              },
+            ),
+          ),
         if (descriptor.scopeMode == AcpScopeMode.optional)
           SizedBox(
             width: 220,
@@ -415,6 +469,7 @@ class _ActionRow<T extends AcpAdminController> extends ConsumerWidget {
     required this.controllerProvider,
     required this.descriptor,
     required this.tenantMissing,
+    required this.mutationsEnabled,
     this.showCreate = true,
   });
 
@@ -422,9 +477,13 @@ class _ActionRow<T extends AcpAdminController> extends ConsumerWidget {
   final AcpResourceDescriptor descriptor;
   final bool tenantMissing;
   final bool showCreate;
+  final bool mutationsEnabled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!mutationsEnabled) {
+      return const SizedBox.shrink();
+    }
     final toolbarActions = descriptor.collectionActions
         .where((action) => action.showInToolbar)
         .toList(growable: false);
@@ -477,6 +536,7 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
     required this.isBusy,
     required this.selectedRow,
     required this.onViewRow,
+    required this.mutationsEnabled,
   });
 
   final StateNotifierProvider<T, AcpAdminState> controllerProvider;
@@ -485,6 +545,7 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
   final bool isBusy;
   final AcpRow? selectedRow;
   final ValueChanged<AcpRow> onViewRow;
+  final bool mutationsEnabled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -493,7 +554,7 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
         descriptor.scopeMode == AcpScopeMode.required &&
         (ref.watch(controllerProvider).selectedTenantId == null ||
             ref.watch(controllerProvider).selectedTenantId!.isEmpty);
-    final createAction = descriptor.allowCreate
+    final createAction = mutationsEnabled && descriptor.allowCreate
         ? FilledButton.icon(
             onPressed: tenantMissing
                 ? null
@@ -517,8 +578,10 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
             key: column.key,
             label: column.label,
             flex: column.flex,
-            cell: (_, row) =>
-                AdminCellText(_formatCellValue(row[column.key]), maxLines: 2),
+            cell: (_, row) => AdminCellText(
+              _formatCellValue(row: row, column: column),
+              maxLines: 2,
+            ),
           ),
       ],
       actionsBuilder: (context, row) => SizedBox(
@@ -528,6 +591,7 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
           descriptor: descriptor,
           row: row,
           onViewRow: onViewRow,
+          mutationsEnabled: mutationsEnabled,
         ),
       ),
       actionsWidth: actionColumnWidth,
@@ -539,7 +603,9 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
         return selectedId != null && rowId != null && selectedId == rowId;
       },
       isLoading: isBusy,
-      hasActiveFilter: resourceState.searchTerm.trim().isNotEmpty,
+      hasActiveFilter:
+          resourceState.searchTerm.trim().isNotEmpty ||
+          resourceState.deletedView != AcpDeletedView.active,
       emptyState: AdminEmptyStateData(
         title: _emptyTitle(descriptor),
         message: _emptyMessage(descriptor),
@@ -562,9 +628,26 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
     );
   }
 
-  String _formatCellValue(Object? value) {
+  String _formatCellValue({
+    required AcpRow row,
+    required AcpColumnDescriptor column,
+  }) {
+    final value = column.valueBuilder?.call(row) ?? row[column.key];
     if (value == null) {
       return '';
+    }
+    if (column.money && value is int) {
+      final minorUnit = switch (row[column.minorUnitKey]) {
+        final int value when value >= 0 && value <= 4 => value,
+        final Object value => int.tryParse(value.toString()),
+        _ => null,
+      };
+      final formatted = AcpMoneyCodec.formatMinorUnits(
+        value,
+        minorUnit: minorUnit ?? column.defaultMinorUnit,
+      );
+      final currency = row[column.currencyCodeKey]?.toString().trim() ?? '';
+      return currency.isEmpty ? formatted : '$currency $formatted';
     }
     if (value is bool) {
       return value ? 'Yes' : 'No';
@@ -628,45 +711,53 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
     required this.descriptor,
     required this.row,
     required this.onViewRow,
+    required this.mutationsEnabled,
   });
 
   final StateNotifierProvider<T, AcpAdminState> controllerProvider;
   final AcpResourceDescriptor descriptor;
   final AcpRow row;
   final ValueChanged<AcpRow> onViewRow;
+  final bool mutationsEnabled;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rowId = row.id;
-    final rowButtonActions = <_RowMenuAction>[
-      for (final action in descriptor.collectionActions)
-        if (action.showInRowMenu &&
-            action.showAsRowButton &&
-            action.isVisibleFor(row))
-          _RowMenuAction.collection(
-            action: action,
-            initialValues: _collectionActionInitialValues(
-              action: action,
-              row: row,
-            ),
-          ),
-    ];
-    final rowMenuActions = <_RowMenuAction>[
-      for (final action in descriptor.collectionActions)
-        if (action.showInRowMenu &&
-            !action.showAsRowButton &&
-            action.isVisibleFor(row))
-          _RowMenuAction.collection(
-            action: action,
-            initialValues: _collectionActionInitialValues(
-              action: action,
-              row: row,
-            ),
-          ),
-      if (rowId != null)
-        for (final action in descriptor.entityActions)
-          if (action.isVisibleFor(row)) _RowMenuAction.entity(action: action),
-    ];
+    final rowButtonActions = mutationsEnabled
+        ? <_RowMenuAction>[
+            for (final action in descriptor.collectionActions)
+              if (action.showInRowMenu &&
+                  action.showAsRowButton &&
+                  action.isVisibleFor(row))
+                _RowMenuAction.collection(
+                  action: action,
+                  initialValues: _collectionActionInitialValues(
+                    action: action,
+                    row: row,
+                  ),
+                ),
+          ]
+        : const <_RowMenuAction>[];
+    final rowMenuActions = mutationsEnabled
+        ? <_RowMenuAction>[
+            for (final action in descriptor.collectionActions)
+              if (action.showInRowMenu &&
+                  !action.showAsRowButton &&
+                  action.isVisibleFor(row))
+                _RowMenuAction.collection(
+                  action: action,
+                  initialValues: _collectionActionInitialValues(
+                    action: action,
+                    row: row,
+                  ),
+                ),
+            if (rowId != null)
+              for (final action in descriptor.entityActions)
+                if (action.isVisibleFor(row) &&
+                    !(action.name == 'archive' && row['DeletedAt'] != null))
+                  _RowMenuAction.entity(action: action),
+          ]
+        : const <_RowMenuAction>[];
 
     return Align(
       alignment: Alignment.centerRight,
@@ -695,7 +786,7 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
                   scopeRow: row,
                 ),
               ),
-            if (descriptor.canUpdate(row) && rowId != null)
+            if (mutationsEnabled && descriptor.canUpdate(row) && rowId != null)
               AdminIconButton(
                 tooltip: 'Edit row',
                 icon: Icons.edit_outlined,
@@ -707,7 +798,7 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
                   row: row,
                 ),
               ),
-            if (descriptor.allowDelete && rowId != null)
+            if (mutationsEnabled && descriptor.allowDelete && rowId != null)
               AdminIconButton(
                 tooltip: 'Delete row',
                 icon: Icons.delete_outline,
@@ -720,7 +811,10 @@ class _RowActions<T extends AcpAdminController> extends ConsumerWidget {
                   row: row,
                 ),
               ),
-            if (descriptor.allowRestore && rowId != null)
+            if (mutationsEnabled &&
+                descriptor.allowRestore &&
+                rowId != null &&
+                row['DeletedAt'] != null)
               AdminIconButton(
                 tooltip: 'Restore row',
                 icon: Icons.restore,
@@ -899,6 +993,7 @@ Future<void> _showCreateDialog<T extends AcpAdminController>({
     ),
     submitLabel: 'Create',
     fields: descriptor.createFields,
+    payloadValidator: descriptor.payloadValidator,
     resourceKey: descriptor.key,
     entitySet: descriptor.entitySet,
     onSubmit: (payload) async {
@@ -1004,6 +1099,7 @@ Future<void> _showUpdateDialog<T extends AcpAdminController>({
     ),
     submitLabel: 'Save',
     fields: descriptor.updateFields,
+    payloadValidator: descriptor.payloadValidator,
     resourceKey: descriptor.key,
     entitySet: descriptor.entitySet,
     initialValues: row,
@@ -1215,6 +1311,7 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
       ),
       submitLabel: action.label,
       fields: action.fields,
+      payloadValidator: action.payloadValidator,
       resourceKey: descriptor.key,
       entitySet: descriptor.entitySet,
       actionName: action.name,
@@ -1344,6 +1441,7 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
       ),
       submitLabel: action.label,
       fields: action.fields,
+      payloadValidator: action.payloadValidator,
       resourceKey: descriptor.key,
       entitySet: descriptor.entitySet,
       actionName: action.name,
@@ -1432,6 +1530,7 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
   _AcpReferenceLookup? referenceLookup,
   Map<String, dynamic> initialValues = const <String, dynamic>{},
   _AcpFormSubmit? onSubmit,
+  AcpPayloadValidator? payloadValidator,
   String? confirmMessage,
   IconData? confirmIcon,
 }) {
@@ -1449,6 +1548,7 @@ Future<Map<String, dynamic>?> _showDynamicFormDialog({
       actionName: actionName,
       initialValues: initialValues,
       onSubmit: onSubmit,
+      payloadValidator: payloadValidator,
       confirmMessage: confirmMessage,
       confirmIcon: confirmIcon,
     ),
@@ -1521,8 +1621,8 @@ _AcpReferenceLookup _referenceLookupFor<T extends AcpAdminController>({
       defaultOrderBy: reference.defaultOrderBy,
     );
     if (reference.valueField == reference.idField &&
-        reference.extraFilters.isEmpty &&
-        dynamicFilters.isEmpty) {
+        (reference.retainHistoricalSelection ||
+            (reference.extraFilters.isEmpty && dynamicFilters.isEmpty))) {
       return controller.repository.fetchRow(
         descriptor: descriptor,
         rowId: value,
@@ -1853,6 +1953,7 @@ class _AcpReferenceField extends StatefulWidget {
     required this.helpKey,
     required this.validator,
     required this.extraFilters,
+    required this.onSelectionChanged,
     super.key,
   });
 
@@ -1864,6 +1965,7 @@ class _AcpReferenceField extends StatefulWidget {
   final Key helpKey;
   final FormFieldValidator<String> validator;
   final List<String> Function() extraFilters;
+  final ValueChanged<AcpRow?> onSelectionChanged;
 
   @override
   State<_AcpReferenceField> createState() => _AcpReferenceFieldState();
@@ -2099,6 +2201,7 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
     setState(() {
       _selectedRow = selectedRow;
     });
+    widget.onSelectionChanged(selectedRow);
   }
 
   void _selectRow(AcpRow row, FormFieldState<String> fieldState) {
@@ -2109,6 +2212,7 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
     });
     fieldState.didChange(value);
     fieldState.validate();
+    widget.onSelectionChanged(row);
   }
 
   void _clearSelection(FormFieldState<String> fieldState) {
@@ -2118,6 +2222,7 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
     });
     fieldState.didChange('');
     fieldState.validate();
+    widget.onSelectionChanged(null);
   }
 
   String _referenceValue(AcpRow row) {
@@ -2455,6 +2560,7 @@ class _AcpDynamicFormDialog extends StatefulWidget {
     required this.actionName,
     required this.initialValues,
     required this.onSubmit,
+    required this.payloadValidator,
     required this.confirmMessage,
     required this.confirmIcon,
   });
@@ -2470,6 +2576,7 @@ class _AcpDynamicFormDialog extends StatefulWidget {
   final String? actionName;
   final Map<String, dynamic> initialValues;
   final _AcpFormSubmit? onSubmit;
+  final AcpPayloadValidator? payloadValidator;
   final String? confirmMessage;
   final IconData? confirmIcon;
 
@@ -2481,6 +2588,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final Map<String, TextEditingController> _textControllers;
   late final Map<String, bool> _boolValues;
+  late final Map<String, int> _initialMoneyValues;
   String? _formErrorText;
   bool _isSubmitting = false;
   bool _isConfirming = false;
@@ -2488,6 +2596,12 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
   @override
   void initState() {
     super.initState();
+    _initialMoneyValues = <String, int>{
+      for (final field in widget.fields)
+        if (field.kind == AcpFieldKind.money &&
+            _initialFieldValue(field) is int)
+          field.key: _initialFieldValue(field)! as int,
+    };
     _textControllers = <String, TextEditingController>{
       for (final field in widget.fields)
         if (field.kind != AcpFieldKind.boolean)
@@ -2500,6 +2614,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         if (field.kind == AcpFieldKind.boolean)
           field.key: _initialBoolValue(_initialFieldValue(field)),
     };
+    _reformatInitialMoneyFields();
   }
 
   @override
@@ -2566,7 +2681,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: widget.fields
-                  .where(_isFieldVisible)
+                  .where((field) => !field.hidden && _isFieldVisible(field))
                   .map((field) => _buildField(context, field))
                   .expand((widget) => [widget, const SizedBox(height: 10)])
                   .toList(growable: false),
@@ -2604,6 +2719,29 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       actionName: widget.actionName,
     );
     final helpKey = Key('acp-dynamic-field-help-${field.key}');
+    if (field.kind == AcpFieldKind.computed) {
+      final values = <String, String>{
+        for (final item in widget.fields)
+          item.key: _currentFieldValue(item.key) ?? '',
+      };
+      return Container(
+        key: Key('acp-dynamic-field-${field.key}'),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppUiPalette.surfaceStrong,
+          border: Border.all(color: AppUiPalette.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(field.label, style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 4),
+            Text(field.computedValueBuilder?.call(values) ?? ''),
+          ],
+        ),
+      );
+    }
     if (field.kind == AcpFieldKind.boolean) {
       return Container(
         decoration: BoxDecoration(
@@ -2620,6 +2758,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
               : (value) {
                   setState(() {
                     _boolValues[field.key] = value ?? false;
+                    _clearNewlyHiddenFields();
                   });
                 },
           controlAffinity: ListTileControlAffinity.leading,
@@ -2660,6 +2799,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         helpKey: helpKey,
         validator: (value) => _validateField(field, value ?? ''),
         extraFilters: extraFilters,
+        onSelectionChanged: (row) => _applyReferenceSelection(field, row),
       );
     }
 
@@ -2707,6 +2847,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
             : (value) {
                 setState(() {
                   controller.text = value ?? '';
+                  _clearNewlyHiddenFields();
                 });
               },
         validator: (value) => _validateField(field, value ?? ''),
@@ -2733,7 +2874,52 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         errorMaxLines: 4,
       ),
       validator: (value) => _validateField(field, value ?? ''),
+      onChanged: (_) => setState(_clearNewlyHiddenFields),
     );
+  }
+
+  void _applyReferenceSelection(AcpFieldDescriptor field, AcpRow? row) {
+    final reference = field.reference;
+    if (reference == null) {
+      return;
+    }
+    setState(() {
+      for (final entry in reference.copyFieldsFromSelection.entries) {
+        final target = _textControllers[entry.value];
+        if (target == null) {
+          continue;
+        }
+        target.text = row?[entry.key]?.toString() ?? '';
+      }
+      _reformatInitialMoneyFields();
+      _clearNewlyHiddenFields();
+    });
+  }
+
+  void _reformatInitialMoneyFields() {
+    for (final entry in _initialMoneyValues.entries) {
+      final field = widget.fields.firstWhere((item) => item.key == entry.key);
+      final controller = _textControllers[entry.key];
+      if (controller == null) {
+        continue;
+      }
+      controller.text = AcpMoneyCodec.formatMinorUnits(
+        entry.value,
+        minorUnit: _minorUnitFor(field),
+      );
+    }
+  }
+
+  void _clearNewlyHiddenFields() {
+    for (final field in widget.fields) {
+      if (!field.clearWhenHidden || _isFieldVisible(field)) {
+        continue;
+      }
+      _textControllers[field.key]?.clear();
+      if (_boolValues.containsKey(field.key)) {
+        _boolValues[field.key] = false;
+      }
+    }
   }
 
   Object? _initialFieldValue(AcpFieldDescriptor field) {
@@ -2751,7 +2937,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         return container[mapKey];
       }
     }
-    return field.initialValue;
+    return field.initialValueFactory?.call() ?? field.initialValue;
   }
 
   Object? _withoutExcludedJsonKeys(Object? value, List<String> excludedKeys) {
@@ -2813,6 +2999,13 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
           return 'Enter a value no greater than ${field.maximumValue}.';
         }
         return null;
+      case AcpFieldKind.money:
+        return AcpMoneyCodec.parseMajorUnits(
+          trimmed,
+          minorUnit: _minorUnitFor(field),
+        ).failure?.message;
+      case AcpFieldKind.computed:
+        return null;
       case AcpFieldKind.integerList:
         final parsed = _decodeIntegerList(trimmed);
         if (parsed == null) {
@@ -2855,6 +3048,17 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       case AcpFieldKind.boolean:
         return null;
     }
+  }
+
+  int _minorUnitFor(AcpFieldDescriptor field) {
+    final key = field.minorUnitFieldKey;
+    final parsed = key == null
+        ? null
+        : int.tryParse(_currentFieldValue(key)?.trim() ?? '');
+    if (parsed == null || parsed < 0 || parsed > 4) {
+      return field.defaultMinorUnit;
+    }
+    return parsed;
   }
 
   bool _isRequired(AcpFieldDescriptor field) {
@@ -2932,8 +3136,15 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     });
 
     final payload = <String, dynamic>{};
+    for (final field in widget.fields) {
+      if (field.submitNullWhenHidden &&
+          field.includeInPayload &&
+          !_isFieldVisible(field)) {
+        _storePayloadValue(payload, field, null);
+      }
+    }
     for (final field in widget.fields.where(_isFieldVisible)) {
-      if (field.readOnly) {
+      if (field.readOnly || !field.includeInPayload) {
         continue;
       }
       if (field.kind == AcpFieldKind.boolean) {
@@ -2950,6 +3161,18 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       switch (field.kind) {
         case AcpFieldKind.integer:
           _storePayloadValue(payload, field, int.parse(trimmed));
+          break;
+        case AcpFieldKind.money:
+          _storePayloadValue(
+            payload,
+            field,
+            AcpMoneyCodec.parseMajorUnits(
+              trimmed,
+              minorUnit: _minorUnitFor(field),
+            ).data!,
+          );
+          break;
+        case AcpFieldKind.computed:
           break;
         case AcpFieldKind.integerList:
           _storePayloadValue(payload, field, _decodeIntegerList(trimmed)!);
@@ -2975,6 +3198,14 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         case AcpFieldKind.boolean:
           break;
       }
+    }
+
+    final payloadError = widget.payloadValidator?.call(payload);
+    if (payloadError != null && payloadError.trim().isNotEmpty) {
+      setState(() {
+        _formErrorText = payloadError;
+      });
+      return;
     }
 
     if (widget.confirmMessage != null) {
@@ -3078,6 +3309,8 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         }
         return value.toString();
       case AcpFieldKind.integer:
+      case AcpFieldKind.money:
+      case AcpFieldKind.computed:
       case AcpFieldKind.text:
       case AcpFieldKind.multiline:
       case AcpFieldKind.boolean:

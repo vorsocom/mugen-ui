@@ -18,6 +18,15 @@ void main() {
       initialValue: 'seed',
       options: <String>['local', 'managed'],
       readOnly: true,
+      hidden: true,
+      includeInPayload: false,
+      clearWhenHidden: true,
+      submitNullWhenHidden: true,
+      minorUnitFieldKey: '_MinorUnit',
+      currencyCodeFieldKey: '_CurrencyCode',
+      defaultMinorUnit: 3,
+      initialValueFactory: _initialValue,
+      computedValueBuilder: _computedValue,
       reference: AcpFieldReferenceDescriptor(
         entitySet: 'MessagingClientProfiles',
         scopeMode: AcpScopeMode.optional,
@@ -26,12 +35,19 @@ void main() {
         titleFields: <String>['DisplayName', 'ProfileKey'],
         subtitleFields: <String>['PlatformKey', 'Id'],
         defaultOrderBy: 'ProfileKey asc',
+        copyFieldsFromSelection: <String, String>{'MinorUnit': '_MinorUnit'},
+        retainHistoricalSelection: true,
       ),
     );
     const column = AcpColumnDescriptor(
       key: 'DisplayName',
       label: 'Display Name',
       flex: 2,
+      money: true,
+      minorUnitKey: '_MinorUnit',
+      currencyCodeKey: '_CurrencyCode',
+      defaultMinorUnit: 3,
+      valueBuilder: _columnValue,
     );
     const action = AcpActionDescriptor(
       name: 'rotate',
@@ -45,6 +61,8 @@ void main() {
       showInRowMenu: true,
       prefillFieldsFromRow: true,
       showAsRowButton: true,
+      refreshResourceKeys: <String>['rows'],
+      payloadValidator: _payloadValidator,
     );
     const resource = AcpResourceDescriptor(
       key: 'key-refs',
@@ -66,6 +84,13 @@ void main() {
       allowRestore: true,
       pageSize: 25,
       actionsColumnLeading: false,
+      group: 'Security',
+      refreshResourceKeys: <String>['profiles'],
+      payloadValidator: _payloadValidator,
+      deletedViews: <AcpDeletedView>[
+        AcpDeletedView.active,
+        AcpDeletedView.archived,
+      ],
     );
 
     expect(field.key, 'SecretValue');
@@ -81,6 +106,15 @@ void main() {
     expect(field.initialValue, 'seed');
     expect(field.options, <String>['local', 'managed']);
     expect(field.readOnly, isTrue);
+    expect(field.hidden, isTrue);
+    expect(field.includeInPayload, isFalse);
+    expect(field.clearWhenHidden, isTrue);
+    expect(field.submitNullWhenHidden, isTrue);
+    expect(field.minorUnitFieldKey, '_MinorUnit');
+    expect(field.currencyCodeFieldKey, '_CurrencyCode');
+    expect(field.defaultMinorUnit, 3);
+    expect(field.initialValueFactory!(), 'generated');
+    expect(field.computedValueBuilder!(<String, String>{'Value': '7'}), '7');
     expect(field.reference?.entitySet, 'MessagingClientProfiles');
     expect(field.reference?.scopeMode, AcpScopeMode.optional);
     expect(field.reference?.title, 'Messaging Client Profiles');
@@ -90,8 +124,17 @@ void main() {
     expect(field.reference?.subtitleFields, <String>['PlatformKey', 'Id']);
     expect(field.reference?.defaultOrderBy, 'ProfileKey asc');
     expect(field.reference?.pageSize, 20);
+    expect(field.reference?.copyFieldsFromSelection, <String, String>{
+      'MinorUnit': '_MinorUnit',
+    });
+    expect(field.reference?.retainHistoricalSelection, isTrue);
 
     expect(column.flex, 2);
+    expect(column.money, isTrue);
+    expect(column.minorUnitKey, '_MinorUnit');
+    expect(column.currencyCodeKey, '_CurrencyCode');
+    expect(column.defaultMinorUnit, 3);
+    expect(column.valueBuilder!(<String, Object?>{'Value': 7}), 7);
     expect(action.target, AcpActionTarget.collection);
     expect(action.confirmMessage, 'Rotate now?');
     expect(action.fields.single, same(field));
@@ -101,6 +144,8 @@ void main() {
     expect(action.showInRowMenu, isTrue);
     expect(action.prefillFieldsFromRow, isTrue);
     expect(action.showAsRowButton, isTrue);
+    expect(action.refreshResourceKeys, <String>['rows']);
+    expect(action.payloadValidator!(const <String, Object?>{}), isNull);
 
     expect(resource.description, 'Managed key references.');
     expect(resource.columns.single, same(column));
@@ -117,6 +162,13 @@ void main() {
     expect(resource.allowRestore, isTrue);
     expect(resource.pageSize, 25);
     expect(resource.actionsColumnLeading, isFalse);
+    expect(resource.group, 'Security');
+    expect(resource.refreshResourceKeys, <String>['profiles']);
+    expect(resource.payloadValidator!(const <String, Object?>{}), isNull);
+    expect(resource.deletedViews, <AcpDeletedView>[
+      AcpDeletedView.active,
+      AcpDeletedView.archived,
+    ]);
   });
 
   test('tenant labels and row pages normalize display values', () {
@@ -167,3 +219,11 @@ void main() {
     expect(blankRow.rowVersion, isNull);
   });
 }
+
+Object _initialValue() => 'generated';
+
+String _computedValue(Map<String, String> values) => values['Value'] ?? '';
+
+Object? _columnValue(AcpRow row) => row['Value'];
+
+String? _payloadValidator(Map<String, dynamic> payload) => null;

@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.15.0] - 2026-08-27
+
+### Added
+
 - Added the complete global Billing Catalog for meters, Price entitlements,
   run definitions, currencies, tax, payment terms, invoice templates, and
   discounts, plus tenant subscription, usage, entitlement, execution,

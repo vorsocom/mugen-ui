@@ -296,8 +296,11 @@ void main() {
     test('runs all global mutations with RowVersion and refreshes', () async {
       final repository = _FakeRepository();
       final controller = _controller(repository);
-      const productCreate = BillingProductCreateInput(code: 'pro', name: 'Pro');
-      const productUpdate = BillingProductUpdateInput(
+      final productCreate = BillingProductCreateInput(
+        code: ['pro'].single,
+        name: 'Pro',
+      );
+      final productUpdate = BillingProductUpdateInput(
         id: 'product-1',
         rowVersion: 7,
         code: 'pro',

@@ -19,6 +19,7 @@ class AcpResourceState {
     required this.optionalScopeSelection,
     required this.deletedView,
     this.tabCount,
+    this.referenceWarning,
   });
 
   final List<AcpRow> rows;
@@ -30,6 +31,7 @@ class AcpResourceState {
   final AcpOptionalScopeSelection optionalScopeSelection;
   final AcpDeletedView deletedView;
   final int? tabCount;
+  final String? referenceWarning;
 
   int get pages {
     if (pageSize <= 0) {
@@ -51,6 +53,8 @@ class AcpResourceState {
     AcpDeletedView? deletedView,
     int? tabCount,
     bool clearTabCount = false,
+    String? referenceWarning,
+    bool clearReferenceWarning = false,
   }) {
     return AcpResourceState(
       rows: rows ?? this.rows,
@@ -63,6 +67,9 @@ class AcpResourceState {
           optionalScopeSelection ?? this.optionalScopeSelection,
       deletedView: deletedView ?? this.deletedView,
       tabCount: clearTabCount ? null : (tabCount ?? this.tabCount),
+      referenceWarning: clearReferenceWarning
+          ? null
+          : (referenceWarning ?? this.referenceWarning),
     );
   }
 }
@@ -283,6 +290,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
         total: 0,
         page: 1,
         tabCount: 0,
+        clearReferenceWarning: true,
       );
     }
     state = state.copyWith(
@@ -613,7 +621,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     final resourceState = resourceStateFor(descriptor.key);
     _replaceResourceState(
       descriptor.key,
-      resourceState.copyWith(isLoading: true),
+      resourceState.copyWith(isLoading: true, clearReferenceWarning: true),
     );
     state = state.copyWith(clearError: true);
 
@@ -626,6 +634,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
           rows: const <AcpRow>[],
           total: 0,
           isLoading: false,
+          clearReferenceWarning: true,
         ),
       );
       state = state.copyWith(
@@ -667,6 +676,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
         page: page.page,
         pageSize: page.pageSize,
         isLoading: false,
+        referenceWarning: page.referenceWarning,
+        clearReferenceWarning: page.referenceWarning == null,
       ),
     );
   }

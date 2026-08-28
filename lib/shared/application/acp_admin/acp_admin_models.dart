@@ -6,6 +6,8 @@ enum AcpActionTarget { collection, entity }
 
 enum AcpDeletedView { active, all, archived }
 
+enum AcpFilterLiteralType { string, guid }
+
 enum AcpReferenceValueFormat { plain, monthYear }
 
 enum AcpFieldKind {
@@ -62,6 +64,7 @@ class AcpBatchReferenceDescriptor {
     required this.scopeMode,
     required this.selectFields,
     this.idField = 'Id',
+    this.literalType = AcpFilterLiteralType.string,
     this.deletedView = AcpDeletedView.active,
   });
 
@@ -69,6 +72,7 @@ class AcpBatchReferenceDescriptor {
   final AcpScopeMode scopeMode;
   final List<String> selectFields;
   final String idField;
+  final AcpFilterLiteralType literalType;
   final AcpDeletedView deletedView;
 }
 
@@ -298,6 +302,7 @@ class AcpResourceDescriptor {
     this.payloadValidator,
     this.deletedViews = const <AcpDeletedView>[AcpDeletedView.active],
     this.expansions = const <AcpExpandDescriptor>[],
+    this.keyLiteralType = AcpFilterLiteralType.string,
   });
 
   final String key;
@@ -325,6 +330,7 @@ class AcpResourceDescriptor {
   final AcpPayloadValidator? payloadValidator;
   final List<AcpDeletedView> deletedViews;
   final List<AcpExpandDescriptor> expansions;
+  final AcpFilterLiteralType keyLiteralType;
 
   bool canUpdate(AcpRow row) =>
       allowUpdate && acpRowMatches(row, updateWhenEquals);
@@ -371,12 +377,14 @@ class AcpRowPage {
     required this.total,
     required this.page,
     required this.pageSize,
+    this.referenceWarning,
   });
 
   final List<AcpRow> items;
   final int total;
   final int page;
   final int pageSize;
+  final String? referenceWarning;
 
   int get pages {
     if (pageSize <= 0) {

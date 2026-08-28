@@ -262,6 +262,45 @@ class AppErrorAlert extends StatelessWidget {
   }
 }
 
+class AppWarningAlert extends StatelessWidget {
+  const AppWarningAlert({required this.message, super.key});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedMessage = normalizeApiErrorMessage(message);
+    final textStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: AppUiPalette.textPrimary,
+      height: 1.3,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppUiPalette.warningSoft,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppUiPalette.warning.withValues(alpha: 0.38)),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(
+              Icons.warning_amber_outlined,
+              size: 20,
+              color: AppUiPalette.warning,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: SelectableText(resolvedMessage, style: textStyle)),
+        ],
+      ),
+    );
+  }
+}
+
 Future<bool?> showAppConfirmationDialog({
   required BuildContext context,
   required String title,

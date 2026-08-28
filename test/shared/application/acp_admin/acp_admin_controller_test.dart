@@ -266,6 +266,41 @@ void main() {
     },
   );
 
+  test('reference warnings load and clear across tenant switches', () async {
+    final repository = _FakeAcpAdminRepository()
+      ..listRowsResult = const Result<AcpRowPage>.success(
+        AcpRowPage(
+          items: <AcpRow>[],
+          total: 1,
+          page: 1,
+          pageSize: 15,
+          referenceWarning:
+              'Some reference labels could not be resolved: Account.',
+        ),
+      );
+    final controller = AcpAdminController(
+      repository: repository,
+      descriptors: <AcpResourceDescriptor>[descriptors[2]],
+      onSessionExpired: () {},
+    );
+    addTearDown(controller.dispose);
+
+    await controller.loadInitialData();
+    expect(
+      controller.state.activeResourceState.referenceWarning,
+      contains('Account'),
+    );
+
+    repository.listRowsResult = const Result<AcpRowPage>.success(
+      AcpRowPage(items: <AcpRow>[], total: 1, page: 1, pageSize: 15),
+    );
+    final switching = controller.selectTenant('tenant-1');
+    expect(controller.state.activeResourceState.rows, isEmpty);
+    expect(controller.state.activeResourceState.referenceWarning, isNull);
+    await switching;
+    expect(controller.state.activeResourceState.referenceWarning, isNull);
+  });
+
   test('successful mutations refresh declared related resources', () async {
     const first = AcpResourceDescriptor(
       key: 'first',
@@ -865,6 +900,7 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
         total: listRowsResult.data!.total,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
+        referenceWarning: listRowsResult.data!.referenceWarning,
       ),
     );
   }

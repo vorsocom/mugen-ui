@@ -58,6 +58,7 @@ class AcpQueryBuilder {
     required List<String> ids,
     required List<String> selectFields,
     String idField = 'Id',
+    AcpFilterLiteralType literalType = AcpFilterLiteralType.string,
     List<AcpExpandDescriptor> expansions = const <AcpExpandDescriptor>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
   }) {
@@ -65,11 +66,7 @@ class AcpQueryBuilder {
       return const <String, dynamic>{};
     }
 
-    final uniqueIds = ids
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList(growable: false);
+    final uniqueIds = _uniqueReferenceIds(ids, literalType: literalType);
     if (uniqueIds.isEmpty) {
       return const <String, dynamic>{};
     }
@@ -79,7 +76,12 @@ class AcpQueryBuilder {
       ...selectFields,
     }.where((value) => value.trim().isNotEmpty).join(',');
     final quotedIds = uniqueIds
-        .map((value) => "'${_escapeString(value)}'")
+        .map((value) {
+          return switch (literalType) {
+            AcpFilterLiteralType.string => "'${_escapeString(value)}'",
+            AcpFilterLiteralType.guid => "guid'$value'",
+          };
+        })
         .join(',');
     final queryParameters = <String, dynamic>{
       r'$top': uniqueIds.length,
@@ -136,4 +138,32 @@ class AcpQueryBuilder {
   static String _escapeString(String value) {
     return value.replaceAll("'", "''");
   }
+
+  static List<String> _uniqueReferenceIds(
+    List<String> ids, {
+    required AcpFilterLiteralType literalType,
+  }) {
+    final uniqueIds = <String>[];
+    final seen = <String>{};
+    for (final value in ids) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty ||
+          (literalType == AcpFilterLiteralType.guid &&
+              !_guidPattern.hasMatch(trimmed))) {
+        continue;
+      }
+      final identity = literalType == AcpFilterLiteralType.guid
+          ? trimmed.toLowerCase()
+          : trimmed;
+      if (seen.add(identity)) {
+        uniqueIds.add(trimmed);
+      }
+    }
+    return uniqueIds;
+  }
+
+  static final RegExp _guidPattern = RegExp(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+    caseSensitive: false,
+  );
 }

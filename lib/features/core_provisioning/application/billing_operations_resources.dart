@@ -9,6 +9,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Accounts',
     entitySet: 'BillingAccounts',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Tenant customer accounts with optional defaults inherited by subscriptions and invoices.',
     columns: <AcpColumnDescriptor>[
@@ -31,6 +32,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Subscriptions',
     entitySet: 'BillingSubscriptions',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Tenant adoption of active recurring global Prices. Creation and reconciliation generate current-period buckets exactly once.',
     columns: <AcpColumnDescriptor>[
@@ -75,6 +77,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Entitlement Buckets',
     entitySet: 'BillingEntitlementBuckets',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Generated operational balances with Price-rule, meter, subscription, period, and reconciliation provenance. Original allowances are not editable.',
     columns: <AcpColumnDescriptor>[
@@ -166,6 +169,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Usage Events',
     entitySet: 'BillingUsageEvents',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Append-only metered usage events. Existing events cannot be edited or deleted.',
     columns: <AcpColumnDescriptor>[
@@ -216,6 +220,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Usage Allocations',
     entitySet: 'BillingUsageAllocations',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Append-only links between tenant usage events and entitlement buckets.',
     columns: <AcpColumnDescriptor>[
@@ -278,6 +283,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Billing Runs',
     entitySet: 'BillingRuns',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Tenant execution history for global Run Definitions. Schedule editing remains in the Billing Catalog.',
     columns: <AcpColumnDescriptor>[
@@ -348,6 +354,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Invoices',
     entitySet: 'BillingInvoices',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Tenant draft invoices with inherited global defaults and guarded issue, void, and payment actions.',
     columns: <AcpColumnDescriptor>[
@@ -404,6 +411,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Invoice Lines',
     entitySet: 'BillingInvoiceLines',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Draft invoice charges, including one-time setup charges without a recurring period.',
     columns: <AcpColumnDescriptor>[
@@ -456,6 +464,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Credit Notes',
     entitySet: 'BillingCreditNotes',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Tenant invoice corrections. Lifecycle status and timestamps remain display-only until guarded Core actions are available.',
     columns: <AcpColumnDescriptor>[
@@ -496,6 +505,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Financial Adjustments',
     entitySet: 'BillingAdjustments',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Auditable tenant debit and credit corrections.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Kind', 'Kind'),
@@ -545,6 +555,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Payments',
     entitySet: 'BillingPayments',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Tenant payment records. Provider lifecycle status remains display-only until guarded Core actions are available.',
     columns: <AcpColumnDescriptor>[
@@ -591,6 +602,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Payment Allocations',
     entitySet: 'BillingPaymentAllocations',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Append-only payment-to-invoice allocations with guarded invoice synchronization.',
     columns: <AcpColumnDescriptor>[
@@ -643,6 +655,7 @@ billingOperationsResources = <AcpResourceDescriptor>[
     title: 'Ledger Entries',
     entitySet: 'BillingLedgerEntries',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Append-only tenant accounting ledger records.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Direction', 'Direction'),
@@ -703,10 +716,17 @@ AcpColumnReferenceDescriptor _accountReference(String navigationPath) {
     titleFields: const <AcpReferenceFieldDescriptor>[
       AcpReferenceFieldDescriptor('DisplayName'),
       AcpReferenceFieldDescriptor('Code'),
+      AcpReferenceFieldDescriptor('Email'),
     ],
     subtitleFields: const <AcpReferenceFieldDescriptor>[
       AcpReferenceFieldDescriptor('Code'),
     ],
+    batchLookup: const AcpBatchReferenceDescriptor(
+      entitySet: 'BillingAccounts',
+      scopeMode: AcpScopeMode.required,
+      selectFields: <String>['DisplayName', 'Code', 'Email'],
+      literalType: AcpFilterLiteralType.guid,
+    ),
   );
 }
 
@@ -720,6 +740,13 @@ AcpColumnReferenceDescriptor _priceReference(String navigationPath) {
       AcpReferenceFieldDescriptor('PriceType'),
       AcpReferenceFieldDescriptor('Currency'),
     ],
+    batchLookup: const AcpBatchReferenceDescriptor(
+      entitySet: 'BillingPrices',
+      scopeMode: AcpScopeMode.none,
+      selectFields: <String>['Code', 'PriceType', 'Currency'],
+      literalType: AcpFilterLiteralType.guid,
+      deletedView: AcpDeletedView.all,
+    ),
   );
 }
 
@@ -1721,6 +1748,7 @@ AcpResourceDescriptor _readOnlyResource({
     title: title,
     entitySet: entitySet,
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: description,
     columns: columns,
     defaultOrderBy: 'CreatedAt desc',

@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed ACP administration reference enrichment to serialize GUID filters
+  correctly, resolve readable Billing labels through scoped fallbacks, and
+  surface non-blocking warnings when labels remain unavailable.
+
 ### Security
 
 ## [0.15.1] - 2026-08-28

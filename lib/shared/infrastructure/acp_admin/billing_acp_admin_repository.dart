@@ -55,6 +55,7 @@ class BillingAcpAdminRepository implements AcpAdminRepository {
         total: page.total,
         page: page.page,
         pageSize: page.pageSize,
+        referenceWarning: page.referenceWarning,
       ),
     );
   }

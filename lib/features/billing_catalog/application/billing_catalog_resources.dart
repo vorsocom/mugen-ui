@@ -10,6 +10,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Products',
     entitySet: 'BillingProducts',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Global billable products and platform SKUs.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Code', 'Code'),
@@ -38,6 +39,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Prices',
     entitySet: 'BillingPrices',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Global one-time, recurring, and metered Prices. Referenced commercial contracts must be versioned with a new Price.',
     columns: <AcpColumnDescriptor>[
@@ -72,6 +74,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Meter Definitions',
     entitySet: 'BillingMeterDefinitions',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Canonical global meter semantics. Code, unit, and aggregation changes can be rejected after use.',
     columns: <AcpColumnDescriptor>[
@@ -101,6 +104,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Price Entitlements',
     entitySet: 'BillingPriceEntitlements',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Included-usage rules for active recurring package Prices. Changes do not rewrite generated historical buckets.',
     columns: <AcpColumnDescriptor>[
@@ -149,6 +153,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Run Definitions',
     entitySet: 'BillingRunDefinitions',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Reusable global billing schedules. Tenant executions are managed in Billing Operations.',
     columns: <AcpColumnDescriptor>[
@@ -175,6 +180,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Currencies',
     entitySet: 'BillingCurrencyDefinitions',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Vendored ISO 4217 currencies. Definitions are read-only; lifecycle actions control new assignment.',
     columns: <AcpColumnDescriptor>[
@@ -195,6 +201,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Tax Codes',
     entitySet: 'BillingTaxCodes',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Reusable global tax classifications.',
     columns: _namedDefinitionColumns,
     createFields: _namedDefinitionFields,
@@ -212,6 +219,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Tax Rates',
     entitySet: 'BillingTaxRates',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Effective-dated global jurisdiction tax rates.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Code', 'Code'),
@@ -237,6 +245,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Payment Terms',
     entitySet: 'BillingPaymentTerms',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Reusable global invoice payment terms.',
     columns: <AcpColumnDescriptor>[
       ..._namedDefinitionColumns.take(3),
@@ -264,6 +273,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Invoice Templates',
     entitySet: 'BillingInvoiceTemplates',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Reusable global invoice rendering templates.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Code', 'Code'),
@@ -288,6 +298,7 @@ billingCatalogResources = <AcpResourceDescriptor>[
     title: 'Discounts',
     entitySet: 'BillingDiscountDefinitions',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Reusable percentage and fixed-amount discounts/coupons.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Code', 'Code'),
@@ -320,6 +331,13 @@ const AcpColumnReferenceDescriptor _catalogPriceReference =
         AcpReferenceFieldDescriptor('PriceType'),
         AcpReferenceFieldDescriptor('Currency'),
       ],
+      batchLookup: AcpBatchReferenceDescriptor(
+        entitySet: 'BillingPrices',
+        scopeMode: AcpScopeMode.none,
+        selectFields: <String>['Code', 'PriceType', 'Currency'],
+        literalType: AcpFilterLiteralType.guid,
+        deletedView: AcpDeletedView.all,
+      ),
     );
 
 const AcpColumnReferenceDescriptor _catalogMeterReference =
@@ -327,10 +345,17 @@ const AcpColumnReferenceDescriptor _catalogMeterReference =
       navigationPath: 'MeterDefinition',
       titleFields: <AcpReferenceFieldDescriptor>[
         AcpReferenceFieldDescriptor('Code'),
+        AcpReferenceFieldDescriptor('Description'),
       ],
       subtitleFields: <AcpReferenceFieldDescriptor>[
         AcpReferenceFieldDescriptor('Unit'),
       ],
+      batchLookup: AcpBatchReferenceDescriptor(
+        entitySet: 'BillingMeterDefinitions',
+        scopeMode: AcpScopeMode.none,
+        selectFields: <String>['Code', 'Unit', 'Description'],
+        literalType: AcpFilterLiteralType.guid,
+      ),
     );
 
 final List<AcpFieldDescriptor> _productFields = <AcpFieldDescriptor>[

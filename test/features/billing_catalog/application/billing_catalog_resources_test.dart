@@ -118,6 +118,30 @@ void main() {
     );
     expect(entitlements.allowRestore, isFalse);
     expect(entitlements.entityActions.single.name, 'archive');
+    expect(entitlements.keyLiteralType, AcpFilterLiteralType.guid);
+    final priceColumn = entitlements.columns.singleWhere(
+      (column) => column.key == 'PriceId',
+    );
+    final meterColumn = entitlements.columns.singleWhere(
+      (column) => column.key == 'MeterDefinitionId',
+    );
+    expect(priceColumn.reference?.batchLookup?.entitySet, 'BillingPrices');
+    expect(priceColumn.reference?.batchLookup?.deletedView, AcpDeletedView.all);
+    expect(
+      priceColumn.reference?.batchLookup?.literalType,
+      AcpFilterLiteralType.guid,
+    );
+    expect(meterColumn.reference?.batchLookup?.selectFields, <String>[
+      'Code',
+      'Unit',
+      'Description',
+    ]);
+    expect(
+      billingCatalogResources.every(
+        (resource) => resource.keyLiteralType == AcpFilterLiteralType.guid,
+      ),
+      isTrue,
+    );
   });
 
   test('global payload validators preserve commercial boundaries', () {

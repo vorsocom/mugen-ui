@@ -30,6 +30,7 @@ AcpColumnReferenceDescriptor coreBatchReference({
   required String navigationPath,
   required String entitySet,
   required AcpScopeMode scopeMode,
+  required AcpFilterLiteralType literalType,
   required List<String> selectFields,
   required List<AcpReferenceFieldDescriptor> titleFields,
   List<AcpReferenceFieldDescriptor> subtitleFields =
@@ -44,6 +45,7 @@ AcpColumnReferenceDescriptor coreBatchReference({
       entitySet: entitySet,
       scopeMode: scopeMode,
       selectFields: selectFields,
+      literalType: literalType,
       deletedView: deletedView,
     ),
   );

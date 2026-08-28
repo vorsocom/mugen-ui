@@ -74,6 +74,7 @@ final List<AcpResourceDescriptor> reportingResources = <AcpResourceDescriptor>[
     title: 'Metric Definitions',
     entitySet: 'OpsReportingMetricDefinitions',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Reusable typed aggregation formulas and source bindings.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Code', 'Code'),
@@ -121,6 +122,7 @@ final List<AcpResourceDescriptor> reportingResources = <AcpResourceDescriptor>[
     title: 'Report Definitions',
     entitySet: 'OpsReportingReportDefinitions',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Reusable report definitions with searchable metric-code selection.',
     columns: <AcpColumnDescriptor>[
@@ -194,6 +196,7 @@ AcpColumnReferenceDescriptor _metricDisplay(String navigationPath) {
     navigationPath: navigationPath,
     entitySet: 'OpsReportingMetricDefinitions',
     scopeMode: AcpScopeMode.required,
+    literalType: AcpFilterLiteralType.guid,
     selectFields: const <String>['Name', 'Code', 'FormulaType'],
     titleFields: const <AcpReferenceFieldDescriptor>[
       AcpReferenceFieldDescriptor('Name'),
@@ -210,6 +213,7 @@ final AcpColumnReferenceDescriptor _reportDisplay = coreBatchReference(
   navigationPath: 'ReportDefinition',
   entitySet: 'OpsReportingReportDefinitions',
   scopeMode: AcpScopeMode.required,
+  literalType: AcpFilterLiteralType.guid,
   selectFields: const <String>['Name', 'Code'],
   titleFields: const <AcpReferenceFieldDescriptor>[
     AcpReferenceFieldDescriptor('Name'),
@@ -330,6 +334,7 @@ AcpResourceDescriptor _diagnostic({
     title: title,
     entitySet: entitySet,
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Read-only reporting operations and generated data.',
     columns: columns,
     defaultOrderBy: 'CreatedAt desc',

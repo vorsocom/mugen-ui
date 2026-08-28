@@ -6,6 +6,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
     title: 'Schemas',
     entitySet: 'Schemas',
     scopeMode: AcpScopeMode.optional,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Schema registry definitions for validating and coercing ACP payload contracts.',
     columns: <AcpColumnDescriptor>[
@@ -85,6 +86,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
     title: 'Schema Bindings',
     entitySet: 'SchemaBindings',
     scopeMode: AcpScopeMode.optional,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Schema binding contracts targeting ACP resources or resource actions.',
     columns: <AcpColumnDescriptor>[
@@ -157,6 +159,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
     title: 'Plugin Capability Grants',
     entitySet: 'PluginCapabilityGrants',
     scopeMode: AcpScopeMode.optional,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Runtime capability grants evaluated by ACP sandbox enforcement.',
     columns: <AcpColumnDescriptor>[
@@ -206,6 +209,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
     title: 'Dedup Records',
     entitySet: 'DedupRecords',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Shared idempotency ledger for ACP create/action requests.',
     columns: <AcpColumnDescriptor>[
       _column('Scope', 'Scope'),
@@ -288,6 +292,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
     title: 'Evidence Blobs',
     entitySet: 'EvidenceBlobs',
     scopeMode: AcpScopeMode.optional,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Metadata-first evidence records with hash verification and lifecycle controls.',
     columns: <AcpColumnDescriptor>[
@@ -399,6 +404,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
     title: 'Audit Correlation Links',
     entitySet: 'AuditCorrelationLinks',
     scopeMode: AcpScopeMode.optional,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Resolved trace and correlation graph edges emitted from ACP request handling.',
     columns: <AcpColumnDescriptor>[
@@ -438,6 +444,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
     title: 'Audit Biz Trace Events',
     entitySet: 'AuditBizTraceEvents',
     scopeMode: AcpScopeMode.optional,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Business-trace observability timeline events emitted for ACP handlers.',
     columns: <AcpColumnDescriptor>[

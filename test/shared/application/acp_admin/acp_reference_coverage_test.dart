@@ -29,6 +29,39 @@ void main() {
     ...runtimeAdminResources,
   ];
 
+  test('registered UUID resources declare GUID key literals', () {
+    final malformed = resources
+        .where(
+          (resource) => resource.keyLiteralType != AcpFilterLiteralType.guid,
+        )
+        .map((resource) => '${resource.key} (${resource.entitySet})')
+        .toList(growable: false);
+
+    expect(
+      malformed,
+      isEmpty,
+      reason: 'UUID resources without GUID key metadata: $malformed',
+    );
+  });
+
+  test('registered UUID batch references declare GUID literals', () {
+    final malformed = <String>[];
+    for (final resource in resources) {
+      for (final column in resource.columns) {
+        final lookup = column.reference?.batchLookup;
+        if (lookup != null && lookup.literalType != AcpFilterLiteralType.guid) {
+          malformed.add('${resource.key}.${column.key} -> ${lookup.entitySet}');
+        }
+      }
+    }
+
+    expect(
+      malformed,
+      isEmpty,
+      reason: 'UUID batch references without GUID metadata: $malformed',
+    );
+  });
+
   test('every displayed ID is a reference or explicitly opaque', () {
     final missing = <String>[];
     for (final resource in resources) {

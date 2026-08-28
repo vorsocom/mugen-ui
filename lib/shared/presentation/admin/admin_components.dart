@@ -160,14 +160,46 @@ class AdminTabItem {
   final String? tooltip;
 }
 
-class AdminTabs extends StatelessWidget {
+class AdminTabs extends StatefulWidget {
   const AdminTabs({super.key, required this.items});
 
   final List<AdminTabItem> items;
 
   @override
+  State<AdminTabs> createState() => _AdminTabsState();
+}
+
+class _AdminTabsState extends State<AdminTabs> {
+  static const double _edgeControlWidth = 52;
+  static const double _edgeTolerance = 1;
+
+  final ScrollController _scrollController = ScrollController();
+  bool _canScrollBackward = false;
+  bool _canScrollForward = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_updateScrollState);
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminTabs oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleScrollStateUpdate();
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_updateScrollState)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
+    if (widget.items.isEmpty) {
       return const SizedBox.shrink();
     }
 
@@ -176,10 +208,145 @@ class AdminTabs extends StatelessWidget {
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppUiPalette.border)),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [for (final item in items) _AdminTabButton(item: item)],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          _scheduleScrollStateUpdate();
+          return Stack(
+            children: [
+              SingleChildScrollView(
+                key: const Key('admin-tabs-scroll-view'),
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final item in widget.items)
+                      _AdminTabButton(item: item),
+                  ],
+                ),
+              ),
+              if (_canScrollBackward)
+                PositionedDirectional(
+                  start: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: _edgeControlWidth,
+                  child: _AdminTabScrollControl(
+                    key: const Key('admin-tabs-scroll-backward'),
+                    forward: false,
+                    onPressed: () => _scrollBy(forward: false),
+                  ),
+                ),
+              if (_canScrollForward)
+                PositionedDirectional(
+                  end: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: _edgeControlWidth,
+                  child: _AdminTabScrollControl(
+                    key: const Key('admin-tabs-scroll-forward'),
+                    forward: true,
+                    onPressed: () => _scrollBy(forward: true),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _scheduleScrollStateUpdate() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _updateScrollState();
+      }
+    });
+  }
+
+  void _updateScrollState() {
+    if (!_scrollController.hasClients ||
+        !_scrollController.position.hasContentDimensions) {
+      return;
+    }
+    final position = _scrollController.position;
+    final canScrollBackward =
+        position.pixels > position.minScrollExtent + _edgeTolerance;
+    final canScrollForward =
+        position.pixels < position.maxScrollExtent - _edgeTolerance;
+    if (canScrollBackward == _canScrollBackward &&
+        canScrollForward == _canScrollForward) {
+      return;
+    }
+    setState(() {
+      _canScrollBackward = canScrollBackward;
+      _canScrollForward = canScrollForward;
+    });
+  }
+
+  Future<void> _scrollBy({required bool forward}) async {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    final position = _scrollController.position;
+    final distance = math.max(160.0, position.viewportDimension * 0.7);
+    final target = (position.pixels + (forward ? distance : -distance))
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    await _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+}
+
+class _AdminTabScrollControl extends StatelessWidget {
+  const _AdminTabScrollControl({
+    super.key,
+    required this.forward,
+    required this.onPressed,
+  });
+
+  final bool forward;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final tooltip = forward ? 'Show more tabs' : 'Show previous tabs';
+    return Container(
+      alignment: forward ? Alignment.centerRight : Alignment.centerLeft,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: forward ? Alignment.centerLeft : Alignment.centerRight,
+          end: forward ? Alignment.centerRight : Alignment.centerLeft,
+          colors: <Color>[
+            AppUiPalette.surface.withValues(alpha: 0),
+            AppUiPalette.surface,
+          ],
+        ),
+      ),
+      child: Semantics(
+        label: tooltip,
+        button: true,
+        onTap: onPressed,
+        child: ExcludeSemantics(
+          child: Material(
+            color: AppUiPalette.surface,
+            elevation: 2,
+            shape: const CircleBorder(),
+            child: IconButton(
+              tooltip: tooltip,
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+              padding: EdgeInsets.zero,
+              color: AppUiPalette.textSecondary,
+              icon: Icon(
+                forward ? Icons.chevron_right : Icons.chevron_left,
+                size: 22,
+              ),
+              onPressed: onPressed,
+            ),
+          ),
         ),
       ),
     );

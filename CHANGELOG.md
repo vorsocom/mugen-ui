@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Added responsive overflow fades and accessible navigation buttons to
+  scrollable administration tab strips.
 - Fixed descriptor-driven ACP administration tables to render accessible,
   human-readable relationship labels while preserving UUID fallbacks and raw
   identifiers for inspection.

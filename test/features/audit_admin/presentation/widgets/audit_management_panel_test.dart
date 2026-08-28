@@ -17,6 +17,7 @@ import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dar
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/presentation/feedback/snackbar_dispatcher.dart';
+import 'package:mugen_ui/shared/presentation/forms/app_temporal_form_fields.dart';
 import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
@@ -88,6 +89,7 @@ void main() {
     expect(guidance, anyElement(contains('keep maintenance work bounded')));
     expect(guidance, anyElement(contains('default lifecycle sequence')));
     expect(guidance, anyElement(contains('server clock')));
+    expect(find.byType(AppDateTimeFormField), findsOneWidget);
     await tester.tap(
       find.byKey(const Key('audit-run-lifecycle-phase-seal_backlog')),
     );
@@ -100,6 +102,7 @@ void main() {
       find.byKey(const Key('audit-run-lifecycle-mutation-warning')),
       findsOneWidget,
     );
+    await _selectDateTime(tester, const Key('audit-now-override-field-picker'));
 
     await tester.tap(find.widgetWithText(FilledButton, 'Run'));
     await tester.pumpAndSettle();
@@ -119,6 +122,8 @@ void main() {
     expect(repository.runLifecycleInputs.single.phases, <String>[
       'seal_backlog',
     ]);
+    expect(repository.runLifecycleInputs.single.nowOverride?.isUtc, isTrue);
+    expect(repository.runLifecycleInputs.single.nowOverride?.second, 0);
   });
 
   testWidgets('row action sends reason and row version after confirmation', (
@@ -139,7 +144,19 @@ void main() {
     final guidance = _fieldGuidance(tester);
     expect(guidance, anyElement(contains('audit review')));
     expect(guidance, anyElement(contains('legal hold remains active')));
+    expect(find.byType(AppDateTimeFormField), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('audit-legal-hold-until-field')),
+        matching: find.byType(EditableText),
+      ),
+      findsNothing,
+    );
     await tester.enterText(formFields.at(0), 'incident review');
+    await _selectDateTime(
+      tester,
+      const Key('audit-legal-hold-until-field-picker'),
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Place Hold'));
     await tester.pumpAndSettle();
 
@@ -150,7 +167,54 @@ void main() {
     expect(repository.placeHoldInputs, hasLength(1));
     expect(repository.placeHoldInputs.single.reason, 'incident review');
     expect(repository.placeHoldInputs.single.rowVersion, 1);
+    expect(repository.placeHoldInputs.single.legalHoldUntil?.isUtc, isTrue);
+    expect(repository.placeHoldInputs.single.legalHoldUntil?.second, 0);
   });
+
+  testWidgets('verify chain uses shared UTC selectors for both bounds', (
+    WidgetTester tester,
+  ) async {
+    final repository = _FakeAuditAdminRepository();
+    await _pumpPanel(tester, repository);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('audit-management-verify-chain-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppDateTimeFormField), findsNWidgets(2));
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('audit-verify-from-field')),
+        matching: find.byType(EditableText),
+      ),
+      findsNothing,
+    );
+    await _selectDateTime(tester, const Key('audit-verify-from-field-picker'));
+    await _selectDateTime(tester, const Key('audit-verify-to-field-picker'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Verify'));
+    await tester.pumpAndSettle();
+
+    expect(repository.verifyInputs, hasLength(1));
+    final input = repository.verifyInputs.single;
+    expect(input.fromOccurredAt?.isUtc, isTrue);
+    expect(input.toOccurredAt?.isUtc, isTrue);
+    expect(input.fromOccurredAt?.second, 0);
+    expect(input.toOccurredAt?.second, 0);
+  });
+}
+
+Future<void> _selectDateTime(WidgetTester tester, Key pickerKey) async {
+  final picker = find.byKey(pickerKey);
+  await tester.ensureVisible(picker);
+  await tester.pumpAndSettle();
+  await tester.tap(picker);
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(TextButton, 'OK'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(TextButton, 'OK'));
+  await tester.pumpAndSettle();
 }
 
 List<String> _fieldGuidance(WidgetTester tester) {
@@ -234,6 +298,7 @@ class _FakeAuditAdminRepository implements AuditAdminRepository {
       <AuditPlaceLegalHoldInput>[];
   final List<AuditRunLifecycleInput> runLifecycleInputs =
       <AuditRunLifecycleInput>[];
+  final List<AuditVerifyChainInput> verifyInputs = <AuditVerifyChainInput>[];
 
   @override
   Future<Result<PageResult<AuditEventEntity>>> fetchAuditEvents(
@@ -338,6 +403,7 @@ class _FakeAuditAdminRepository implements AuditAdminRepository {
   Future<Result<AuditChainVerificationSummaryEntity>> verifyChain(
     AuditVerifyChainInput input,
   ) async {
+    verifyInputs.add(input);
     return const Result<AuditChainVerificationSummaryEntity>.success(
       AuditChainVerificationSummaryEntity(
         isValid: true,

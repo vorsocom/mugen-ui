@@ -603,9 +603,11 @@ String _fallbackHelp({required String label, required AcpFieldKind kind}) {
     case AcpFieldKind.json:
       return 'JSON value for "$label". Use valid JSON, prefer objects for named settings and arrays for ordered lists, and avoid storing secrets unless this field is explicitly designed for secret material.';
     case AcpFieldKind.dateTime:
-      return 'Timestamp for "$label". Use ISO-8601 with timezone, for example "2026-05-19T12:00:00Z".';
+      return 'UTC timestamp for "$label". Choose a calendar date and 24-hour time; changed values use minute precision.';
     case AcpFieldKind.timeOfDay:
-      return 'Time of day for "$label" in 24-hour HH:mm or HH:mm:ss format.';
+      return 'Time of day for "$label". Choose a 24-hour time; changed values use minute precision.';
+    case AcpFieldKind.dateList:
+      return 'Calendar dates for "$label". Dates are submitted in YYYY-MM-DD format.';
     case AcpFieldKind.multiline:
       return 'Free-text value for "$label". Keep it concise, audit-safe, and free of secrets.';
     case AcpFieldKind.text:

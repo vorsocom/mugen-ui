@@ -235,7 +235,7 @@ AcpFieldDescriptor coreDateTime(
     label: label,
     kind: AcpFieldKind.dateTime,
     required: required,
-    hintText: 'ISO-8601 with timezone, for example 2026-08-26T12:00:00Z',
+    hintText: 'Select a UTC date and time',
     applyAfterCreate: applyAfterCreate,
   );
 }
@@ -249,7 +249,23 @@ AcpFieldDescriptor coreTimeOfDay(
     key: key,
     label: label,
     kind: AcpFieldKind.timeOfDay,
-    hintText: '24-hour time, for example 09:00 or 17:30:00',
+    hintText: 'Select a 24-hour time',
+    applyAfterCreate: applyAfterCreate,
+  );
+}
+
+AcpFieldDescriptor coreDateList(
+  String key,
+  String label, {
+  bool required = false,
+  bool applyAfterCreate = false,
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    kind: AcpFieldKind.dateList,
+    required: required,
+    hintText: 'Select one or more calendar dates',
     applyAfterCreate: applyAfterCreate,
   );
 }

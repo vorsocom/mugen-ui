@@ -92,11 +92,7 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
         optionLabels: acpBusinessDayLabels,
         multiSelectOptions: true,
       ),
-      coreStringList(
-        'HolidayRefs',
-        'Holiday Dates (ISO-8601)',
-        applyAfterCreate: true,
-      ),
+      coreDateList('HolidayRefs', 'Holiday Dates', applyAfterCreate: true),
       coreBool(
         'IsActive',
         'Is Active',
@@ -126,7 +122,7 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
         optionLabels: acpBusinessDayLabels,
         multiSelectOptions: true,
       ),
-      coreStringList('HolidayRefs', 'Holiday Dates (ISO-8601)'),
+      coreDateList('HolidayRefs', 'Holiday Dates'),
       coreBool('IsActive', 'Is Active'),
       coreJson('Attributes', 'Attributes'),
     ],

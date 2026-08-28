@@ -19,6 +19,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.15.3] - 2026-08-28
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Replaced plain-text administrative date and time inputs with reusable UTC
+  date-time, 24-hour time, and multi-date selector controls while preserving
+  existing API payload formats and untouched timestamp precision.
+
+### Security
+
 ## [0.15.2] - 2026-08-28
 
 ### Added

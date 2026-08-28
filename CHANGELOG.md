@@ -19,6 +19,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.15.4] - 2026-08-28
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed UUID-backed ACP administration reference and expansion re-fetches to
+  emit typed GUID literals across channel orchestration, knowledge packs, and
+  upstream Core administration descriptors while preserving string-key filters.
+
+### Security
+
 ## [0.15.3] - 2026-08-28
 
 ### Added

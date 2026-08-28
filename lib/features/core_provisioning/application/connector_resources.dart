@@ -9,6 +9,7 @@ final List<AcpResourceDescriptor> connectorResources = <AcpResourceDescriptor>[
     title: 'Connector Types',
     entitySet: 'OpsConnectorTypes',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Global HTTP/JSON adapter types and reusable capability contracts.',
     columns: <AcpColumnDescriptor>[
@@ -58,6 +59,7 @@ final List<AcpResourceDescriptor> connectorResources = <AcpResourceDescriptor>[
     title: 'Connector Instances',
     entitySet: 'OpsConnectorInstances',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Tenant connector configuration using managed KeyRef identifiers; secret material is never retrieved.',
     columns: <AcpColumnDescriptor>[
@@ -132,6 +134,7 @@ final List<AcpResourceDescriptor> connectorResources = <AcpResourceDescriptor>[
     title: 'Connector Call Logs',
     entitySet: 'OpsConnectorCallLogs',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Read-only redacted connector invocation provenance and outcome diagnostics.',
     columns: <AcpColumnDescriptor>[
@@ -156,6 +159,7 @@ final AcpColumnReferenceDescriptor _connectorTypeDisplay = coreBatchReference(
   navigationPath: 'ConnectorType',
   entitySet: 'OpsConnectorTypes',
   scopeMode: AcpScopeMode.none,
+  literalType: AcpFilterLiteralType.guid,
   selectFields: const <String>['DisplayName', 'Key', 'AdapterKind'],
   titleFields: const <AcpReferenceFieldDescriptor>[
     AcpReferenceFieldDescriptor('DisplayName'),
@@ -172,6 +176,7 @@ final AcpColumnReferenceDescriptor _connectorInstanceDisplay =
       navigationPath: 'ConnectorInstance',
       entitySet: 'OpsConnectorInstances',
       scopeMode: AcpScopeMode.required,
+      literalType: AcpFilterLiteralType.guid,
       selectFields: const <String>['DisplayName', 'Status'],
       titleFields: const <AcpReferenceFieldDescriptor>[
         AcpReferenceFieldDescriptor('DisplayName'),

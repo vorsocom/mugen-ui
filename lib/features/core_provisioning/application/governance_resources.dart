@@ -7,6 +7,7 @@ final List<AcpResourceDescriptor> governanceResources = <AcpResourceDescriptor>[
     title: 'Policy Definitions',
     entitySet: 'OpsPolicyDefinitions',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Tenant governance policies with validated documents and guarded evaluation and activation actions.',
     columns: <AcpColumnDescriptor>[

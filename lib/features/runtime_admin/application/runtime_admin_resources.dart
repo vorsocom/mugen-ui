@@ -7,6 +7,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
     title: 'Messaging Client Profiles',
     entitySet: 'MessagingClientProfiles',
     scopeMode: AcpScopeMode.optional,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Messaging transport client accounts, webhook identifiers, and secret references.',
     columns: <AcpColumnDescriptor>[
@@ -89,6 +90,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
     title: 'Runtime Config Profiles',
     entitySet: 'RuntimeConfigProfiles',
     scopeMode: AcpScopeMode.optional,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Non-secret runtime configuration overlays for messaging and operational defaults.',
     columns: <AcpColumnDescriptor>[
@@ -124,6 +126,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
     title: 'Key References',
     entitySet: 'KeyRefs',
     scopeMode: AcpScopeMode.optional,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Managed key-reference metadata for runtime secret rotation and lifecycle actions.',
     columns: <AcpColumnDescriptor>[
@@ -184,6 +187,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
     title: 'System Flags',
     entitySet: 'SystemFlags',
     scopeMode: AcpScopeMode.none,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'System-wide feature flags and runtime reload controls. The current backend exposes read/list plus reload action.',
     columns: <AcpColumnDescriptor>[

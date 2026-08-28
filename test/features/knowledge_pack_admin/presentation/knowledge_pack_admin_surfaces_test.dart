@@ -6,6 +6,7 @@ import 'package:mugen_ui/features/knowledge_pack_admin/application/knowledge_pac
 import 'package:mugen_ui/features/knowledge_pack_admin/presentation/providers/knowledge_pack_admin_providers.dart';
 import 'package:mugen_ui/features/knowledge_pack_admin/presentation/widgets/knowledge_pack_panel.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
@@ -72,6 +73,40 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets(
+    'knowledge packs show current version labels and retain raw IDs in details',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1800, 1200));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            knowledgePackAdminRepositoryProvider.overrideWithValue(
+              _KnowledgePackEnrichmentRepository(),
+            ),
+          ],
+          child: const MaterialApp(home: Scaffold(body: KnowledgePackPanel())),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('v7 · published'), findsOneWidget);
+      expect(
+        find.byKey(const Key('acp-admin-reference-warning')),
+        findsNothing,
+      );
+      expect(find.text(_currentVersionId), findsNothing);
+
+      await tester.tap(find.byTooltip('View row'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_currentVersionId), findsOneWidget);
+    },
+  );
 
   test(
     'knowledge pack create requirements match backend validation surface',
@@ -188,4 +223,55 @@ List<String> _requiredFieldKeys(List<AcpFieldDescriptor> fields) {
       .where((field) => field.required)
       .map((field) => field.key)
       .toList(growable: false);
+}
+
+const String _currentVersionId = '60000000-0000-4000-8000-000000000001';
+
+class _KnowledgePackEnrichmentRepository extends FakeAcpAdminRepository {
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    if (descriptor.entitySet != 'KnowledgePacks') {
+      return super.listRows(
+        descriptor: descriptor,
+        pageRequest: pageRequest,
+        tenantId: tenantId,
+        searchTerm: searchTerm,
+        extraFilters: extraFilters,
+        deletedView: deletedView,
+        enrichReferences: enrichReferences,
+      );
+    }
+
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: const <AcpRow>[
+          <String, Object?>{
+            'Id': '50000000-0000-4000-8000-000000000001',
+            'TenantId': 'tenant-1',
+            'RowVersion': 1,
+            'Key': 'support',
+            'Name': 'Support Knowledge',
+            'IsActive': true,
+            'CurrentVersionId': _currentVersionId,
+            'CurrentVersion': <String, Object?>{
+              'Id': _currentVersionId,
+              'VersionNumber': 7,
+              'Status': 'published',
+            },
+          },
+        ],
+        total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
 }

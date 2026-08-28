@@ -8,6 +8,7 @@ contextAdminResources = <AcpResourceDescriptor>[
     title: 'Profiles',
     entitySet: 'ContextProfiles',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Scope-aware context profile selection for platform, channel, route, and client profile combinations.',
     columns: <AcpColumnDescriptor>[
@@ -59,6 +60,7 @@ contextAdminResources = <AcpResourceDescriptor>[
     title: 'Policies',
     entitySet: 'ContextPolicies',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Budget, redaction, retention, allow/deny, trace, and cache settings for the context engine.',
     columns: <AcpColumnDescriptor>[
@@ -96,6 +98,7 @@ contextAdminResources = <AcpResourceDescriptor>[
     title: 'Contributor Bindings',
     entitySet: 'ContextContributorBindings',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Contributor activation and priority bindings used by the context runtime.',
     columns: <AcpColumnDescriptor>[
@@ -145,6 +148,7 @@ contextAdminResources = <AcpResourceDescriptor>[
     title: 'Source Bindings',
     entitySet: 'ContextSourceBindings',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Source selection overlays that contribute allow rules to the context runtime.',
     columns: <AcpColumnDescriptor>[
@@ -198,6 +202,7 @@ contextAdminResources = <AcpResourceDescriptor>[
     title: 'Trace Policies',
     entitySet: 'ContextTracePolicies',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Trace capture policy rows controlling prepare/commit and selected/dropped item detail.',
     columns: <AcpColumnDescriptor>[

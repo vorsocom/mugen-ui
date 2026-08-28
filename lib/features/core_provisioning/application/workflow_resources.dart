@@ -7,6 +7,7 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
     title: 'Workflow Definitions',
     entitySet: 'OpsWorkflowDefinitions',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Tenant workflow identities and activation settings.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Key', 'Key'),
@@ -43,6 +44,7 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
     title: 'Workflow Versions',
     entitySet: 'OpsWorkflowVersions',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Constrained draft, published, and retired versions with an explicit default contract.',
     columns: <AcpColumnDescriptor>[
@@ -102,6 +104,7 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
     title: 'Workflow States',
     entitySet: 'OpsWorkflowStates',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Named states with explicit initial and terminal behavior.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Key', 'Key'),
@@ -140,6 +143,7 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
     title: 'Workflow Transitions',
     entitySet: 'OpsWorkflowTransitions',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Searchable source-to-target state transitions within a workflow version.',
     columns: <AcpColumnDescriptor>[
@@ -203,6 +207,7 @@ final AcpColumnReferenceDescriptor _workflowDefinitionDisplay =
       navigationPath: 'WorkflowDefinition',
       entitySet: 'OpsWorkflowDefinitions',
       scopeMode: AcpScopeMode.required,
+      literalType: AcpFilterLiteralType.guid,
       selectFields: const <String>['Name', 'Key'],
       titleFields: const <AcpReferenceFieldDescriptor>[
         AcpReferenceFieldDescriptor('Name'),
@@ -217,6 +222,7 @@ final AcpColumnReferenceDescriptor _workflowVersionDisplay = coreBatchReference(
   navigationPath: 'WorkflowVersion',
   entitySet: 'OpsWorkflowVersions',
   scopeMode: AcpScopeMode.required,
+  literalType: AcpFilterLiteralType.guid,
   selectFields: const <String>['VersionNumber', 'Status'],
   titleFields: const <AcpReferenceFieldDescriptor>[
     AcpReferenceFieldDescriptor('VersionNumber', prefix: 'v'),
@@ -231,6 +237,7 @@ AcpColumnReferenceDescriptor _workflowStateDisplay(String navigationPath) {
     navigationPath: navigationPath,
     entitySet: 'OpsWorkflowStates',
     scopeMode: AcpScopeMode.required,
+    literalType: AcpFilterLiteralType.guid,
     selectFields: const <String>['Name', 'Key'],
     titleFields: const <AcpReferenceFieldDescriptor>[
       AcpReferenceFieldDescriptor('Name'),

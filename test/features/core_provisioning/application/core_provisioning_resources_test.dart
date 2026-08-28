@@ -15,6 +15,35 @@ import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 
 void main() {
+  test('core batch references preserve their required literal type', () {
+    final guidReference = coreBatchReference(
+      navigationPath: 'Target',
+      entitySet: 'Targets',
+      scopeMode: AcpScopeMode.none,
+      literalType: AcpFilterLiteralType.guid,
+      selectFields: const <String>['Name'],
+      titleFields: const <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Name'),
+      ],
+    );
+    final stringReference = coreBatchReference(
+      navigationPath: 'Target',
+      entitySet: 'Targets',
+      scopeMode: AcpScopeMode.none,
+      literalType: AcpFilterLiteralType.string,
+      selectFields: const <String>['Name'],
+      titleFields: const <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Name'),
+      ],
+    );
+
+    expect(guidReference.batchLookup?.literalType, AcpFilterLiteralType.guid);
+    expect(
+      stringReference.batchLookup?.literalType,
+      AcpFilterLiteralType.string,
+    );
+  });
+
   test('resource families cover the required Core entity sets and scopes', () {
     expect(
       billingOperationsResources.map((resource) => resource.entitySet),

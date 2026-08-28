@@ -51,6 +51,77 @@ void main() {
     expect(fixture.client.requests.single.queryParameters[r'$top'], 50);
   });
 
+  test('fetchFilterOptions maps tenant members and service routes', () async {
+    final fixture = _HumanHandoffFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, dynamic>{
+            'value': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'UserId': 'agent-1',
+                'User': <String, dynamic>{
+                  'LoginEmail': 'operator@example.com',
+                  'Username': 'operator',
+                },
+              },
+              <String, dynamic>{'UserId': 'agent-2', 'User': null},
+              <String, dynamic>{'UserId': 'agent-1', 'User': null},
+            ],
+          }),
+        ),
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, dynamic>{
+            'value': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'ServiceRouteDefaultKey': 'support',
+                'DisplayName': 'Support queue',
+                'ProfileKey': 'support-primary',
+                'ChannelKey': 'web',
+              },
+              <String, dynamic>{
+                'ServiceRouteDefaultKey': 'support',
+                'ProfileKey': 'support-secondary',
+              },
+              <String, dynamic>{'ServiceRouteDefaultKey': null},
+            ],
+          }),
+        ),
+      ],
+    );
+
+    final result = await fixture.repository.fetchFilterOptions(
+      tenantId: ' tenant-1 ',
+      top: 75,
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.data!.owners, hasLength(2));
+    final operator = result.data!.owners.singleWhere(
+      (option) => option.id == 'agent-1',
+    );
+    expect(operator.title, 'operator@example.com');
+    expect(operator.subtitle, 'operator · agent-1');
+    expect(result.data!.serviceRoutes.single.title, 'Support queue');
+    expect(
+      result.data!.serviceRoutes.single.searchText,
+      contains('support-primary'),
+    );
+
+    final membershipRequest = fixture.client.requests.first;
+    expect(
+      membershipRequest.path,
+      'core/acp/v1/tenants/tenant-1/TenantMemberships',
+    );
+    expect(membershipRequest.queryParameters[r'$expand'], 'User');
+    expect(membershipRequest.queryParameters[r'$top'], 75);
+    expect(
+      fixture.client.requests.last.path,
+      'core/acp/v1/tenants/tenant-1/ChannelProfiles',
+    );
+  });
+
   test(
     'fetchSessions applies tenant path, filters, paging, and maps rows',
     () async {
@@ -369,6 +440,9 @@ data: {"tenant_id":"tenant-1","session_id":"session-1","event_type":"handoff.tra
 
   test('validation and HTTP failures are mapped', () async {
     final validationFixture = _HumanHandoffFixture();
+    final filterValidation = await validationFixture.repository
+        .fetchFilterOptions(tenantId: '');
+    expect(filterValidation.failure, isA<ValidationFailure>());
     final validation = await validationFixture.repository.fetchSessions(
       const HumanHandoffSessionListQuery(
         tenantId: '',

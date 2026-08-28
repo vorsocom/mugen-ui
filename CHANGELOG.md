@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Changed administration forms and handoff filters to use searchable entity
+  references, bounded catalog suggestions, multi-select chips, and canonical
+  timezone, locale, platform, and weekday choices where applicable.
+
 ### Deprecated
 
 ### Removed

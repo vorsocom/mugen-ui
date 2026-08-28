@@ -1,5 +1,6 @@
 import 'package:mugen_ui/features/core_provisioning/application/core_provisioning_descriptors.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
 
 final List<AcpResourceDescriptor>
 billingCatalogResources = <AcpResourceDescriptor>[
@@ -434,6 +435,8 @@ final List<AcpFieldDescriptor> _runDefinitionFields = <AcpFieldDescriptor>[
     'Timezone',
     required: true,
     hintText: 'IANA timezone, for example America/Guyana',
+    options: acpIanaTimezoneOptions,
+    searchableOptions: true,
   ),
 ];
 
@@ -482,7 +485,14 @@ final List<AcpFieldDescriptor> _taxRateFields = <AcpFieldDescriptor>[
 
 final List<AcpFieldDescriptor> _invoiceTemplateFields = <AcpFieldDescriptor>[
   ..._namedDefinitionFields,
-  coreText('Locale', 'Locale', required: true),
+  coreText(
+    'Locale',
+    'Locale',
+    required: true,
+    options: acpBcp47LocaleOptions,
+    searchableOptions: true,
+    allowCustomOption: true,
+  ),
   coreText(
     'TemplateFormat',
     'Template Format',

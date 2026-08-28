@@ -482,9 +482,55 @@ void main() {
       final instances = _resource(connectorResources, 'OpsConnectorInstances');
       final connectorType = _field(instances.createFields, 'ConnectorTypeId');
       final secretRef = _field(instances.createFields, 'SecretRef');
+      final escalationPolicy = _field(
+        instances.createFields,
+        'EscalationPolicyKey',
+      );
+      final capability = _field(
+        instances.entityActions
+            .firstWhere((action) => action.name == 'invoke')
+            .fields,
+        'CapabilityName',
+      );
       expect(connectorType.reference?.scopeMode, AcpScopeMode.none);
       expect(secretRef.reference?.valueField, 'KeyId');
       expect(secretRef.reference?.extraFilters, <String>["Status eq 'active'"]);
+      expect(escalationPolicy.reference?.entitySet, 'OpsSlaEscalationPolicies');
+      expect(escalationPolicy.reference?.valueField, 'PolicyKey');
+      expect(capability.optionsBuilder, isNotNull);
+      expect(capability.optionsBuilder!(const <String, Object?>{}), isEmpty);
+      expect(
+        capability.optionsBuilder!(const <String, Object?>{
+          'ConnectorType': <String, Object?>{
+            'CapabilitiesJson': <String, Object?>{
+              'zeta': <String, Object?>{},
+              '': <String, Object?>{},
+              'alpha': <String, Object?>{},
+            },
+          },
+        }),
+        <String>['alpha', 'zeta'],
+      );
+      expect(
+        capability.optionsBuilder!(const <String, Object?>{
+          'ConnectorType': <String, Object?>{
+            'CapabilitiesJson': '{"ping": {}}',
+          },
+        }),
+        <String>['ping'],
+      );
+      expect(
+        capability.optionsBuilder!(const <String, Object?>{
+          'ConnectorType': <String, Object?>{'CapabilitiesJson': '{'},
+        }),
+        isEmpty,
+      );
+      expect(
+        capability.optionsBuilder!(const <String, Object?>{
+          'ConnectorType': <String, Object?>{'CapabilitiesJson': 1},
+        }),
+        isEmpty,
+      );
       expect(
         instances.entityActions
             .firstWhere((action) => action.name == 'invoke')

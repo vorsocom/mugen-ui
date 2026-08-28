@@ -1,4 +1,5 @@
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
 
 final List<AcpResourceDescriptor>
 knowledgePackAdminResources = <AcpResourceDescriptor>[
@@ -195,16 +196,16 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
       _int('RevisionNumber', 'Revision Number', required: true),
       _multiline('Body', 'Body'),
       _json('BodyJson', 'Body JSON', initialValue: null),
-      _text('Channel', 'Channel'),
-      _text('Locale', 'Locale'),
+      _channel(),
+      _locale(),
       _text('Category', 'Category'),
       _json('Attributes', 'Attributes'),
     ],
     updateFields: <AcpFieldDescriptor>[
       _multiline('Body', 'Body'),
       _json('BodyJson', 'Body JSON', initialValue: null),
-      _text('Channel', 'Channel'),
-      _text('Locale', 'Locale'),
+      _channel(),
+      _locale(),
       _text('Category', 'Category'),
       _json('Attributes', 'Attributes'),
     ],
@@ -278,11 +279,11 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     createFields: <AcpFieldDescriptor>[
       _knowledgePackVersionId(required: true),
       _knowledgeEntryRevisionId(required: true),
-      _text('Channel', 'Channel'),
-      _text('Locale', 'Locale'),
+      _channel(),
+      _locale(),
       _text('Category', 'Category'),
-      _text('ServiceRouteKey', 'Service Route Key'),
-      _text('ClientProfileKey', 'Client Profile Key'),
+      _serviceRouteKey(),
+      _clientProfileKey(),
       _bool('IsActive', 'Is Active', initialValue: true),
       _json('Attributes', 'Attributes'),
     ],
@@ -297,11 +298,11 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
         'Knowledge Entry Revision ID',
         readOnly: true,
       ),
-      _text('Channel', 'Channel'),
-      _text('Locale', 'Locale'),
+      _channel(),
+      _locale(),
       _text('Category', 'Category'),
-      _text('ServiceRouteKey', 'Service Route Key'),
-      _text('ClientProfileKey', 'Client Profile Key'),
+      _serviceRouteKey(),
+      _clientProfileKey(),
       _bool('IsActive', 'Is Active', initialValue: true),
       _json('Attributes', 'Attributes'),
     ],
@@ -412,6 +413,68 @@ AcpFieldDescriptor _text(
     required: required,
     initialValue: initialValue,
     readOnly: readOnly,
+  );
+}
+
+AcpFieldDescriptor _channel() {
+  return const AcpFieldDescriptor(
+    key: 'Channel',
+    label: 'Channel',
+    options: acpMessagingPlatformOptions,
+    searchableOptions: true,
+    allowCustomOption: true,
+  );
+}
+
+AcpFieldDescriptor _locale() {
+  return const AcpFieldDescriptor(
+    key: 'Locale',
+    label: 'Locale',
+    options: acpBcp47LocaleOptions,
+    searchableOptions: true,
+    allowCustomOption: true,
+  );
+}
+
+AcpFieldDescriptor _clientProfileKey() {
+  return const AcpFieldDescriptor(
+    key: 'ClientProfileKey',
+    label: 'Client Profile',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'MessagingClientProfiles',
+      scopeMode: AcpScopeMode.optional,
+      title: 'Messaging Client Profiles',
+      valueField: 'ProfileKey',
+      searchFields: <String>['PlatformKey', 'ProfileKey', 'DisplayName'],
+      titleFields: <String>['DisplayName', 'ProfileKey', 'Id'],
+      subtitleFields: <String>['PlatformKey', 'ProfileKey', 'IsActive', 'Id'],
+      defaultOrderBy: 'PlatformKey asc, ProfileKey asc',
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _serviceRouteKey() {
+  return const AcpFieldDescriptor(
+    key: 'ServiceRouteKey',
+    label: 'Service Route',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'ChannelProfiles',
+      scopeMode: AcpScopeMode.required,
+      title: 'Service Routes',
+      valueField: 'ServiceRouteDefaultKey',
+      searchFields: <String>[
+        'ServiceRouteDefaultKey',
+        'DisplayName',
+        'ChannelKey',
+        'ProfileKey',
+      ],
+      titleFields: <String>['ServiceRouteDefaultKey', 'DisplayName', 'Id'],
+      subtitleFields: <String>['ChannelKey', 'ProfileKey', 'IsActive', 'Id'],
+      defaultOrderBy: 'ServiceRouteDefaultKey asc',
+      extraFilters: <String>['ServiceRouteDefaultKey ne null'],
+      retainHistoricalSelection: true,
+    ),
   );
 }
 

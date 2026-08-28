@@ -1028,6 +1028,121 @@ void main() {
       semantics.dispose();
     },
   );
+
+  testWidgets(
+    'searchable and multi-select options submit stable payload values',
+    (WidgetTester tester) async {
+      final repository = await _pumpPanel(
+        tester,
+        descriptors: <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'option-resource',
+            title: 'Option Resource',
+            entitySet: 'OptionResources',
+            scopeMode: AcpScopeMode.none,
+            columns: const <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Timezone', label: 'Timezone'),
+            ],
+            createFields: <AcpFieldDescriptor>[
+              const AcpFieldDescriptor(
+                key: 'Timezone',
+                label: 'Timezone',
+                required: true,
+                options: <String>['America/Guyana', 'UTC'],
+                optionLabels: <String, String>{'America/Guyana': 'Guyana time'},
+                searchableOptions: true,
+              ),
+              AcpFieldDescriptor(
+                key: 'CapabilityName',
+                label: 'Capability',
+                required: true,
+                optionsBuilder: (_) => <String>['ping'],
+                searchableOptions: true,
+                allowCustomOption: true,
+              ),
+              const AcpFieldDescriptor(
+                key: 'Capabilities',
+                label: 'Capabilities',
+                kind: AcpFieldKind.stringList,
+                required: true,
+                options: <String>['read', 'write'],
+                multiSelectOptions: true,
+                allowCustomOption: true,
+              ),
+              const AcpFieldDescriptor(
+                key: 'BusinessDays',
+                label: 'Business Days',
+                kind: AcpFieldKind.integerList,
+                options: <String>['1', '2'],
+                optionLabels: <String, String>{'1': 'Monday', '2': 'Tuesday'},
+                multiSelectOptions: true,
+              ),
+            ],
+            allowCreate: true,
+          ),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('acp-searchable-option-Timezone')),
+        'invalid-zone',
+      );
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+      expect(find.text('Select a valid timezone.'), findsOneWidget);
+      expect(repository.createPayloads, isEmpty);
+
+      await tester.enterText(
+        find.byKey(const Key('acp-searchable-option-Timezone')),
+        'Guyana',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Guyana time').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('acp-searchable-option-CapabilityName')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ping').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('acp-option-Capabilities-read')));
+      await tester.enterText(
+        find.byKey(const Key('acp-custom-option-entry-Capabilities')),
+        'custom.read',
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('acp-custom-option-entry-Capabilities')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('acp-custom-option-entry-Capabilities')),
+          matching: find.byType(IconButton),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('acp-custom-option-Capabilities-custom.read')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('acp-option-BusinessDays-1')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(repository.createPayloads.single, <String, Object?>{
+        'Timezone': 'America/Guyana',
+        'CapabilityName': 'ping',
+        'Capabilities': <String>['read', 'custom.read'],
+        'BusinessDays': <int>[1],
+      });
+    },
+  );
 }
 
 Finder _dialogButton(Type buttonType, String label) {

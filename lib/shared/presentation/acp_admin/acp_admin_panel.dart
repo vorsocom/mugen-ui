@@ -2606,6 +2606,7 @@ class _AcpDynamicFormDialog extends StatefulWidget {
 class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final Map<String, TextEditingController> _textControllers;
+  late final Map<String, TextEditingController> _optionEntryControllers;
   late final Map<String, bool> _boolValues;
   late final Map<String, int> _initialMoneyValues;
   String? _formErrorText;
@@ -2628,6 +2629,10 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
             text: _initialTextValue(field, _initialFieldValue(field)),
           ),
     };
+    _optionEntryControllers = <String, TextEditingController>{
+      for (final field in widget.fields)
+        if (field.multiSelectOptions) field.key: TextEditingController(),
+    };
     _boolValues = <String, bool>{
       for (final field in widget.fields)
         if (field.kind == AcpFieldKind.boolean)
@@ -2639,6 +2644,9 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
   @override
   void dispose() {
     for (final controller in _textControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _optionEntryControllers.values) {
       controller.dispose();
     }
     super.dispose();
@@ -2837,8 +2845,29 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       );
     }
 
-    if (field.options.isNotEmpty) {
-      final options = _dropdownOptionsFor(field, controller.text);
+    final optionValues = _optionValuesFor(field);
+    if (field.multiSelectOptions) {
+      return _buildMultiOptionField(
+        field: field,
+        controller: controller,
+        options: optionValues,
+        helpText: helpText,
+        helpKey: helpKey,
+      );
+    }
+
+    if (field.searchableOptions || field.optionsBuilder != null) {
+      return _buildSearchableOptionField(
+        field: field,
+        controller: controller,
+        options: optionValues,
+        helpText: helpText,
+        helpKey: helpKey,
+      );
+    }
+
+    if (optionValues.isNotEmpty) {
+      final options = _dropdownOptionsFor(controller.text, optionValues);
       return DropdownButtonFormField<String>(
         key: Key('acp-dynamic-field-${field.key}'),
         initialValue: controller.text.trim().isEmpty
@@ -2857,7 +2886,10 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
               (option) => DropdownMenuItem<String>(
                 key: Key('acp-dynamic-field-${field.key}-option-$option'),
                 value: option,
-                child: Text(option, overflow: TextOverflow.ellipsis),
+                child: Text(
+                  _optionLabel(field, option),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             )
             .toList(growable: false),
@@ -2894,6 +2926,168 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       ),
       validator: (value) => _validateField(field, value ?? ''),
       onChanged: (_) => setState(_clearNewlyHiddenFields),
+    );
+  }
+
+  Widget _buildSearchableOptionField({
+    required AcpFieldDescriptor field,
+    required TextEditingController controller,
+    required List<String> options,
+    required String helpText,
+    required Key helpKey,
+  }) {
+    return Autocomplete<String>(
+      key: Key('acp-dynamic-field-${field.key}'),
+      initialValue: TextEditingValue(
+        text: options.contains(controller.text)
+            ? _optionLabel(field, controller.text)
+            : controller.text,
+      ),
+      displayStringForOption: (option) => _optionLabel(field, option),
+      optionsBuilder: (value) {
+        final query = value.text.trim().toLowerCase();
+        if (query.isEmpty) {
+          return options;
+        }
+        return options.where((option) {
+          final label = _optionLabel(field, option).toLowerCase();
+          return option.toLowerCase().contains(query) || label.contains(query);
+        });
+      },
+      onSelected: (option) {
+        setState(() {
+          controller.text = option;
+          _clearNewlyHiddenFields();
+        });
+      },
+      fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
+        return TextFormField(
+          key: Key('acp-searchable-option-${field.key}'),
+          controller: textController,
+          focusNode: focusNode,
+          readOnly: field.readOnly,
+          decoration: appFormInputDecoration(
+            labelText: field.label,
+            hintText: field.hintText,
+            suffixIcon: const Icon(Icons.manage_search_outlined),
+            helpText: helpText,
+            helpKey: helpKey,
+            errorMaxLines: 4,
+          ),
+          validator: (value) => _validateField(
+            field,
+            _optionValueForInput(field, value ?? '', options),
+          ),
+          onChanged: (value) {
+            controller.text = _optionValueForInput(field, value, options);
+            setState(_clearNewlyHiddenFields);
+          },
+          onFieldSubmitted: (_) => onFieldSubmitted(),
+        );
+      },
+    );
+  }
+
+  Widget _buildMultiOptionField({
+    required AcpFieldDescriptor field,
+    required TextEditingController controller,
+    required List<String> options,
+    required String helpText,
+    required Key helpKey,
+  }) {
+    return FormField<String>(
+      key: Key('acp-dynamic-field-${field.key}'),
+      initialValue: controller.text,
+      validator: (value) => _validateField(field, value ?? ''),
+      builder: (fieldState) {
+        final selected = _decodeStringList(controller.text).toSet();
+        void update(String option, bool include) {
+          setState(() {
+            if (include) {
+              selected.add(option);
+            } else {
+              selected.remove(option);
+            }
+            controller.text = jsonEncode(selected.toList(growable: false));
+          });
+          fieldState.didChange(controller.text);
+          fieldState.validate();
+        }
+
+        void addCustom() {
+          final entryController = _optionEntryControllers[field.key]!;
+          final value = entryController.text.trim();
+          if (value.isEmpty) {
+            return;
+          }
+          update(value, true);
+          entryController.clear();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            appFieldLabelWithHelp(
+              labelText: field.label,
+              helpText: helpText,
+              helpKey: helpKey,
+            ),
+            if (field.hintText != null) ...[
+              const SizedBox(height: 4),
+              Text(field.hintText!),
+            ],
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final option in options)
+                  FilterChip(
+                    key: Key('acp-option-${field.key}-$option'),
+                    label: Text(_optionLabel(field, option)),
+                    selected: selected.contains(option),
+                    onSelected: field.readOnly
+                        ? null
+                        : (value) => update(option, value),
+                  ),
+                for (final value in selected.where(
+                  (value) => !options.contains(value),
+                ))
+                  InputChip(
+                    key: Key('acp-custom-option-${field.key}-$value'),
+                    label: Text(value),
+                    onDeleted: field.readOnly
+                        ? null
+                        : () => update(value, false),
+                  ),
+              ],
+            ),
+            if (field.allowCustomOption && !field.readOnly) ...[
+              const SizedBox(height: 8),
+              TextFormField(
+                key: Key('acp-custom-option-entry-${field.key}'),
+                controller: _optionEntryControllers[field.key],
+                decoration: appFormInputDecoration(
+                  labelText: 'Add custom ${field.label.toLowerCase()}',
+                  helpText:
+                      'Enter an additional value when it is not listed above.',
+                  suffixIcon: IconButton(
+                    tooltip: 'Add custom ${field.label.toLowerCase()}',
+                    onPressed: addCustom,
+                    icon: const Icon(Icons.add),
+                  ),
+                ),
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => addCustom(),
+              ),
+            ],
+            if (fieldState.errorText != null) ...[
+              const SizedBox(height: 6),
+              AppErrorAlert(message: fieldState.errorText!),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -3008,6 +3202,13 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     }
     if (trimmed.isEmpty) {
       return null;
+    }
+    final options = _optionValuesFor(field);
+    if (field.searchableOptions &&
+        !field.allowCustomOption &&
+        options.isNotEmpty &&
+        !options.contains(trimmed)) {
+      return 'Select a valid ${field.label.toLowerCase()}.';
     }
 
     switch (field.kind) {
@@ -3139,9 +3340,37 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     return initialValue?.toString();
   }
 
-  List<String> _dropdownOptionsFor(AcpFieldDescriptor field, String value) {
+  List<String> _optionValuesFor(AcpFieldDescriptor field) {
+    final values = <String, dynamic>{...widget.initialValues};
+    for (final item in widget.fields) {
+      values[item.key] = _currentFieldValue(item.key);
+    }
+    return <String>{
+      ...field.options.map((option) => option.trim()),
+      ...?field.optionsBuilder?.call(values).map((option) => option.trim()),
+    }.where((option) => option.isNotEmpty).toList(growable: false);
+  }
+
+  String _optionLabel(AcpFieldDescriptor field, String option) =>
+      field.optionLabels[option] ?? option;
+
+  String _optionValueForInput(
+    AcpFieldDescriptor field,
+    String input,
+    List<String> options,
+  ) {
+    final normalized = input.trim();
+    for (final option in options) {
+      if (_optionLabel(field, option) == normalized) {
+        return option;
+      }
+    }
+    return normalized;
+  }
+
+  List<String> _dropdownOptionsFor(String value, List<String> fieldOptions) {
     final options = <String>[
-      for (final option in field.options)
+      for (final option in fieldOptions)
         if (option.trim().isNotEmpty) option.trim(),
     ];
     final currentValue = value.trim();

@@ -26,6 +26,7 @@ typedef AcpPayloadValidator = String? Function(Map<String, dynamic> payload);
 typedef AcpColumnValueBuilder = Object? Function(AcpRow row);
 typedef AcpInitialValueFactory = Object? Function();
 typedef AcpComputedValueBuilder = String Function(Map<String, String> values);
+typedef AcpOptionsBuilder = List<String> Function(AcpRow values);
 
 typedef AcpRow = Map<String, dynamic>;
 
@@ -100,6 +101,11 @@ class AcpFieldDescriptor {
     this.obscureText = false,
     this.initialValue,
     this.options = const <String>[],
+    this.optionsBuilder,
+    this.optionLabels = const <String, String>{},
+    this.searchableOptions = false,
+    this.allowCustomOption = false,
+    this.multiSelectOptions = false,
     this.reference,
     this.readOnly = false,
     this.minimumValue,
@@ -131,6 +137,11 @@ class AcpFieldDescriptor {
   final bool obscureText;
   final Object? initialValue;
   final List<String> options;
+  final AcpOptionsBuilder? optionsBuilder;
+  final Map<String, String> optionLabels;
+  final bool searchableOptions;
+  final bool allowCustomOption;
+  final bool multiSelectOptions;
   final AcpFieldReferenceDescriptor? reference;
   final bool readOnly;
   final int? minimumValue;

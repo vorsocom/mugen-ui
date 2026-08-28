@@ -1,5 +1,6 @@
 import 'package:mugen_ui/features/core_provisioning/application/core_provisioning_descriptors.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
 
 final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
   AcpResourceDescriptor(
@@ -68,6 +69,8 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
         'Timezone',
         required: true,
         hintText: 'IANA timezone, for example America/Guyana',
+        options: acpIanaTimezoneOptions,
+        searchableOptions: true,
       ),
       coreTimeOfDay(
         'BusinessStartTime',
@@ -85,10 +88,13 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
         minimumValue: 1,
         maximumValue: 7,
         applyAfterCreate: true,
+        options: acpBusinessDayLabels.keys.toList(growable: false),
+        optionLabels: acpBusinessDayLabels,
+        multiSelectOptions: true,
       ),
       coreStringList(
         'HolidayRefs',
-        'Holiday References',
+        'Holiday Dates (ISO-8601)',
         applyAfterCreate: true,
       ),
       coreBool(
@@ -106,6 +112,8 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
         'Timezone',
         'Timezone',
         hintText: 'IANA timezone, for example America/Guyana',
+        options: acpIanaTimezoneOptions,
+        searchableOptions: true,
       ),
       coreTimeOfDay('BusinessStartTime', 'Business Start Time'),
       coreTimeOfDay('BusinessEndTime', 'Business End Time'),
@@ -114,8 +122,11 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
         'Business Days (1-7)',
         minimumValue: 1,
         maximumValue: 7,
+        options: acpBusinessDayLabels.keys.toList(growable: false),
+        optionLabels: acpBusinessDayLabels,
+        multiSelectOptions: true,
       ),
-      coreStringList('HolidayRefs', 'Holiday References'),
+      coreStringList('HolidayRefs', 'Holiday Dates (ISO-8601)'),
       coreBool('IsActive', 'Is Active'),
       coreJson('Attributes', 'Attributes'),
     ],

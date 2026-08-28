@@ -7,6 +7,7 @@ import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_event_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_filter_options_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tenant_option_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
@@ -27,6 +28,8 @@ enum HumanHandoffLiveStatus {
 class HumanHandoffState {
   const HumanHandoffState({
     required this.tenants,
+    required this.ownerOptions,
+    required this.serviceRouteOptions,
     required this.sessions,
     required this.transcript,
     required this.page,
@@ -38,6 +41,7 @@ class HumanHandoffState {
     required this.ownerFilter,
     required this.draftText,
     required this.isLoadingTenants,
+    required this.isLoadingFilterOptions,
     required this.isLoadingSessions,
     required this.isLoadingTranscript,
     required this.isReplying,
@@ -54,6 +58,8 @@ class HumanHandoffState {
   });
 
   final List<HumanHandoffTenantOptionEntity> tenants;
+  final List<HumanHandoffReferenceOptionEntity> ownerOptions;
+  final List<HumanHandoffReferenceOptionEntity> serviceRouteOptions;
   final List<HumanHandoffSessionEntity> sessions;
   final List<HumanHandoffTranscriptItemEntity> transcript;
   final int page;
@@ -65,6 +71,7 @@ class HumanHandoffState {
   final String ownerFilter;
   final String draftText;
   final bool isLoadingTenants;
+  final bool isLoadingFilterOptions;
   final bool isLoadingSessions;
   final bool isLoadingTranscript;
   final bool isReplying;
@@ -80,6 +87,19 @@ class HumanHandoffState {
   final String? liveErrorMessage;
 
   bool get isLiveListening => liveStatus == HumanHandoffLiveStatus.live;
+
+  String ownerLabel(String? ownerUserId) {
+    final id = ownerUserId?.trim() ?? '';
+    if (id.isEmpty) {
+      return 'Not assigned';
+    }
+    for (final option in ownerOptions) {
+      if (option.id == id) {
+        return option.title;
+      }
+    }
+    return id;
+  }
 
   int get pages {
     if (pageSize <= 0) {
@@ -113,6 +133,8 @@ class HumanHandoffState {
 
   HumanHandoffState copyWith({
     List<HumanHandoffTenantOptionEntity>? tenants,
+    List<HumanHandoffReferenceOptionEntity>? ownerOptions,
+    List<HumanHandoffReferenceOptionEntity>? serviceRouteOptions,
     List<HumanHandoffSessionEntity>? sessions,
     List<HumanHandoffTranscriptItemEntity>? transcript,
     int? page,
@@ -124,6 +146,7 @@ class HumanHandoffState {
     String? ownerFilter,
     String? draftText,
     bool? isLoadingTenants,
+    bool? isLoadingFilterOptions,
     bool? isLoadingSessions,
     bool? isLoadingTranscript,
     bool? isReplying,
@@ -147,6 +170,8 @@ class HumanHandoffState {
   }) {
     return HumanHandoffState(
       tenants: tenants ?? this.tenants,
+      ownerOptions: ownerOptions ?? this.ownerOptions,
+      serviceRouteOptions: serviceRouteOptions ?? this.serviceRouteOptions,
       sessions: sessions ?? this.sessions,
       transcript: transcript ?? this.transcript,
       page: page ?? this.page,
@@ -158,6 +183,8 @@ class HumanHandoffState {
       ownerFilter: ownerFilter ?? this.ownerFilter,
       draftText: draftText ?? this.draftText,
       isLoadingTenants: isLoadingTenants ?? this.isLoadingTenants,
+      isLoadingFilterOptions:
+          isLoadingFilterOptions ?? this.isLoadingFilterOptions,
       isLoadingSessions: isLoadingSessions ?? this.isLoadingSessions,
       isLoadingTranscript: isLoadingTranscript ?? this.isLoadingTranscript,
       isReplying: isReplying ?? this.isReplying,
@@ -209,6 +236,8 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
     : super(
         const HumanHandoffState(
           tenants: <HumanHandoffTenantOptionEntity>[],
+          ownerOptions: <HumanHandoffReferenceOptionEntity>[],
+          serviceRouteOptions: <HumanHandoffReferenceOptionEntity>[],
           sessions: <HumanHandoffSessionEntity>[],
           transcript: <HumanHandoffTranscriptItemEntity>[],
           page: 1,
@@ -220,6 +249,7 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
           ownerFilter: '',
           draftText: '',
           isLoadingTenants: false,
+          isLoadingFilterOptions: false,
           isLoadingSessions: false,
           isLoadingTranscript: false,
           isReplying: false,
@@ -243,9 +273,47 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
   Future<void> loadInitialData() async {
     await loadTenants();
     if (state.selectedTenantId != null) {
-      await loadSessions();
+      await Future.wait(<Future<void>>[loadFilterOptions(), loadSessions()]);
     }
     _startEventStream();
+  }
+
+  Future<void> refresh() async {
+    await Future.wait(<Future<void>>[loadFilterOptions(), loadSessions()]);
+  }
+
+  Future<void> loadFilterOptions() async {
+    final tenantId = state.selectedTenantId;
+    if (tenantId == null || tenantId.isEmpty) {
+      state = state.copyWith(
+        ownerOptions: const <HumanHandoffReferenceOptionEntity>[],
+        serviceRouteOptions: const <HumanHandoffReferenceOptionEntity>[],
+        isLoadingFilterOptions: false,
+      );
+      return;
+    }
+
+    state = state.copyWith(isLoadingFilterOptions: true);
+    final result = await ref
+        .read(humanHandoffRepositoryProvider)
+        .fetchFilterOptions(tenantId: tenantId);
+    if (result.isFailure) {
+      state = state.copyWith(
+        ownerOptions: const <HumanHandoffReferenceOptionEntity>[],
+        isLoadingFilterOptions: false,
+      );
+      return;
+    }
+
+    final options = result.data!;
+    state = state.copyWith(
+      ownerOptions: options.owners,
+      serviceRouteOptions: _mergeServiceRouteOptions(
+        options.serviceRoutes,
+        state.sessions,
+      ),
+      isLoadingFilterOptions: false,
+    );
   }
 
   Future<void> loadTenants() async {
@@ -327,6 +395,10 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
     }
 
     final page = result.data!;
+    final serviceRouteOptions = _mergeServiceRouteOptions(
+      state.serviceRouteOptions,
+      page.items,
+    );
     var selectedSessionId = state.selectedSessionId;
     if (!page.items.any((session) => session.id == selectedSessionId)) {
       selectedSessionId = page.items.isEmpty ? null : page.items.first.id;
@@ -334,6 +406,7 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
 
     state = state.copyWith(
       sessions: page.items,
+      serviceRouteOptions: serviceRouteOptions,
       total: page.total,
       page: page.page,
       pageSize: page.pageSize,
@@ -426,12 +499,33 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       page: 1,
       sessions: const <HumanHandoffSessionEntity>[],
       transcript: const <HumanHandoffTranscriptItemEntity>[],
+      ownerOptions: const <HumanHandoffReferenceOptionEntity>[],
+      serviceRouteOptions: const <HumanHandoffReferenceOptionEntity>[],
+      ownerFilter: '',
+      serviceRouteFilter: '',
       clearSelectedSession: true,
       clearLastDeliveryError: true,
       clearLatestTranscriptSequence: true,
     );
-    await loadSessions();
+    await Future.wait(<Future<void>>[loadFilterOptions(), loadSessions()]);
     _startEventStream();
+  }
+
+  List<HumanHandoffReferenceOptionEntity> _mergeServiceRouteOptions(
+    List<HumanHandoffReferenceOptionEntity> options,
+    List<HumanHandoffSessionEntity> sessions,
+  ) {
+    final merged = <HumanHandoffReferenceOptionEntity>[...options];
+    final knownKeys = merged.map((option) => option.id).toSet();
+    for (final session in sessions) {
+      final routeKey = session.serviceRouteKey?.trim() ?? '';
+      if (routeKey.isNotEmpty && knownKeys.add(routeKey)) {
+        merged.add(
+          HumanHandoffReferenceOptionEntity(id: routeKey, title: routeKey),
+        );
+      }
+    }
+    return merged;
   }
 
   Future<void> selectSession(String sessionId) async {

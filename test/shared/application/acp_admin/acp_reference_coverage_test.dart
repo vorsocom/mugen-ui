@@ -66,6 +66,60 @@ void main() {
     expect(missing, isEmpty, reason: 'Missing expansion roots: $missing');
   });
 
+  test(
+    'editable IDs are searchable references or classified operational IDs',
+    () {
+      const operationalIds = <String>{
+        'evidence-blobs.collection:register.TraceId',
+        'evidence-blobs.collection:register.SubjectId',
+        'audit-correlation-links.collection:resolve_trace.TraceId',
+        'audit-correlation-links.collection:resolve_trace.CorrelationId',
+        'audit-correlation-links.collection:resolve_trace.RequestId',
+        'audit-biz-trace-events.collection:inspect_trace.TraceId',
+        'audit-biz-trace-events.collection:inspect_trace.CorrelationId',
+        'audit-biz-trace-events.collection:inspect_trace.RequestId',
+        'ops-connector-instances.entity:test_connection.TraceId',
+        'ops-connector-instances.entity:invoke.TraceId',
+        'ops-policy-definitions.entity:evaluate_policy.TraceId',
+        'ops-policy-definitions.entity:evaluate_policy.SubjectId',
+        'work-items.create.TraceId',
+        'work-items.collection:create_from_channel.TraceId',
+        'messaging-client-profiles.create.RecipientUserId',
+        'messaging-client-profiles.create.PhoneNumberId',
+        'messaging-client-profiles.update.RecipientUserId',
+        'messaging-client-profiles.update.PhoneNumberId',
+        'key-refs.collection:rotate.KeyId',
+      };
+      final rawIds = <String>{};
+      for (final resource in resources) {
+        final fieldGroups = <String, List<AcpFieldDescriptor>>{
+          'create': resource.createFields,
+          'update': resource.updateFields,
+          for (final action in resource.collectionActions)
+            'collection:${action.name}': action.fields,
+          for (final action in resource.entityActions)
+            'entity:${action.name}': action.fields,
+        };
+        for (final group in fieldGroups.entries) {
+          for (final field in group.value) {
+            if (field.readOnly ||
+                !field.key.endsWith('Id') ||
+                field.reference != null) {
+              continue;
+            }
+            rawIds.add('${resource.key}.${group.key}.${field.key}');
+          }
+        }
+      }
+
+      expect(
+        rawIds,
+        operationalIds,
+        reason: 'Classify new IDs or replace them with searchable references.',
+      );
+    },
+  );
+
   test('billing operations and catalog cover every required relationship', () {
     const required = <String, Set<String>>{
       'billing-subscriptions': <String>{'AccountId', 'PriceId'},
@@ -125,6 +179,153 @@ void main() {
           .map((column) => column.key)
           .toSet();
       expect(covered, containsAll(entry.value), reason: entry.key);
+    }
+  });
+
+  test('audited form fields declare a bounded selection strategy', () {
+    const expected = <String, Set<String>>{
+      'schemas': <String>{'ActivatedByUserId'},
+      'schema-bindings': <String>{
+        'SchemaDefinitionId',
+        'TargetNamespace',
+        'TargetEntitySet',
+        'TargetAction',
+        'BindingKind',
+      },
+      'plugin-capability-grants': <String>{'PluginKey', 'Capabilities'},
+      'context-profiles': <String>{
+        'Platform',
+        'ServiceRouteKey',
+        'ClientProfileKey',
+        'PolicyId',
+      },
+      'context-contributor-bindings': <String>{
+        'ContributorKey',
+        'Platform',
+        'ServiceRouteKey',
+      },
+      'context-source-bindings': <String>{
+        'SourceKind',
+        'Platform',
+        'ServiceRouteKey',
+        'Locale',
+      },
+      'ops-workflow-versions': <String>{
+        'WorkflowDefinitionId',
+        'Status',
+        'PublishedByUserId',
+      },
+      'ops-workflow-states': <String>{'WorkflowVersionId'},
+      'ops-workflow-transitions': <String>{
+        'WorkflowVersionId',
+        'FromStateId',
+        'ToStateId',
+        'AutoAssignUserId',
+        'AutoAssignQueue',
+      },
+      'ops-sla-policies': <String>{'CalendarId'},
+      'ops-sla-calendars': <String>{'Timezone', 'BusinessDays'},
+      'ops-sla-targets': <String>{'PolicyId', 'Metric', 'Priority', 'Severity'},
+      'ops-reporting-metric-definitions': <String>{
+        'FormulaType',
+        'SourceTable',
+        'SourceTimeColumn',
+        'SourceValueColumn',
+        'ScopeColumn',
+      },
+      'ops-reporting-report-definitions': <String>{
+        'MetricCodes',
+        'GroupByJson',
+      },
+      'ops-connector-instances': <String>{
+        'ConnectorTypeId',
+        'SecretRef',
+        'Status',
+        'EscalationPolicyKey',
+        'CapabilityName',
+      },
+      'knowledge-packs': <String>{'CurrentVersionId'},
+      'knowledge-pack-versions': <String>{'KnowledgePackId'},
+      'knowledge-entries': <String>{
+        'KnowledgePackId',
+        'KnowledgePackVersionId',
+      },
+      'knowledge-entry-revisions': <String>{
+        'KnowledgeEntryId',
+        'KnowledgePackVersionId',
+        'Channel',
+        'Locale',
+      },
+      'knowledge-scopes': <String>{
+        'KnowledgePackVersionId',
+        'KnowledgeEntryRevisionId',
+        'Channel',
+        'Locale',
+        'ServiceRouteKey',
+        'ClientProfileKey',
+      },
+      'channel-profiles': <String>{
+        'ClientProfileId',
+        'ChannelKey',
+        'RouteDefaultKey',
+        'PolicyId',
+      },
+      'ingress-bindings': <String>{
+        'ChannelProfileId',
+        'ChannelKey',
+        'IdentifierType',
+        'ServiceRouteKey',
+      },
+      'intake-rules': <String>{'ChannelProfileId', 'MatchKind', 'RouteKey'},
+      'routing-rules': <String>{'ChannelProfileId', 'OwnerUserId'},
+      'conversation-states': <String>{
+        'ChannelProfileId',
+        'PolicyId',
+        'ServiceRouteKey',
+        'RouteKey',
+        'AssignedQueueName',
+        'AssignedOwnerUserId',
+        'AssignedServiceKey',
+        'QueueName',
+        'OwnerUserId',
+        'ServiceKey',
+      },
+      'work-items': <String>{'LinkedCaseId', 'LinkedWorkflowInstanceId'},
+      'billing-run-definitions': <String>{'Timezone'},
+      'billing-invoice-templates': <String>{'Locale'},
+      'messaging-client-profiles': <String>{'PlatformKey'},
+      'runtime-config-profiles': <String>{'Category'},
+    };
+    final byKey = <String, AcpResourceDescriptor>{
+      for (final resource in resources) resource.key: resource,
+    };
+
+    for (final entry in expected.entries) {
+      final resource = byKey[entry.key];
+      expect(resource, isNotNull, reason: entry.key);
+      final fields = <AcpFieldDescriptor>[
+        ...resource!.createFields,
+        ...resource.updateFields,
+        for (final action in resource.collectionActions) ...action.fields,
+        for (final action in resource.entityActions) ...action.fields,
+      ].where((field) => !field.readOnly).toList(growable: false);
+
+      for (final key in entry.value) {
+        final matching = fields.where((field) => field.key == key).toList();
+        expect(matching, isNotEmpty, reason: '${entry.key}.$key is absent');
+        for (final field in matching) {
+          final hasStrategy =
+              field.reference != null ||
+              field.options.isNotEmpty ||
+              field.optionsBuilder != null ||
+              field.multiSelectOptions;
+          expect(
+            hasStrategy,
+            isTrue,
+            reason: '${entry.key}.$key has no selection strategy',
+          );
+        }
+      }
     }
   });
 

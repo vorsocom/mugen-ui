@@ -7,6 +7,7 @@ import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_delivery_result_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_event_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_filter_options_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tenant_option_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
@@ -75,6 +76,126 @@ class HumanHandoffRepositoryImpl implements HumanHandoffRepository {
             .toList(growable: false);
 
     return Result<List<HumanHandoffTenantOptionEntity>>.success(tenants);
+  }
+
+  @override
+  Future<Result<HumanHandoffFilterOptionsEntity>> fetchFilterOptions({
+    required String tenantId,
+    int top = 200,
+  }) async {
+    final normalizedTenantId = tenantId.trim();
+    if (normalizedTenantId.isEmpty) {
+      return const Result<HumanHandoffFilterOptionsEntity>.failure(
+        ValidationFailure('A tenant must be selected.'),
+      );
+    }
+
+    final membershipsResponse = await _send(
+      AcpRequest(
+        method: HttpMethod.get,
+        path: appConfig.api.endpoints.tenantMembership.replaceAll(
+          '{tenant_id}',
+          normalizedTenantId,
+        ),
+        queryParameters: <String, dynamic>{
+          r'$top': top,
+          r'$expand': 'User',
+          r'$orderby': 'CreatedAt desc',
+        },
+      ),
+    );
+    if (membershipsResponse.isFailure) {
+      return Result<HumanHandoffFilterOptionsEntity>.failure(
+        membershipsResponse.failure!,
+      );
+    }
+
+    final channelProfilesResponse = await _send(
+      AcpRequest(
+        method: HttpMethod.get,
+        path:
+            '${appConfig.api.endpoints.acpBase}/tenants/'
+            '$normalizedTenantId/ChannelProfiles',
+        queryParameters: <String, dynamic>{
+          r'$top': top,
+          r'$orderby': 'ChannelKey asc, ProfileKey asc',
+        },
+      ),
+    );
+    if (channelProfilesResponse.isFailure) {
+      return Result<HumanHandoffFilterOptionsEntity>.failure(
+        channelProfilesResponse.failure!,
+      );
+    }
+
+    final membershipsBody = _decodeMap(membershipsResponse.data!.response.body);
+    final channelProfilesBody = _decodeMap(
+      channelProfilesResponse.data!.response.body,
+    );
+    if (membershipsBody == null || channelProfilesBody == null) {
+      return const Result<HumanHandoffFilterOptionsEntity>.failure(
+        UnexpectedFailure('Unexpected filter options response.'),
+      );
+    }
+
+    final owners = _mapList(membershipsBody['value'], (row) {
+      final rawUser = row['User'];
+      final user = rawUser is Map ? Map<String, dynamic>.from(rawUser) : null;
+      final id = _asString(row['UserId']);
+      final email = _asNullableString(user?['LoginEmail']) ?? '';
+      final username = _asNullableString(user?['Username']) ?? '';
+      final title = email.isNotEmpty
+          ? email
+          : username.isNotEmpty
+          ? username
+          : id;
+      final subtitleValues = <String>[
+        if (username.isNotEmpty && username != title) username,
+        id,
+      ];
+      return HumanHandoffReferenceOptionEntity(
+        id: id,
+        title: title,
+        subtitle: subtitleValues.join(' · '),
+      );
+    });
+    final ownerIds = <String>{};
+    final uniqueOwners =
+        owners
+            .where((option) => option.id.isNotEmpty && ownerIds.add(option.id))
+            .toList(growable: false)
+          ..sort((left, right) => left.title.compareTo(right.title));
+
+    final serviceRoutes = _mapList(channelProfilesBody['value'], (row) {
+      final id = _asNullableString(row['ServiceRouteDefaultKey']) ?? '';
+      final displayName = _asNullableString(row['DisplayName']) ?? '';
+      final profileKey = _asNullableString(row['ProfileKey']) ?? '';
+      final channelKey = _asNullableString(row['ChannelKey']) ?? '';
+      final title = displayName.isNotEmpty ? displayName : id;
+      final subtitleValues = <String>[
+        if (profileKey.isNotEmpty) profileKey,
+        if (channelKey.isNotEmpty) channelKey,
+        if (id.isNotEmpty && id != title) id,
+      ];
+      return HumanHandoffReferenceOptionEntity(
+        id: id,
+        title: title,
+        subtitle: subtitleValues.join(' · '),
+      );
+    });
+    final routeKeys = <String>{};
+    final uniqueServiceRoutes =
+        serviceRoutes
+            .where((option) => option.id.isNotEmpty && routeKeys.add(option.id))
+            .toList(growable: false)
+          ..sort((left, right) => left.title.compareTo(right.title));
+
+    return Result<HumanHandoffFilterOptionsEntity>.success(
+      HumanHandoffFilterOptionsEntity(
+        owners: uniqueOwners,
+        serviceRoutes: uniqueServiceRoutes,
+      ),
+    );
   }
 
   @override

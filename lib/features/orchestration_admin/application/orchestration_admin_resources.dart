@@ -1,4 +1,5 @@
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
 
 final List<AcpResourceDescriptor>
 orchestrationAdminResources = <AcpResourceDescriptor>[
@@ -23,7 +24,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     ],
     createFields: <AcpFieldDescriptor>[
       _clientProfileId(),
-      _text('ChannelKey', 'Channel Key', required: true),
+      _channelKey(required: true),
       _text('ProfileKey', 'Profile Key', required: true),
       _text('ServiceRouteDefaultKey', 'Service Route Default Key'),
     ],
@@ -33,8 +34,8 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _text('ProfileKey', 'Profile Key', readOnly: true),
       _text('DisplayName', 'Display Name'),
       _text('ServiceRouteDefaultKey', 'Service Route Default Key'),
-      _text('RouteDefaultKey', 'Route Default Key'),
-      _text('PolicyId', 'Policy ID'),
+      _routeReference(key: 'RouteDefaultKey', label: 'Default Route'),
+      _policyReference(),
       _bool('IsActive', 'Is Active'),
       _json('Attributes', 'Attributes'),
     ],
@@ -64,17 +65,17 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     ],
     createFields: <AcpFieldDescriptor>[
       _channelProfileId(),
-      _text('ChannelKey', 'Channel Key', required: true),
+      _channelKey(required: true),
       _identifierType(required: true),
       _text('IdentifierValue', 'Identifier Value', required: true),
-      _text('ServiceRouteKey', 'Service Route Key'),
+      _serviceRouteReference(),
     ],
     updateFields: <AcpFieldDescriptor>[
       _channelProfileId(),
-      _text('ChannelKey', 'Channel Key'),
+      _channelKey(),
       _identifierType(),
       _text('IdentifierValue', 'Identifier Value'),
-      _text('ServiceRouteKey', 'Service Route Key'),
+      _serviceRouteReference(),
       _bool('IsActive', 'Is Active'),
       _json('Attributes', 'Attributes'),
     ],
@@ -114,7 +115,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _text('Name', 'Name'),
       _matchKind(),
       _text('MatchValue', 'Match Value'),
-      _text('RouteKey', 'Route Key'),
+      _routeReference(),
       _int('Priority', 'Priority'),
       _bool('IsActive', 'Is Active'),
       _json('Attributes', 'Attributes'),
@@ -146,7 +147,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _channelProfileId(),
       _text('RouteKey', 'Route Key'),
       _text('TargetQueueName', 'Target Queue Name'),
-      _text('OwnerUserId', 'Owner User ID'),
+      _userReference('OwnerUserId', 'Owner'),
       _text('TargetServiceKey', 'Target Service Key'),
       _text('TargetNamespace', 'Target Namespace'),
       _int('Priority', 'Priority'),
@@ -311,15 +312,15 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     ],
     updateFields: <AcpFieldDescriptor>[
       _channelProfileId(),
-      _text('PolicyId', 'Policy ID'),
+      _policyReference(),
       _text('SenderKey', 'Sender Key'),
       _text('ExternalConversationRef', 'External Conversation Ref'),
       _text('Status', 'Status', initialValue: 'open'),
-      _text('ServiceRouteKey', 'Service Route Key'),
-      _text('RouteKey', 'Route Key'),
-      _text('AssignedQueueName', 'Assigned Queue Name'),
-      _text('AssignedOwnerUserId', 'Assigned Owner User ID'),
-      _text('AssignedServiceKey', 'Assigned Service Key'),
+      _serviceRouteReference(),
+      _routeReference(),
+      _queueReference('AssignedQueueName', 'Assigned Queue'),
+      _userReference('AssignedOwnerUserId', 'Assigned Owner'),
+      _serviceReference('AssignedServiceKey', 'Assigned Service'),
       _text('FallbackMode', 'Fallback Mode'),
       _text('FallbackTarget', 'Fallback Target'),
       _multiline('FallbackReason', 'Fallback Reason'),
@@ -348,10 +349,10 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
         confirmMessage: 'Resolve routing for this conversation?',
         successMessage: 'Routing completed.',
         fields: <AcpFieldDescriptor>[
-          _text('RouteKey', 'Route Key'),
-          _text('QueueName', 'Queue Name'),
-          _text('OwnerUserId', 'Owner User ID'),
-          _text('ServiceKey', 'Service Key'),
+          _routeReference(),
+          _queueReference('QueueName', 'Queue'),
+          _userReference('OwnerUserId', 'Owner'),
+          _serviceReference('ServiceKey', 'Service'),
         ],
       ),
       AcpActionDescriptor(
@@ -437,8 +438,8 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _json('Attachments', 'Attachments', initialValue: const []),
       _json('Signals', 'Signals', initialValue: const []),
       _json('Extractions', 'Extractions', initialValue: const []),
-      _text('LinkedCaseId', 'Linked Case ID'),
-      _text('LinkedWorkflowInstanceId', 'Linked Workflow Instance ID'),
+      _linkedCaseReference(),
+      _linkedWorkflowReference(),
       _json('Attributes', 'Attributes'),
     ],
     collectionActions: <AcpActionDescriptor>[
@@ -457,8 +458,8 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
           _json('Attachments', 'Attachments', initialValue: const []),
           _json('Signals', 'Signals', initialValue: const []),
           _json('Extractions', 'Extractions', initialValue: const []),
-          _text('LinkedCaseId', 'Linked Case ID'),
-          _text('LinkedWorkflowInstanceId', 'Linked Workflow Instance ID'),
+          _linkedCaseReference(),
+          _linkedWorkflowReference(),
           _multiline('Note', 'Note'),
         ],
       ),
@@ -472,8 +473,8 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
         confirmMessage: 'Link this work item to case or workflow records?',
         successMessage: 'Work item linkage updated.',
         fields: <AcpFieldDescriptor>[
-          _text('LinkedCaseId', 'Linked Case ID'),
-          _text('LinkedWorkflowInstanceId', 'Linked Workflow Instance ID'),
+          _linkedCaseReference(),
+          _linkedWorkflowReference(),
           _multiline('Note', 'Note'),
         ],
       ),
@@ -652,6 +653,9 @@ AcpFieldDescriptor _clientProfileId() {
         'Id',
       ],
       defaultOrderBy: 'PlatformKey asc, ProfileKey asc',
+      filterFieldsFromForm: <String, String>{'PlatformKey': 'ChannelKey'},
+      copyFieldsFromSelection: <String, String>{'PlatformKey': 'ChannelKey'},
+      retainHistoricalSelection: true,
     ),
   );
 }
@@ -679,6 +683,178 @@ AcpFieldDescriptor _channelProfileId() {
         'Id',
       ],
       defaultOrderBy: 'IsActive desc, ChannelKey asc, ProfileKey asc',
+      copyFieldsFromSelection: <String, String>{'ChannelKey': 'ChannelKey'},
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _channelKey({bool required = false}) {
+  return AcpFieldDescriptor(
+    key: 'ChannelKey',
+    label: 'Channel',
+    required: required,
+    options: acpMessagingPlatformOptions,
+    searchableOptions: true,
+    allowCustomOption: true,
+  );
+}
+
+AcpFieldDescriptor _policyReference() {
+  return const AcpFieldDescriptor(
+    key: 'PolicyId',
+    label: 'Orchestration Policy',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'OrchestrationPolicies',
+      scopeMode: AcpScopeMode.required,
+      title: 'Orchestration Policies',
+      searchFields: <String>['Code', 'Name', 'HoursMode'],
+      titleFields: <String>['Name', 'Code', 'Id'],
+      subtitleFields: <String>['Code', 'HoursMode', 'IsActive', 'Id'],
+      defaultOrderBy: 'IsActive desc, Name asc',
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _userReference(String key, String label) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    reference: const AcpFieldReferenceDescriptor(
+      entitySet: 'Users',
+      scopeMode: AcpScopeMode.none,
+      title: 'Users',
+      searchFields: <String>['LoginEmail', 'Username'],
+      titleFields: <String>['LoginEmail', 'Username', 'Id'],
+      subtitleFields: <String>['Username', 'LoginEmail', 'Id'],
+      defaultOrderBy: 'Username asc',
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _routeReference({
+  String key = 'RouteKey',
+  String label = 'Route',
+}) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    reference: const AcpFieldReferenceDescriptor(
+      entitySet: 'RoutingRules',
+      scopeMode: AcpScopeMode.required,
+      title: 'Routing Rules',
+      valueField: 'RouteKey',
+      searchFields: <String>['RouteKey', 'TargetQueueName', 'TargetServiceKey'],
+      titleFields: <String>['RouteKey', 'TargetQueueName', 'Id'],
+      subtitleFields: <String>[
+        'TargetQueueName',
+        'TargetServiceKey',
+        'IsActive',
+        'Id',
+      ],
+      defaultOrderBy: 'IsActive desc, Priority asc, RouteKey asc',
+      filterFieldsFromForm: <String, String>{
+        'ChannelProfileId': 'ChannelProfileId',
+      },
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _queueReference(String key, String label) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    reference: const AcpFieldReferenceDescriptor(
+      entitySet: 'RoutingRules',
+      scopeMode: AcpScopeMode.required,
+      title: 'Routing Queues',
+      valueField: 'TargetQueueName',
+      searchFields: <String>['TargetQueueName', 'RouteKey'],
+      titleFields: <String>['TargetQueueName', 'RouteKey', 'Id'],
+      subtitleFields: <String>['RouteKey', 'IsActive', 'Id'],
+      defaultOrderBy: 'TargetQueueName asc, RouteKey asc',
+      extraFilters: <String>['TargetQueueName ne null'],
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _serviceReference(String key, String label) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    reference: const AcpFieldReferenceDescriptor(
+      entitySet: 'RoutingRules',
+      scopeMode: AcpScopeMode.required,
+      title: 'Routing Services',
+      valueField: 'TargetServiceKey',
+      searchFields: <String>['TargetServiceKey', 'RouteKey'],
+      titleFields: <String>['TargetServiceKey', 'RouteKey', 'Id'],
+      subtitleFields: <String>['TargetNamespace', 'RouteKey', 'IsActive', 'Id'],
+      defaultOrderBy: 'TargetServiceKey asc, RouteKey asc',
+      extraFilters: <String>['TargetServiceKey ne null'],
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _serviceRouteReference() {
+  return const AcpFieldDescriptor(
+    key: 'ServiceRouteKey',
+    label: 'Service Route',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'ChannelProfiles',
+      scopeMode: AcpScopeMode.required,
+      title: 'Service Routes',
+      valueField: 'ServiceRouteDefaultKey',
+      searchFields: <String>[
+        'ServiceRouteDefaultKey',
+        'DisplayName',
+        'ChannelKey',
+        'ProfileKey',
+      ],
+      titleFields: <String>['ServiceRouteDefaultKey', 'DisplayName', 'Id'],
+      subtitleFields: <String>['ChannelKey', 'ProfileKey', 'IsActive', 'Id'],
+      defaultOrderBy: 'ServiceRouteDefaultKey asc',
+      extraFilters: <String>['ServiceRouteDefaultKey ne null'],
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _linkedCaseReference() {
+  return const AcpFieldDescriptor(
+    key: 'LinkedCaseId',
+    label: 'Linked Case',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'OpsCases',
+      scopeMode: AcpScopeMode.required,
+      title: 'Cases',
+      searchFields: <String>['CaseNumber', 'Title', 'Status'],
+      titleFields: <String>['CaseNumber', 'Title', 'Id'],
+      subtitleFields: <String>['Title', 'Status', 'Id'],
+      defaultOrderBy: 'UpdatedAt desc',
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _linkedWorkflowReference() {
+  return const AcpFieldDescriptor(
+    key: 'LinkedWorkflowInstanceId',
+    label: 'Linked Workflow',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'OpsWorkflowInstances',
+      scopeMode: AcpScopeMode.required,
+      title: 'Workflow Instances',
+      searchFields: <String>['Title', 'ExternalRef', 'Status'],
+      titleFields: <String>['Title', 'ExternalRef', 'Id'],
+      subtitleFields: <String>['ExternalRef', 'Status', 'Id'],
+      defaultOrderBy: 'UpdatedAt desc',
+      retainHistoricalSelection: true,
     ),
   );
 }

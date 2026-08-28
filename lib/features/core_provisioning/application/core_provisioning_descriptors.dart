@@ -57,6 +57,11 @@ AcpFieldDescriptor coreText(
   String? hintText,
   Object? initialValue,
   List<String> options = const <String>[],
+  AcpOptionsBuilder? optionsBuilder,
+  Map<String, String> optionLabels = const <String, String>{},
+  bool searchableOptions = false,
+  bool allowCustomOption = false,
+  bool multiSelectOptions = false,
   bool applyAfterCreate = false,
   Map<String, List<Object>> visibleWhenEquals = const <String, List<Object>>{},
   AcpFieldReferenceDescriptor? reference,
@@ -78,6 +83,11 @@ AcpFieldDescriptor coreText(
     hintText: hintText,
     initialValue: initialValue,
     options: options,
+    optionsBuilder: optionsBuilder,
+    optionLabels: optionLabels,
+    searchableOptions: searchableOptions,
+    allowCustomOption: allowCustomOption,
+    multiSelectOptions: multiSelectOptions,
     applyAfterCreate: applyAfterCreate,
     visibleWhenEquals: visibleWhenEquals,
     reference: reference,
@@ -250,6 +260,9 @@ AcpFieldDescriptor coreIntegerList(
   int? minimumValue,
   int? maximumValue,
   bool applyAfterCreate = false,
+  List<String> options = const <String>[],
+  Map<String, String> optionLabels = const <String, String>{},
+  bool multiSelectOptions = false,
 }) {
   return AcpFieldDescriptor(
     key: key,
@@ -259,6 +272,9 @@ AcpFieldDescriptor coreIntegerList(
     minimumValue: minimumValue,
     maximumValue: maximumValue,
     applyAfterCreate: applyAfterCreate,
+    options: options,
+    optionLabels: optionLabels,
+    multiSelectOptions: multiSelectOptions,
   );
 }
 
@@ -267,13 +283,25 @@ AcpFieldDescriptor coreStringList(
   String label, {
   AcpFieldReferenceDescriptor? reference,
   bool applyAfterCreate = false,
+  bool required = false,
+  List<String> options = const <String>[],
+  AcpOptionsBuilder? optionsBuilder,
+  Map<String, String> optionLabels = const <String, String>{},
+  bool multiSelectOptions = false,
+  bool allowCustomOption = false,
 }) {
   return AcpFieldDescriptor(
     key: key,
     label: label,
     kind: AcpFieldKind.stringList,
+    required: required,
     reference: reference,
     applyAfterCreate: applyAfterCreate,
+    options: options,
+    optionsBuilder: optionsBuilder,
+    optionLabels: optionLabels,
+    multiSelectOptions: multiSelectOptions,
+    allowCustomOption: allowCustomOption,
   );
 }
 

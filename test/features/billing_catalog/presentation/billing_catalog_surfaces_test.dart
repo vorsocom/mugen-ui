@@ -205,8 +205,13 @@ void main() {
       find.byKey(const Key('acp-admin-tab-billing-price-entitlements')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('price-1'), findsOneWidget);
-    expect(find.text('meter-1'), findsOneWidget);
+    expect(
+      find.text('customer-inbox-monthly · recurring · USD'),
+      findsOneWidget,
+    );
+    expect(find.text('valet.customer-inbox.minutes · minute'), findsOneWidget);
+    expect(find.text('price-1'), findsNothing);
+    expect(find.text('meter-1'), findsNothing);
   });
 
   testWidgets('catalog targets open a stable resource and row deep link', (
@@ -329,6 +334,15 @@ class _AdminRepository extends FakeAcpAdminRepository {
         'Id': 'entitlement-1',
         'PriceId': 'price-1',
         'MeterDefinitionId': 'meter-1',
+        'Price': <String, Object?>{
+          'Code': 'customer-inbox-monthly',
+          'PriceType': 'recurring',
+          'Currency': 'USD',
+        },
+        'MeterDefinition': <String, Object?>{
+          'Code': 'valet.customer-inbox.minutes',
+          'Unit': 'minute',
+        },
         'IncludedQuantity': 100,
         'RolloverPolicy': 'none',
         'RowVersion': 1,

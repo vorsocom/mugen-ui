@@ -48,6 +48,8 @@ void main() {
             'Amount': 500,
           },
         ]
+        ..referenceWarnings['BillingPayments'] =
+            'Some reference labels could not be resolved: Account.'
         ..pages['BillingInvoices'] = <AcpRow>[
           <String, Object?>{
             'Id': 'invoice-1',
@@ -74,6 +76,7 @@ void main() {
       expect(payments.data!.items[1]['_CurrencyMinorUnit'], 0);
       expect(payments.data!.items[1]['_CurrencyCode'], 'JPY');
       expect(payments.data!.items[2]['_CurrencyMinorUnit'], 2);
+      expect(payments.data!.referenceWarning, contains('Account'));
 
       final lines = await repository.listRows(
         descriptor: _descriptor('BillingInvoiceLines'),
@@ -305,6 +308,7 @@ typedef _ListCall = ({
 
 class _MetadataRepository extends FakeAcpAdminRepository {
   final Map<String, List<AcpRow>> pages = <String, List<AcpRow>>{};
+  final Map<String, String> referenceWarnings = <String, String>{};
   final Map<String, AcpRow> rows = <String, AcpRow>{};
   final Set<String> failedEntitySets = <String>{};
   final Set<String> failedRowIds = <String>{};
@@ -341,6 +345,7 @@ class _MetadataRepository extends FakeAcpAdminRepository {
         total: items.length,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
+        referenceWarning: referenceWarnings[descriptor.entitySet],
       ),
     );
   }

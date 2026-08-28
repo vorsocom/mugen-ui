@@ -91,6 +91,7 @@ void main() {
         AcpDeletedView.active,
         AcpDeletedView.archived,
       ],
+      keyLiteralType: AcpFilterLiteralType.guid,
     );
 
     expect(field.key, 'SecretValue');
@@ -169,6 +170,25 @@ void main() {
       AcpDeletedView.active,
       AcpDeletedView.archived,
     ]);
+    expect(resource.keyLiteralType, AcpFilterLiteralType.guid);
+    expect(
+      const AcpResourceDescriptor(
+        key: 'strings',
+        title: 'Strings',
+        entitySet: 'Strings',
+        scopeMode: AcpScopeMode.none,
+        columns: <AcpColumnDescriptor>[],
+      ).keyLiteralType,
+      AcpFilterLiteralType.string,
+    );
+    expect(
+      const AcpBatchReferenceDescriptor(
+        entitySet: 'Targets',
+        scopeMode: AcpScopeMode.none,
+        selectFields: <String>[],
+      ).literalType,
+      AcpFilterLiteralType.string,
+    );
   });
 
   test('tenant labels and row pages normalize display values', () {

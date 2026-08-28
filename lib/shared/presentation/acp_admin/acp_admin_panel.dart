@@ -188,6 +188,15 @@ class _AcpAdminPanelState<T extends AcpAdminController>
             padding: const EdgeInsets.only(bottom: 8),
             child: AppErrorAlert(message: state.errorMessage!),
           ),
+        if (resourceState.referenceWarning != null &&
+            resourceState.referenceWarning!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: AppWarningAlert(
+              key: const Key('acp-admin-reference-warning'),
+              message: resourceState.referenceWarning!,
+            ),
+          ),
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {

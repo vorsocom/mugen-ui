@@ -109,6 +109,59 @@ void main() {
     expect(query[r'$expand'], 'Parent');
   });
 
+  test('buildReferenceBatchQuery emits unique canonical GUID literals', () {
+    final query = AcpQueryBuilder.buildReferenceBatchQuery(
+      ids: const <String>[
+        '550e8400-e29b-41d4-a716-446655440000',
+        ' 550E8400-E29B-41D4-A716-446655440000 ',
+        '550e8400-e29b-41d4-a716-446655440001',
+      ],
+      selectFields: const <String>['Code'],
+      literalType: AcpFilterLiteralType.guid,
+    );
+
+    expect(query[r'$top'], 2);
+    expect(
+      query[r'$filter'],
+      "Id in (guid'550e8400-e29b-41d4-a716-446655440000',"
+      "guid'550e8400-e29b-41d4-a716-446655440001')",
+    );
+  });
+
+  test('GUID batch queries omit malformed identifiers safely', () {
+    final mixed = AcpQueryBuilder.buildReferenceBatchQuery(
+      ids: const <String>[
+        'not-a-guid',
+        "550e8400-e29b-41d4-a716-446655440000'",
+        '550e8400-e29b-41d4-a716-446655440002',
+      ],
+      selectFields: const <String>[],
+      literalType: AcpFilterLiteralType.guid,
+    );
+    final malformed = AcpQueryBuilder.buildReferenceBatchQuery(
+      ids: const <String>['not-a-guid', "bad'value"],
+      selectFields: const <String>[],
+      literalType: AcpFilterLiteralType.guid,
+    );
+
+    expect(
+      mixed[r'$filter'],
+      "Id in (guid'550e8400-e29b-41d4-a716-446655440002')",
+    );
+    expect(malformed, isEmpty);
+  });
+
+  test('explicit string literal keys retain escaping and casing', () {
+    final query = AcpQueryBuilder.buildReferenceBatchQuery(
+      ids: const <String>["Code'One", "code'one", "Code'One"],
+      selectFields: const <String>[],
+      literalType: AcpFilterLiteralType.string,
+    );
+
+    expect(query[r'$top'], 2);
+    expect(query[r'$filter'], "Id in ('Code''One','code''one')");
+  });
+
   test('reference queries handle empty inputs and archived views', () {
     expect(
       AcpQueryBuilder.buildReferenceBatchQuery(

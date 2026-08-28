@@ -80,6 +80,23 @@ void main() {
     );
 
     expect(value, 'Example Company · valet-primary · Yes');
+    expect(
+      acpReferenceHasReadableValue(
+        row: const <String, dynamic>{
+          'AccountId': 'account-id',
+          'Account': <String, dynamic>{'DisplayName': 'Example Company'},
+        },
+        column: referenceColumn,
+      ),
+      isTrue,
+    );
+    expect(
+      acpReferenceHasReadableValue(
+        row: const <String, dynamic>{'AccountId': 'account-id'},
+        column: referenceColumn,
+      ),
+      isFalse,
+    );
   });
 
   test('supports nested paths, prefixes, suffixes, and month-year values', () {

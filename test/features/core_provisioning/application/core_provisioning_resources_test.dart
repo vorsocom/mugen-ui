@@ -120,6 +120,27 @@ void main() {
       _field(subscriptions.createFields, 'PriceId').reference?.scopeMode,
       AcpScopeMode.none,
     );
+    expect(subscriptions.keyLiteralType, AcpFilterLiteralType.guid);
+    final accountLookup = subscriptions.columns
+        .singleWhere((column) => column.key == 'AccountId')
+        .reference
+        ?.batchLookup;
+    final priceLookup = subscriptions.columns
+        .singleWhere((column) => column.key == 'PriceId')
+        .reference
+        ?.batchLookup;
+    expect(accountLookup?.entitySet, 'BillingAccounts');
+    expect(accountLookup?.scopeMode, AcpScopeMode.required);
+    expect(accountLookup?.literalType, AcpFilterLiteralType.guid);
+    expect(priceLookup?.entitySet, 'BillingPrices');
+    expect(priceLookup?.scopeMode, AcpScopeMode.none);
+    expect(priceLookup?.deletedView, AcpDeletedView.all);
+    expect(
+      billingOperationsResources.every(
+        (resource) => resource.keyLiteralType == AcpFilterLiteralType.guid,
+      ),
+      isTrue,
+    );
     expect(
       _field(subscriptions.createFields, 'PriceId').reference?.extraFilters,
       <String>["PriceType eq 'recurring'"],

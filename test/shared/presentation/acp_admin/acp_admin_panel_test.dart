@@ -10,6 +10,7 @@ import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_admin_panel.dart';
+import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 import '../../../test_support/fake_acp_admin_repository.dart';
@@ -1029,6 +1030,44 @@ void main() {
     },
   );
 
+  testWidgets('reference warnings preserve the usable table', (tester) async {
+    await _pumpPanel(
+      tester,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'subscriptions',
+          title: 'Subscriptions',
+          entitySet: 'BillingSubscriptions',
+          scopeMode: AcpScopeMode.none,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(
+              key: 'AccountId',
+              label: 'Account',
+              reference: AcpColumnReferenceDescriptor(
+                navigationPath: 'Account',
+                titleFields: <AcpReferenceFieldDescriptor>[
+                  AcpReferenceFieldDescriptor('DisplayName'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+      repository: _ReferenceWarningAcpAdminRepository(),
+    );
+
+    expect(
+      find.byKey(const Key('acp-admin-reference-warning')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Some reference labels could not be resolved'),
+      findsOneWidget,
+    );
+    expect(find.text('60000000-0000-4000-8000-000000000001'), findsOneWidget);
+    expect(find.byType(AdminDataGrid<AcpRow>), findsOneWidget);
+  });
+
   testWidgets(
     'searchable and multi-select options submit stable payload values',
     (WidgetTester tester) async {
@@ -1389,6 +1428,36 @@ class _SubscriptionReferenceRepository extends FakeAcpAdminRepository {
         total: rows.length,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
+class _ReferenceWarningAcpAdminRepository extends FakeAcpAdminRepository {
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: const <AcpRow>[
+          <String, Object?>{
+            'Id': '50000000-0000-4000-8000-000000000001',
+            'AccountId': '60000000-0000-4000-8000-000000000001',
+          },
+        ],
+        total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+        referenceWarning:
+            'Some reference labels could not be resolved: Account. '
+            'Raw identifiers are shown instead.',
       ),
     );
   }

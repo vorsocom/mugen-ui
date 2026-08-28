@@ -39,6 +39,24 @@ String acpReferenceDisplayValue({
   return values.isEmpty ? rawValue : values.join(' · ');
 }
 
+bool acpReferenceHasReadableValue({
+  required AcpRow row,
+  required AcpColumnDescriptor column,
+}) {
+  final reference = column.reference;
+  if (reference == null) {
+    return false;
+  }
+  final expanded = _readPath(row, reference.navigationPath);
+  if (expanded is! Map) {
+    return false;
+  }
+  return <AcpReferenceFieldDescriptor>[
+    ...reference.titleFields,
+    ...reference.subtitleFields,
+  ].any((field) => _formatField(expanded, field) != null);
+}
+
 Object? _readPath(Object? value, String path) {
   Object? current = value;
   for (final segment in path.split('.')) {

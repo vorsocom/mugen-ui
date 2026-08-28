@@ -4,7 +4,10 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
+import 'package:mugen_ui/features/billing_catalog/application/billing_catalog_resources.dart';
+import 'package:mugen_ui/features/core_provisioning/application/billing_operations_resources.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_reference_display.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
 import 'package:mugen_ui/shared/infrastructure/http/acp_http_client.dart';
 import 'package:mugen_ui/shared/infrastructure/http/authenticated_http_client.dart';
@@ -789,6 +792,387 @@ void main() {
   });
 
   test(
+    'Price Entitlement expansion uses GUID keys and avoids batch fallback',
+    () async {
+      final descriptor = billingCatalogResources.singleWhere(
+        (resource) => resource.entitySet == 'BillingPriceEntitlements',
+      );
+      const entitlementId = '10000000-0000-4000-8000-abcdefabcdef';
+      const priceId = '20000000-0000-4000-8000-000000000001';
+      const meterId = '30000000-0000-4000-8000-000000000001';
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              '@count': 1,
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': entitlementId,
+                  'PriceId': priceId,
+                  'MeterDefinitionId': meterId,
+                },
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': entitlementId.toUpperCase(),
+                  'Price': <String, Object?>{
+                    'Code': 'customer-inbox-monthly',
+                    'PriceType': 'recurring',
+                    'Currency': 'USD',
+                    'DeletedAt': '2026-08-27T00:00:00Z',
+                  },
+                  'MeterDefinition': <String, Object?>{
+                    'Code': 'valet.customer-inbox.minutes',
+                    'Unit': 'minute',
+                  },
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.referenceWarning, isNull);
+      expect(fixture.client.requests, hasLength(2));
+      expect(
+        fixture.client.requests[1].queryParameters[r'$filter'],
+        "Id in (guid'$entitlementId')",
+      );
+      expect(
+        acpReferenceDisplayValue(
+          row: result.data!.items.single,
+          column: descriptor.columns.singleWhere(
+            (column) => column.key == 'PriceId',
+          ),
+        ),
+        'customer-inbox-monthly · recurring · USD',
+      );
+      expect(
+        acpReferenceDisplayValue(
+          row: result.data!.items.single,
+          column: descriptor.columns.singleWhere(
+            (column) => column.key == 'MeterDefinitionId',
+          ),
+        ),
+        'valet.customer-inbox.minutes · minute',
+      );
+    },
+  );
+
+  test(
+    'existing navigation values skip all reference fallback requests',
+    () async {
+      final descriptor = billingCatalogResources.singleWhere(
+        (resource) => resource.entitySet == 'BillingPriceEntitlements',
+      );
+      const entitlementId = '10000000-0000-4000-8000-000000000002';
+      const priceId = '20000000-0000-4000-8000-000000000002';
+      const meterId = '30000000-0000-4000-8000-000000000002';
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': entitlementId,
+                  'PriceId': priceId,
+                  'MeterDefinitionId': meterId,
+                  'Price': <String, Object?>{
+                    'Code': 'customer-inbox-monthly',
+                    'PriceType': 'recurring',
+                    'Currency': 'USD',
+                  },
+                  'MeterDefinition': <String, Object?>{
+                    'Code': 'valet.customer-inbox.minutes',
+                    'Unit': 'minute',
+                  },
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+      );
+
+      expect(result.data?.referenceWarning, isNull);
+      expect(fixture.client.requests, hasLength(1));
+    },
+  );
+
+  test(
+    'Price Entitlement expansion failure resolves through GUID batch fallbacks',
+    () async {
+      final descriptor = billingCatalogResources.singleWhere(
+        (resource) => resource.entitySet == 'BillingPriceEntitlements',
+      );
+      const entitlementId = '10000000-0000-4000-8000-000000000003';
+      const priceId = '20000000-0000-4000-8000-000000000003';
+      const meterId = '30000000-0000-4000-8000-000000000003';
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': entitlementId,
+                  'PriceId': priceId,
+                  'MeterDefinitionId': meterId,
+                },
+              ],
+            }),
+          ),
+          (_) => _response(statusCode: 503, body: 'expansion unavailable'),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': priceId.toUpperCase(),
+                  'Code': 'customer-inbox-monthly',
+                  'PriceType': 'recurring',
+                  'Currency': 'USD',
+                  'DeletedAt': '2026-08-27T00:00:00Z',
+                },
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': meterId,
+                  'Code': 'valet.customer-inbox.minutes',
+                  'Unit': 'minute',
+                  'Description': 'Included customer inbox minutes',
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.referenceWarning, isNull);
+      expect(fixture.client.requests, hasLength(4));
+      expect(
+        fixture.client.requests[2].queryParameters[r'$filter'],
+        "Id in (guid'$priceId')",
+      );
+      expect(fixture.client.requests[2].queryParameters[r'$deleted'], 'all');
+      expect(
+        fixture.client.requests[3].queryParameters[r'$filter'],
+        "Id in (guid'$meterId')",
+      );
+      final row = result.data!.items.single;
+      expect((row['Price'] as Map?)?['Code'], 'customer-inbox-monthly');
+      expect(
+        (row['MeterDefinition'] as Map?)?['Code'],
+        'valet.customer-inbox.minutes',
+      );
+    },
+  );
+
+  test(
+    'Subscription batch fallbacks isolate tenant Accounts and global Prices',
+    () async {
+      final descriptor = billingOperationsResources.singleWhere(
+        (resource) => resource.entitySet == 'BillingSubscriptions',
+      );
+      const tenantA = '40000000-0000-4000-8000-000000000001';
+      const tenantB = '40000000-0000-4000-8000-000000000002';
+      const subscriptionA = '50000000-0000-4000-8000-000000000001';
+      const subscriptionB = '50000000-0000-4000-8000-000000000002';
+      const accountA = '60000000-0000-4000-8000-000000000001';
+      const accountB = '60000000-0000-4000-8000-000000000002';
+      const priceA = '70000000-0000-4000-8000-000000000001';
+      const priceB = '70000000-0000-4000-8000-000000000002';
+      _AuthHandler page(String subscription, String account, String price) {
+        return (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'value': <Map<String, Object?>>[
+              <String, Object?>{
+                'Id': subscription,
+                'AccountId': account,
+                'PriceId': price,
+              },
+            ],
+          }),
+        );
+      }
+
+      _AuthHandler account(String id, String name, String code) {
+        return (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'value': <Map<String, Object?>>[
+              <String, Object?>{
+                'Id': id,
+                'DisplayName': name,
+                'Code': code,
+                'Email': '$code@example.test',
+              },
+            ],
+          }),
+        );
+      }
+
+      _AuthHandler price(String id, String code) {
+        return (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'value': <Map<String, Object?>>[
+              <String, Object?>{
+                'Id': id,
+                'Code': code,
+                'PriceType': 'recurring',
+                'Currency': 'USD',
+              },
+            ],
+          }),
+        );
+      }
+
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          page(subscriptionA, accountA, priceA),
+          (_) => _response(statusCode: 503, body: 'expand failed'),
+          account(accountA, 'Example Customer A', 'example-a'),
+          price(priceA, 'customer-inbox-a'),
+          page(subscriptionB, accountB, priceB),
+          (_) => _response(statusCode: 503, body: 'expand failed'),
+          account(accountB, 'Example Customer B', 'example-b'),
+          price(priceB, 'customer-inbox-b'),
+        ],
+      );
+
+      final first = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: tenantA,
+      );
+      final second = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: tenantB,
+      );
+
+      expect(first.data?.referenceWarning, isNull);
+      expect(second.data?.referenceWarning, isNull);
+      expect(
+        (first.data!.items.single['Account'] as Map?)?['Code'],
+        'example-a',
+      );
+      expect(
+        (second.data!.items.single['Account'] as Map?)?['Code'],
+        'example-b',
+      );
+      expect(
+        fixture.client.requests[2].path,
+        'core/acp/v1/tenants/$tenantA/BillingAccounts',
+      );
+      expect(
+        fixture.client.requests[6].path,
+        'core/acp/v1/tenants/$tenantB/BillingAccounts',
+      );
+      expect(fixture.client.requests[3].path, 'core/acp/v1/BillingPrices');
+      expect(fixture.client.requests[7].path, 'core/acp/v1/BillingPrices');
+      expect(
+        fixture.client.requests
+            .where((request) => request.path.contains('BillingAccounts'))
+            .map((request) => request.path),
+        <String>[
+          'core/acp/v1/tenants/$tenantA/BillingAccounts',
+          'core/acp/v1/tenants/$tenantB/BillingAccounts',
+        ],
+      );
+    },
+  );
+
+  test(
+    'incomplete reference fallback exposes a non-blocking warning',
+    () async {
+      final descriptor = billingCatalogResources.singleWhere(
+        (resource) => resource.entitySet == 'BillingPriceEntitlements',
+      );
+      const entitlementId = '10000000-0000-4000-8000-000000000004';
+      const priceId = '20000000-0000-4000-8000-000000000004';
+      const meterId = '30000000-0000-4000-8000-000000000004';
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              '@count': 1,
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': entitlementId,
+                  'PriceId': priceId,
+                  'MeterDefinitionId': meterId,
+                },
+              ],
+            }),
+          ),
+          (_) => _response(statusCode: 500, body: 'expand failed'),
+          (_) => _response(statusCode: 403, body: 'price lookup forbidden'),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': meterId,
+                  'Code': 'valet.customer-inbox.minutes',
+                  'Unit': 'minute',
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.items, hasLength(1));
+      expect(result.data?.referenceWarning, contains('Price'));
+      expect(result.data?.referenceWarning, isNot(contains('Meter.')));
+      expect(result.data?.referenceWarning, contains('price lookup forbidden'));
+      expect(result.data?.items.single['PriceId'], priceId);
+      expect(
+        (result.data?.items.single['MeterDefinition'] as Map?)?['Code'],
+        'valet.customer-inbox.minutes',
+      );
+    },
+  );
+
+  test(
     'reference failures never replace the primary collection result',
     () async {
       final fixture = _RepositoryFixture(
@@ -912,6 +1296,41 @@ void main() {
       expect(emptyFixture.client.requests, hasLength(1));
     },
   );
+
+  test('malformed GUID source keys skip expansion requests safely', () async {
+    const descriptor = AcpResourceDescriptor(
+      key: 'records',
+      title: 'Records',
+      entitySet: 'Records',
+      scopeMode: AcpScopeMode.none,
+      keyLiteralType: AcpFilterLiteralType.guid,
+      columns: <AcpColumnDescriptor>[],
+      expansions: <AcpExpandDescriptor>[
+        AcpExpandDescriptor(navigation: 'Parent'),
+      ],
+    );
+    final fixture = _RepositoryFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'value': <Map<String, Object?>>[
+              <String, Object?>{'Id': 'not-a-guid'},
+            ],
+          }),
+        ),
+      ],
+    );
+
+    final result = await fixture.repository.listRows(
+      descriptor: descriptor,
+      pageRequest: const PageRequest(page: 1, pageSize: 15),
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(result.data?.items.single['Id'], 'not-a-guid');
+    expect(fixture.client.requests, hasLength(1));
+  });
 
   test('unavailable batch paths and malformed responses are ignored', () async {
     const missingTenantDescriptor = AcpResourceDescriptor(

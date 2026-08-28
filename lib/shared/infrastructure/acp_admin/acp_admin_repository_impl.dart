@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_reference_display.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_repository.dart';
 import 'package:mugen_ui/shared/application/api_error_message.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
@@ -112,14 +113,17 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     }
 
     var items = _decodeRows(body['value']);
+    String? referenceWarning;
     if (enrichReferences && items.isNotEmpty) {
-      items = await _enrichRows(
+      final enrichment = await _enrichRows(
         rows: items,
         descriptor: descriptor,
         tenantId: tenantId,
         deletedView: deletedView,
         expansionPath: path.data!,
       );
+      items = enrichment.rows;
+      referenceWarning = enrichment.referenceWarning;
     }
     final total = _parseCount(body['@count'], fallback: items.length);
     return Result<AcpRowPage>.success(
@@ -128,6 +132,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         total: total,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
+        referenceWarning: referenceWarning,
       ),
     );
   }
@@ -163,7 +168,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       );
     }
 
-    final rows = await _enrichRows(
+    final enrichment = await _enrichRows(
       rows: <AcpRow>[body],
       descriptor: descriptor,
       tenantId: tenantId,
@@ -171,7 +176,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       expansionPath: path.data!,
       expansionIsEntity: true,
     );
-    return Result<AcpRow>.success(rows.single);
+    return Result<AcpRow>.success(enrichment.rows.single);
   }
 
   @override
@@ -353,7 +358,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     return const Result<void>.success(null);
   }
 
-  Future<List<AcpRow>> _enrichRows({
+  Future<_AcpReferenceEnrichment> _enrichRows({
     required List<AcpRow> rows,
     required AcpResourceDescriptor descriptor,
     required String? tenantId,
@@ -364,53 +369,99 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     var enriched = rows
         .map((row) => Map<String, dynamic>.from(row))
         .toList(growable: false);
+    final failures = <String>{};
     if (descriptor.expansions.isNotEmpty) {
-      enriched = await _enrichExpandedReferences(
+      final expansion = await _enrichExpandedReferences(
         rows: enriched,
-        expansions: descriptor.expansions,
+        descriptor: descriptor,
         deletedView: deletedView,
         path: expansionPath,
         isEntity: expansionIsEntity,
       );
+      enriched = expansion.rows;
+      failures.addAll(expansion.failures);
     }
-    return _enrichBatchReferences(
+    final batch = await _enrichBatchReferences(
       rows: enriched,
       descriptor: descriptor,
       tenantId: tenantId,
     );
+    failures.addAll(batch.failures);
+    final unresolvedLabels = <String>{};
+    for (final column in descriptor.columns) {
+      if (column.reference == null) {
+        continue;
+      }
+      final unresolved = batch.rows.any((row) {
+        final id = row[column.key]?.toString().trim() ?? '';
+        return id.isNotEmpty &&
+            !acpReferenceHasReadableValue(row: row, column: column);
+      });
+      if (unresolved) {
+        unresolvedLabels.add(column.label);
+      }
+    }
+    return _AcpReferenceEnrichment(
+      rows: batch.rows,
+      failures: failures.toList(growable: false),
+      referenceWarning: _referenceWarning(
+        unresolvedLabels: unresolvedLabels,
+        failures: failures,
+      ),
+    );
   }
 
-  Future<List<AcpRow>> _enrichExpandedReferences({
+  Future<_AcpReferenceEnrichment> _enrichExpandedReferences({
     required List<AcpRow> rows,
-    required List<AcpExpandDescriptor> expansions,
+    required AcpResourceDescriptor descriptor,
     required AcpDeletedView deletedView,
     required String path,
     required bool isEntity,
   }) async {
     final ids = rows
+        .where(
+          (row) => _needsExpansion(
+            row: row,
+            columns: descriptor.columns,
+            expansions: descriptor.expansions,
+          ),
+        )
         .map((row) => row.id?.trim() ?? '')
         .where((value) => value.isNotEmpty)
         .toList(growable: false);
     if (ids.isEmpty) {
-      return rows;
+      return _AcpReferenceEnrichment(rows: rows);
+    }
+
+    final queryParameters = isEntity
+        ? AcpQueryBuilder.buildEntityReferenceQuery(
+            expansions: descriptor.expansions,
+          )
+        : AcpQueryBuilder.buildReferenceBatchQuery(
+            ids: ids,
+            selectFields: const <String>[],
+            literalType: descriptor.keyLiteralType,
+            expansions: descriptor.expansions,
+            deletedView: deletedView,
+          );
+    if (queryParameters.isEmpty) {
+      return _AcpReferenceEnrichment(rows: rows);
     }
 
     final response = await _send(
       AcpRequest(
         method: HttpMethod.get,
         path: path,
-        queryParameters: isEntity
-            ? AcpQueryBuilder.buildEntityReferenceQuery(expansions: expansions)
-            : AcpQueryBuilder.buildReferenceBatchQuery(
-                ids: ids,
-                selectFields: const <String>[],
-                expansions: expansions,
-                deletedView: deletedView,
-              ),
+        queryParameters: queryParameters,
       ),
     );
     if (response.isFailure) {
-      return rows;
+      return _AcpReferenceEnrichment(
+        rows: rows,
+        failures: <String>[
+          'Navigation expansion: ${response.failure!.message}',
+        ],
+      );
     }
 
     final entityRow = isEntity
@@ -420,35 +471,41 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         ? <AcpRow?>[entityRow].whereType<AcpRow>().toList(growable: false)
         : _decodeRows(_decodeMap(response.data!.response.body)?['value']);
     if (expandedRows.isEmpty) {
-      return rows;
+      return _AcpReferenceEnrichment(rows: rows);
     }
 
     final byId = <String, AcpRow>{};
     for (final row in expandedRows) {
       final id = row.id;
       if (id != null) {
-        byId[id] = row;
+        byId[_referenceIdKey(id, descriptor.keyLiteralType)] = row;
       }
     }
-    return rows
+    final enriched = rows
         .map((row) {
-          final expanded = byId[row.id];
+          final rowId = row.id;
+          final expanded = rowId == null
+              ? null
+              : byId[_referenceIdKey(rowId, descriptor.keyLiteralType)];
           if (expanded == null) {
             return row;
           }
           final merged = Map<String, dynamic>.from(row);
-          for (final expansion in expansions) {
+          for (final expansion in descriptor.expansions) {
             final navigation = expansion.navigation.trim();
-            if (navigation.isNotEmpty && expanded.containsKey(navigation)) {
+            if (navigation.isNotEmpty &&
+                expanded.containsKey(navigation) &&
+                row[navigation] is! Map) {
               merged[navigation] = expanded[navigation];
             }
           }
           return merged;
         })
         .toList(growable: false);
+    return _AcpReferenceEnrichment(rows: enriched);
   }
 
-  Future<List<AcpRow>> _enrichBatchReferences({
+  Future<_AcpReferenceEnrichment> _enrichBatchReferences({
     required List<AcpRow> rows,
     required AcpResourceDescriptor descriptor,
     required String? tenantId,
@@ -464,6 +521,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         lookup.entitySet,
         lookup.scopeMode.name,
         lookup.idField,
+        lookup.literalType.name,
         lookup.deletedView.name,
       ].join('|');
       final group = groups.putIfAbsent(
@@ -474,18 +532,20 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       group.selectFields.addAll(lookup.selectFields);
     }
     if (groups.isEmpty) {
-      return rows;
+      return _AcpReferenceEnrichment(rows: rows);
     }
 
     final enriched = rows
         .map((row) => Map<String, dynamic>.from(row))
         .toList(growable: false);
+    final failures = <String>[];
     for (final group in groups.values) {
       final ids = <String>{};
       for (final row in enriched) {
         for (final column in group.columns) {
           final id = row[column.key]?.toString().trim() ?? '';
-          if (id.isNotEmpty) {
+          if (id.isNotEmpty &&
+              !acpReferenceHasReadableValue(row: row, column: column)) {
             ids.add(id);
           }
         }
@@ -502,21 +562,28 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         tenantId: tenantId,
       );
       if (path.isFailure) {
+        failures.add(_lookupFailure(group, path.failure!.message));
+        continue;
+      }
+      final queryParameters = AcpQueryBuilder.buildReferenceBatchQuery(
+        ids: ids.toList(growable: false),
+        idField: lookup.idField,
+        literalType: lookup.literalType,
+        selectFields: group.selectFields.toList(growable: false),
+        deletedView: lookup.deletedView,
+      );
+      if (queryParameters.isEmpty) {
         continue;
       }
       final response = await _send(
         AcpRequest(
           method: HttpMethod.get,
           path: path.data!,
-          queryParameters: AcpQueryBuilder.buildReferenceBatchQuery(
-            ids: ids.toList(growable: false),
-            idField: lookup.idField,
-            selectFields: group.selectFields.toList(growable: false),
-            deletedView: lookup.deletedView,
-          ),
+          queryParameters: queryParameters,
         ),
       );
       if (response.isFailure) {
+        failures.add(_lookupFailure(group, response.failure!.message));
         continue;
       }
       final body = _decodeMap(response.data!.response.body);
@@ -525,13 +592,13 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       for (final target in targets) {
         final id = target[lookup.idField]?.toString().trim() ?? '';
         if (id.isNotEmpty) {
-          byId[id] = target;
+          byId[_referenceIdKey(id, lookup.literalType)] = target;
         }
       }
       for (final row in enriched) {
         for (final column in group.columns) {
           final id = row[column.key]?.toString().trim() ?? '';
-          final target = byId[id];
+          final target = byId[_referenceIdKey(id, lookup.literalType)];
           final path = column.reference?.navigationPath;
           if (target != null && path != null && path.trim().isNotEmpty) {
             _writePath(row, path, target);
@@ -539,7 +606,70 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         }
       }
     }
-    return enriched;
+    return _AcpReferenceEnrichment(rows: enriched, failures: failures);
+  }
+
+  bool _needsExpansion({
+    required AcpRow row,
+    required List<AcpColumnDescriptor> columns,
+    required List<AcpExpandDescriptor> expansions,
+  }) {
+    for (final expansion in expansions) {
+      final navigation = expansion.navigation.trim();
+      if (navigation.isEmpty) {
+        continue;
+      }
+      final matchingColumns = columns
+          .where((column) {
+            final reference = column.reference;
+            return reference != null &&
+                reference.navigationPath.split('.').first == navigation;
+          })
+          .toList(growable: false);
+      if (matchingColumns.isEmpty) {
+        if (row[navigation] is! Map) {
+          return true;
+        }
+        continue;
+      }
+      for (final column in matchingColumns) {
+        final id = row[column.key]?.toString().trim() ?? '';
+        if (id.isNotEmpty &&
+            !acpReferenceHasReadableValue(row: row, column: column)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  String _lookupFailure(_AcpBatchReferenceGroup group, String message) {
+    final labels = group.columns
+        .map((column) => column.label)
+        .toSet()
+        .join(', ');
+    return '$labels (${group.lookup.entitySet}): $message';
+  }
+
+  String _referenceIdKey(String id, AcpFilterLiteralType literalType) {
+    return literalType == AcpFilterLiteralType.guid ? id.toLowerCase() : id;
+  }
+
+  String? _referenceWarning({
+    required Set<String> unresolvedLabels,
+    required Set<String> failures,
+  }) {
+    if (unresolvedLabels.isEmpty) {
+      return null;
+    }
+    final labels = unresolvedLabels.join(', ');
+    final base =
+        'Some reference labels could not be resolved: $labels. '
+        'Raw identifiers are shown instead.';
+    if (failures.isEmpty) {
+      return base;
+    }
+    return '$base Details: ${failures.join(' ')}';
   }
 
   void _writePath(Map<String, dynamic> row, String path, Object? value) {
@@ -655,4 +785,16 @@ class _AcpBatchReferenceGroup {
   final AcpBatchReferenceDescriptor lookup;
   final List<AcpColumnDescriptor> columns = <AcpColumnDescriptor>[];
   final Set<String> selectFields = <String>{};
+}
+
+class _AcpReferenceEnrichment {
+  const _AcpReferenceEnrichment({
+    required this.rows,
+    this.failures = const <String>[],
+    this.referenceWarning,
+  });
+
+  final List<AcpRow> rows;
+  final List<String> failures;
+  final String? referenceWarning;
 }

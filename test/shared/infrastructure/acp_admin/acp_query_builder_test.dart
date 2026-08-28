@@ -59,4 +59,106 @@ void main() {
       'archived',
     );
   });
+
+  test('serializes single and nested expansion expressions', () {
+    final query = AcpQueryBuilder.buildListQuery(
+      pageRequest: const PageRequest(page: 1, pageSize: 15),
+      expansions: const <AcpExpandDescriptor>[
+        AcpExpandDescriptor(
+          navigation: 'Account',
+          selectFields: <String>['DisplayName', 'Code'],
+        ),
+        AcpExpandDescriptor(
+          navigation: 'Subscription',
+          selectFields: <String>['Status'],
+          expands: <AcpExpandDescriptor>[
+            AcpExpandDescriptor(
+              navigation: 'Price',
+              expands: <AcpExpandDescriptor>[
+                AcpExpandDescriptor(
+                  navigation: 'Product',
+                  selectFields: <String>['Name'],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+
+    expect(
+      query[r'$expand'],
+      r'Account($select=DisplayName,Code),Subscription($select=Status;$expand=Price($expand=Product($select=Name)))',
+    );
+  });
+
+  test('buildReferenceBatchQuery selects and filters unique IDs', () {
+    final query = AcpQueryBuilder.buildReferenceBatchQuery(
+      ids: const <String>['one', 'one', "o'neal", ' '],
+      selectFields: const <String>['Name', 'Name', ' '],
+      deletedView: AcpDeletedView.all,
+      expansions: const <AcpExpandDescriptor>[
+        AcpExpandDescriptor(navigation: 'Parent'),
+      ],
+    );
+
+    expect(query[r'$top'], 2);
+    expect(query[r'$select'], 'Id,Name');
+    expect(query[r'$filter'], "Id in ('one','o''neal')");
+    expect(query[r'$deleted'], 'all');
+    expect(query[r'$expand'], 'Parent');
+  });
+
+  test('reference queries handle empty inputs and archived views', () {
+    expect(
+      AcpQueryBuilder.buildReferenceBatchQuery(
+        ids: const <String>[],
+        selectFields: const <String>[],
+      ),
+      isEmpty,
+    );
+    expect(
+      AcpQueryBuilder.buildReferenceBatchQuery(
+        ids: const <String>[' ', ''],
+        selectFields: const <String>[],
+      ),
+      isEmpty,
+    );
+    expect(
+      AcpQueryBuilder.buildReferenceBatchQuery(
+        ids: const <String>['id'],
+        selectFields: const <String>[],
+        deletedView: AcpDeletedView.archived,
+      )[r'$deleted'],
+      'archived',
+    );
+    expect(
+      AcpQueryBuilder.buildEntityReferenceQuery(
+        expansions: const <AcpExpandDescriptor>[],
+      ),
+      isEmpty,
+    );
+    expect(
+      AcpQueryBuilder.buildEntityReferenceQuery(
+        expansions: const <AcpExpandDescriptor>[
+          AcpExpandDescriptor(navigation: 'Account'),
+        ],
+      ),
+      <String, dynamic>{r'$select': 'Id', r'$expand': 'Account'},
+    );
+  });
+
+  test('expansion serialization omits blank metadata', () {
+    expect(
+      AcpQueryBuilder.serializeExpansions(const <AcpExpandDescriptor>[
+        AcpExpandDescriptor(navigation: ' '),
+        AcpExpandDescriptor(
+          navigation: 'Account',
+          selectFields: <String>[' ', 'Code', 'Code'],
+          expands: <AcpExpandDescriptor>[AcpExpandDescriptor(navigation: ' ')],
+        ),
+      ]),
+      r'Account($select=Code)',
+    );
+  });
 }

@@ -13,6 +13,7 @@ import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart'
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_money_codec.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_reference_display.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -578,10 +579,18 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
             key: column.key,
             label: column.label,
             flex: column.flex,
-            cell: (_, row) => AdminCellText(
-              _formatCellValue(row: row, column: column),
-              maxLines: 2,
-            ),
+            cell: (_, row) {
+              final value = _formatCellValue(row: row, column: column);
+              final cell = AdminCellText(value, maxLines: 2);
+              if (column.reference == null) {
+                return cell;
+              }
+              return Semantics(
+                label: '${column.label}: $value',
+                excludeSemantics: true,
+                child: cell,
+              );
+            },
           ),
       ],
       actionsBuilder: (context, row) => SizedBox(
@@ -632,6 +641,9 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
     required AcpRow row,
     required AcpColumnDescriptor column,
   }) {
+    if (column.reference != null) {
+      return acpReferenceDisplayValue(row: row, column: column);
+    }
     final value = column.valueBuilder?.call(row) ?? row[column.key];
     if (value == null) {
       return '';

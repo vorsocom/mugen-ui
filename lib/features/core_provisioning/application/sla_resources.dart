@@ -11,7 +11,12 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
     columns: <AcpColumnDescriptor>[
       coreColumn('Code', 'Code'),
       coreColumn('Name', 'Name', flex: 2),
-      coreColumn('CalendarId', 'Calendar', flex: 2),
+      coreColumn(
+        'CalendarId',
+        'Calendar',
+        flex: 2,
+        reference: _calendarDisplay,
+      ),
       coreColumn('IsActive', 'Active'),
     ],
     createFields: <AcpFieldDescriptor>[
@@ -132,7 +137,7 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
       coreColumn('Severity', 'Severity'),
       coreColumn('TargetMinutes', 'Target Minutes'),
       coreColumn('WarnBeforeMinutes', 'Warn Before'),
-      coreColumn('PolicyId', 'Policy', flex: 2),
+      coreColumn('PolicyId', 'Policy', flex: 2, reference: _policyDisplay),
     ],
     createFields: <AcpFieldDescriptor>[
       _policy(required: true),
@@ -189,6 +194,35 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
     allowUpdate: true,
   ),
 ];
+
+final AcpColumnReferenceDescriptor _calendarDisplay = coreBatchReference(
+  navigationPath: 'Calendar',
+  entitySet: 'OpsSlaCalendars',
+  scopeMode: AcpScopeMode.required,
+  selectFields: const <String>['Name', 'Code', 'Timezone'],
+  titleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Name'),
+    AcpReferenceFieldDescriptor('Code'),
+  ],
+  subtitleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Code'),
+    AcpReferenceFieldDescriptor('Timezone'),
+  ],
+);
+
+final AcpColumnReferenceDescriptor _policyDisplay = coreBatchReference(
+  navigationPath: 'Policy',
+  entitySet: 'OpsSlaPolicies',
+  scopeMode: AcpScopeMode.required,
+  selectFields: const <String>['Name', 'Code'],
+  titleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Name'),
+    AcpReferenceFieldDescriptor('Code'),
+  ],
+  subtitleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Code'),
+  ],
+);
 
 AcpFieldDescriptor _calendar({bool applyAfterCreate = false}) {
   return coreReference(

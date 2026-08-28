@@ -40,6 +40,79 @@ void main() {
     target: AcpActionTarget.entity,
     includeRowVersion: true,
   );
+  const enrichedDescriptor = AcpResourceDescriptor(
+    key: 'orders',
+    title: 'Orders',
+    entitySet: 'Orders',
+    scopeMode: AcpScopeMode.required,
+    columns: <AcpColumnDescriptor>[
+      AcpColumnDescriptor(
+        key: 'AccountId',
+        label: 'Account',
+        reference: AcpColumnReferenceDescriptor(
+          navigationPath: 'Account',
+          titleFields: <AcpReferenceFieldDescriptor>[
+            AcpReferenceFieldDescriptor('Name'),
+          ],
+        ),
+      ),
+      AcpColumnDescriptor(
+        key: 'FromStateId',
+        label: 'From',
+        reference: AcpColumnReferenceDescriptor(
+          navigationPath: 'Wrapper.FromState',
+          titleFields: <AcpReferenceFieldDescriptor>[
+            AcpReferenceFieldDescriptor('Name'),
+          ],
+          batchLookup: AcpBatchReferenceDescriptor(
+            entitySet: 'States',
+            scopeMode: AcpScopeMode.required,
+            selectFields: <String>['Name', 'Key'],
+            deletedView: AcpDeletedView.all,
+          ),
+        ),
+      ),
+      AcpColumnDescriptor(
+        key: 'ToStateId',
+        label: 'To',
+        reference: AcpColumnReferenceDescriptor(
+          navigationPath: 'Wrapper.ToState',
+          titleFields: <AcpReferenceFieldDescriptor>[
+            AcpReferenceFieldDescriptor('Name'),
+          ],
+          batchLookup: AcpBatchReferenceDescriptor(
+            entitySet: 'States',
+            scopeMode: AcpScopeMode.required,
+            selectFields: <String>['Name', 'Key'],
+            deletedView: AcpDeletedView.all,
+          ),
+        ),
+      ),
+      AcpColumnDescriptor(
+        key: 'NewStateId',
+        label: 'New',
+        reference: AcpColumnReferenceDescriptor(
+          navigationPath: 'NewWrapper.State',
+          titleFields: <AcpReferenceFieldDescriptor>[
+            AcpReferenceFieldDescriptor('Name'),
+          ],
+          batchLookup: AcpBatchReferenceDescriptor(
+            entitySet: 'States',
+            scopeMode: AcpScopeMode.required,
+            selectFields: <String>['Name'],
+            deletedView: AcpDeletedView.all,
+          ),
+        ),
+      ),
+    ],
+    expansions: <AcpExpandDescriptor>[
+      AcpExpandDescriptor(
+        navigation: 'Account',
+        selectFields: <String>['Name'],
+      ),
+      AcpExpandDescriptor(navigation: ' '),
+    ],
+  );
 
   test('fetchTenants maps tenant payload and request query', () async {
     final fixture = _RepositoryFixture(
@@ -326,6 +399,36 @@ void main() {
     },
   );
 
+  test('reference metadata does not alter mutation payloads', () async {
+    final fixture = _RepositoryFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(statusCode: 201, body: '{"Id":"order-1"}'),
+        (_) => _response(statusCode: 200, body: '{"Id":"order-1"}'),
+      ],
+    );
+    const values = <String, dynamic>{
+      'AccountId': 'account-1',
+      'FromStateId': 'state-1',
+    };
+
+    await fixture.repository.createRow(
+      descriptor: enrichedDescriptor,
+      tenantId: 'tenant-1',
+      values: values,
+    );
+    await fixture.repository.updateRow(
+      descriptor: enrichedDescriptor,
+      rowId: 'order-1',
+      tenantId: 'tenant-1',
+      values: values,
+    );
+
+    expect(fixture.client.requests[0].body, values);
+    expect(fixture.client.requests[1].body, values);
+    expect(fixture.client.requests[0].body, isNot(contains('Account')));
+    expect(fixture.client.requests[1].body, isNot(contains('Wrapper')));
+  });
+
   test(
     'collection and entity actions build expected paths and validate row versions',
     () async {
@@ -541,6 +644,396 @@ void main() {
       expect(restoreResult.failure?.message, 'A tenant must be selected.');
       expect(collectionResult.failure?.message, 'A tenant must be selected.');
       expect(entityResult.failure?.message, 'A tenant must be selected.');
+    },
+  );
+
+  test('listRows enriches expanded and grouped batch references', () async {
+    final fixture = _RepositoryFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            '@count': 1,
+            'value': <Map<String, Object?>>[
+              <String, Object?>{
+                'Id': 'order-1',
+                'AccountId': 'account-1',
+                'FromStateId': 'state-1',
+                'ToStateId': 'state-2',
+                'NewStateId': 'state-3',
+                'Wrapper': <String, Object?>{'Existing': true},
+              },
+            ],
+          }),
+        ),
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'value': <Map<String, Object?>>[
+              <String, Object?>{
+                'Id': 'order-1',
+                'Account': <String, Object?>{'Name': 'Example Company'},
+              },
+              <String, Object?>{
+                'Account': <String, Object?>{'Name': 'Missing ID'},
+              },
+            ],
+          }),
+        ),
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'value': <Map<String, Object?>>[
+              <String, Object?>{
+                'Id': 'state-1',
+                'Name': 'Draft',
+                'Key': 'draft',
+              },
+              <String, Object?>{
+                'Id': 'state-2',
+                'Name': 'Active',
+                'Key': 'active',
+              },
+              <String, Object?>{'Id': 'state-3', 'Name': 'Complete'},
+              <String, Object?>{'Id': ''},
+            ],
+          }),
+        ),
+      ],
+    );
+
+    final result = await fixture.repository.listRows(
+      descriptor: enrichedDescriptor,
+      pageRequest: const PageRequest(page: 1, pageSize: 15),
+      tenantId: 'tenant-1',
+    );
+
+    expect(result.isSuccess, isTrue);
+    final row = result.data!.items.single;
+    expect(row['Account'], <String, dynamic>{'Name': 'Example Company'});
+    expect(row['Wrapper'], <String, dynamic>{
+      'Existing': true,
+      'FromState': <String, dynamic>{
+        'Id': 'state-1',
+        'Name': 'Draft',
+        'Key': 'draft',
+      },
+      'ToState': <String, dynamic>{
+        'Id': 'state-2',
+        'Name': 'Active',
+        'Key': 'active',
+      },
+    });
+    expect(row['NewWrapper'], <String, dynamic>{
+      'State': <String, dynamic>{'Id': 'state-3', 'Name': 'Complete'},
+    });
+    expect(row['AccountId'], 'account-1');
+    expect(fixture.client.requests, hasLength(3));
+    expect(
+      fixture.client.requests[1].queryParameters[r'$expand'],
+      r'Account($select=Name)',
+    );
+    expect(
+      fixture.client.requests[2].queryParameters[r'$filter'],
+      "Id in ('state-1','state-2','state-3')",
+    );
+    expect(fixture.client.requests[2].queryParameters[r'$deleted'], 'all');
+  });
+
+  test('fetchRow applies the same reference enrichment', () async {
+    final fixture = _RepositoryFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'Id': 'order-1',
+            'AccountId': 'account-1',
+            'FromStateId': 'state-1',
+          }),
+        ),
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'Id': 'order-1',
+            'Account': <String, Object?>{'Name': 'Example Company'},
+          }),
+        ),
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'value': <Map<String, Object?>>[
+              <String, Object?>{'Id': 'state-1', 'Name': 'Draft'},
+            ],
+          }),
+        ),
+      ],
+    );
+
+    final result = await fixture.repository.fetchRow(
+      descriptor: enrichedDescriptor,
+      rowId: 'order-1',
+      tenantId: 'tenant-1',
+    );
+
+    expect(result.data?['Account'], <String, dynamic>{
+      'Name': 'Example Company',
+    });
+    expect(fixture.client.requests[1].queryParameters, <String, dynamic>{
+      r'$select': 'Id',
+      r'$expand': r'Account($select=Name)',
+    });
+    expect((result.data?['Wrapper'] as Map?)?['FromState'], <String, dynamic>{
+      'Id': 'state-1',
+      'Name': 'Draft',
+    });
+  });
+
+  test(
+    'reference failures never replace the primary collection result',
+    () async {
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              '@count': 1,
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': 'order-1',
+                  'AccountId': 'account-1',
+                  'FromStateId': 'state-1',
+                },
+              ],
+            }),
+          ),
+          (_) => _response(statusCode: 500, body: 'expand failed'),
+          (_) => _response(statusCode: 403, body: 'batch forbidden'),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: enrichedDescriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: 'tenant-1',
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data!.items.single['AccountId'], 'account-1');
+      expect(result.data!.items.single.containsKey('Account'), isFalse);
+    },
+  );
+
+  test('reference enrichment can be disabled for count queries', () async {
+    final fixture = _RepositoryFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            '@count': 1,
+            'value': <Map<String, Object?>>[
+              <String, Object?>{'Id': 'order-1'},
+            ],
+          }),
+        ),
+      ],
+    );
+
+    final result = await fixture.repository.listRows(
+      descriptor: enrichedDescriptor,
+      pageRequest: const PageRequest(page: 1, pageSize: 1),
+      tenantId: 'tenant-1',
+      enrichReferences: false,
+    );
+
+    expect(result.isSuccess, isTrue);
+    expect(fixture.client.requests, hasLength(1));
+  });
+
+  test(
+    'reference enrichment skips rows and lookups without identifiers',
+    () async {
+      const descriptor = AcpResourceDescriptor(
+        key: 'records',
+        title: 'Records',
+        entitySet: 'Records',
+        scopeMode: AcpScopeMode.none,
+        columns: <AcpColumnDescriptor>[
+          AcpColumnDescriptor(
+            key: 'TargetId',
+            label: 'Target',
+            reference: AcpColumnReferenceDescriptor(
+              navigationPath: 'Target',
+              titleFields: <AcpReferenceFieldDescriptor>[
+                AcpReferenceFieldDescriptor('Name'),
+              ],
+              batchLookup: AcpBatchReferenceDescriptor(
+                entitySet: 'Targets',
+                scopeMode: AcpScopeMode.none,
+                selectFields: <String>['Name'],
+              ),
+            ),
+          ),
+        ],
+        expansions: <AcpExpandDescriptor>[
+          AcpExpandDescriptor(navigation: 'Parent'),
+        ],
+      );
+      final noIdFixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[<String, Object?>{}],
+            }),
+          ),
+        ],
+      );
+      final emptyFixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{'value': <Object?>[]}),
+          ),
+        ],
+      );
+
+      final noIdResult = await noIdFixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+      );
+      final emptyResult = await emptyFixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+      );
+
+      expect(noIdResult.isSuccess, isTrue);
+      expect(emptyResult.isSuccess, isTrue);
+      expect(noIdFixture.client.requests, hasLength(1));
+      expect(emptyFixture.client.requests, hasLength(1));
+    },
+  );
+
+  test('unavailable batch paths and malformed responses are ignored', () async {
+    const missingTenantDescriptor = AcpResourceDescriptor(
+      key: 'records',
+      title: 'Records',
+      entitySet: 'Records',
+      scopeMode: AcpScopeMode.none,
+      columns: <AcpColumnDescriptor>[
+        AcpColumnDescriptor(
+          key: 'TargetId',
+          label: 'Target',
+          reference: AcpColumnReferenceDescriptor(
+            navigationPath: 'Target',
+            titleFields: <AcpReferenceFieldDescriptor>[
+              AcpReferenceFieldDescriptor('Name'),
+            ],
+            batchLookup: AcpBatchReferenceDescriptor(
+              entitySet: 'Targets',
+              scopeMode: AcpScopeMode.required,
+              selectFields: <String>['Name'],
+            ),
+          ),
+        ),
+      ],
+    );
+    const malformedDescriptor = AcpResourceDescriptor(
+      key: 'records',
+      title: 'Records',
+      entitySet: 'Records',
+      scopeMode: AcpScopeMode.none,
+      columns: <AcpColumnDescriptor>[
+        AcpColumnDescriptor(
+          key: 'TargetId',
+          label: 'Target',
+          reference: AcpColumnReferenceDescriptor(
+            navigationPath: '...',
+            titleFields: <AcpReferenceFieldDescriptor>[
+              AcpReferenceFieldDescriptor('Name'),
+            ],
+            batchLookup: AcpBatchReferenceDescriptor(
+              entitySet: 'Targets',
+              scopeMode: AcpScopeMode.none,
+              selectFields: <String>['Name'],
+            ),
+          ),
+        ),
+      ],
+    );
+    final missingTenantFixture = _RepositoryFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'value': <Map<String, Object?>>[
+              <String, Object?>{'Id': 'row-1', 'TargetId': 'target-1'},
+            ],
+          }),
+        ),
+      ],
+    );
+    final malformedFixture = _RepositoryFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'value': <Map<String, Object?>>[
+              <String, Object?>{'Id': 'row-1', 'TargetId': 'target-1'},
+            ],
+          }),
+        ),
+        (_) => _response(
+          statusCode: 200,
+          body: jsonEncode(<String, Object?>{
+            'value': <Map<String, Object?>>[
+              <String, Object?>{'Id': 'target-1', 'Name': 'Target'},
+            ],
+          }),
+        ),
+      ],
+    );
+
+    final missingTenant = await missingTenantFixture.repository.listRows(
+      descriptor: missingTenantDescriptor,
+      pageRequest: const PageRequest(page: 1, pageSize: 15),
+    );
+    final malformed = await malformedFixture.repository.listRows(
+      descriptor: malformedDescriptor,
+      pageRequest: const PageRequest(page: 1, pageSize: 15),
+    );
+
+    expect(missingTenant.isSuccess, isTrue);
+    expect(missingTenantFixture.client.requests, hasLength(1));
+    expect(malformed.isSuccess, isTrue);
+    expect(malformed.data!.items.single.containsKey('Target'), isFalse);
+  });
+
+  test(
+    'entity expansion with an unavailable payload preserves the base row',
+    () async {
+      const descriptor = AcpResourceDescriptor(
+        key: 'records',
+        title: 'Records',
+        entitySet: 'Records',
+        scopeMode: AcpScopeMode.none,
+        columns: <AcpColumnDescriptor>[],
+        expansions: <AcpExpandDescriptor>[
+          AcpExpandDescriptor(navigation: 'Parent'),
+        ],
+      );
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(statusCode: 200, body: '{"Id":"row-1"}'),
+          (_) => _response(statusCode: 200, body: '[]'),
+        ],
+      );
+
+      final result = await fixture.repository.fetchRow(
+        descriptor: descriptor,
+        rowId: 'row-1',
+      );
+
+      expect(result.data, <String, dynamic>{'Id': 'row-1'});
     },
   );
 }

@@ -343,6 +343,7 @@ class _CatalogRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) {
     lastFilters = List<String>.from(extraFilters);
     return super.listRows(

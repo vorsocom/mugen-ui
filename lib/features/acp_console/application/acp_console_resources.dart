@@ -270,7 +270,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
     description:
         'Metadata-first evidence records with hash verification and lifecycle controls.',
     columns: <AcpColumnDescriptor>[
-      _column('TraceId', 'Trace ID'),
+      _column('TraceId', 'Trace ID', opaqueIdentifier: true),
       _column('SourcePlugin', 'Source Plugin'),
       _column('SubjectNamespace', 'Subject Namespace'),
       _column('StorageUri', 'Storage URI'),
@@ -382,8 +382,8 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
         'Resolved trace and correlation graph edges emitted from ACP request handling.',
     columns: <AcpColumnDescriptor>[
       _column('OccurredAt', 'Occurred'),
-      _column('TraceId', 'Trace ID'),
-      _column('CorrelationId', 'Correlation ID'),
+      _column('TraceId', 'Trace ID', opaqueIdentifier: true),
+      _column('CorrelationId', 'Correlation ID', opaqueIdentifier: true),
       _column('EntitySet', 'Entity Set'),
       _column('Operation', 'Operation'),
       _column('ActionName', 'Action'),
@@ -421,7 +421,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
         'Business-trace observability timeline events emitted for ACP handlers.',
     columns: <AcpColumnDescriptor>[
       _column('OccurredAt', 'Occurred'),
-      _column('TraceId', 'Trace ID'),
+      _column('TraceId', 'Trace ID', opaqueIdentifier: true),
       _column('Stage', 'Stage'),
       _column('StatusCode', 'Status'),
       _column('SourcePlugin', 'Source Plugin'),
@@ -454,8 +454,16 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
   ),
 ];
 
-AcpColumnDescriptor _column(String key, String label) {
-  return AcpColumnDescriptor(key: key, label: label);
+AcpColumnDescriptor _column(
+  String key,
+  String label, {
+  bool opaqueIdentifier = false,
+}) {
+  return AcpColumnDescriptor(
+    key: key,
+    label: label,
+    opaqueIdentifier: opaqueIdentifier,
+  );
 }
 
 const List<String> _schemaKindOptions = <String>['json_schema'];

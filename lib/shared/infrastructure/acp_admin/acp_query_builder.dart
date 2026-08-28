@@ -11,6 +11,7 @@ class AcpQueryBuilder {
     List<String> searchFields = const <String>[],
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    List<AcpExpandDescriptor> expansions = const <AcpExpandDescriptor>[],
   }) {
     final queryParameters = <String, dynamic>{r'$count': true};
 
@@ -45,7 +46,91 @@ class AcpQueryBuilder {
       queryParameters[r'$filter'] = filters.join(' and ');
     }
 
+    final expand = serializeExpansions(expansions);
+    if (expand.isNotEmpty) {
+      queryParameters[r'$expand'] = expand;
+    }
+
     return queryParameters;
+  }
+
+  static Map<String, dynamic> buildReferenceBatchQuery({
+    required List<String> ids,
+    required List<String> selectFields,
+    String idField = 'Id',
+    List<AcpExpandDescriptor> expansions = const <AcpExpandDescriptor>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+  }) {
+    if (ids.isEmpty) {
+      return const <String, dynamic>{};
+    }
+
+    final uniqueIds = ids
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (uniqueIds.isEmpty) {
+      return const <String, dynamic>{};
+    }
+
+    final selected = <String>{
+      idField,
+      ...selectFields,
+    }.where((value) => value.trim().isNotEmpty).join(',');
+    final quotedIds = uniqueIds
+        .map((value) => "'${_escapeString(value)}'")
+        .join(',');
+    final queryParameters = <String, dynamic>{
+      r'$top': uniqueIds.length,
+      r'$select': selected,
+      r'$filter': '$idField in ($quotedIds)',
+    };
+    if (deletedView != AcpDeletedView.active) {
+      queryParameters[r'$deleted'] = deletedView == AcpDeletedView.all
+          ? 'all'
+          : 'archived';
+    }
+    final expand = serializeExpansions(expansions);
+    if (expand.isNotEmpty) {
+      queryParameters[r'$expand'] = expand;
+    }
+    return queryParameters;
+  }
+
+  static Map<String, dynamic> buildEntityReferenceQuery({
+    required List<AcpExpandDescriptor> expansions,
+  }) {
+    final expand = serializeExpansions(expansions);
+    if (expand.isEmpty) {
+      return const <String, dynamic>{};
+    }
+    return <String, dynamic>{r'$select': 'Id', r'$expand': expand};
+  }
+
+  static String serializeExpansions(List<AcpExpandDescriptor> expansions) {
+    return expansions
+        .where((expansion) => expansion.navigation.trim().isNotEmpty)
+        .map(_serializeExpansion)
+        .join(',');
+  }
+
+  static String _serializeExpansion(AcpExpandDescriptor expansion) {
+    final options = <String>[];
+    final selected = expansion.selectFields
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .join(',');
+    if (selected.isNotEmpty) {
+      options.add(r'$select=' + selected);
+    }
+    final nested = serializeExpansions(expansion.expands);
+    if (nested.isNotEmpty) {
+      options.add(r'$expand=' + nested);
+    }
+    final navigation = expansion.navigation.trim();
+    return options.isEmpty ? navigation : '$navigation(${options.join(';')})';
   }
 
   static String _escapeString(String value) {

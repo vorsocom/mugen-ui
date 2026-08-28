@@ -6,6 +6,8 @@ enum AcpActionTarget { collection, entity }
 
 enum AcpDeletedView { active, all, archived }
 
+enum AcpReferenceValueFormat { plain, monthYear }
+
 enum AcpFieldKind {
   text,
   multiline,
@@ -26,6 +28,64 @@ typedef AcpInitialValueFactory = Object? Function();
 typedef AcpComputedValueBuilder = String Function(Map<String, String> values);
 
 typedef AcpRow = Map<String, dynamic>;
+
+class AcpExpandDescriptor {
+  const AcpExpandDescriptor({
+    required this.navigation,
+    this.selectFields = const <String>[],
+    this.expands = const <AcpExpandDescriptor>[],
+  });
+
+  final String navigation;
+  final List<String> selectFields;
+  final List<AcpExpandDescriptor> expands;
+}
+
+class AcpReferenceFieldDescriptor {
+  const AcpReferenceFieldDescriptor(
+    this.path, {
+    this.prefix = '',
+    this.suffix = '',
+    this.format = AcpReferenceValueFormat.plain,
+  });
+
+  final String path;
+  final String prefix;
+  final String suffix;
+  final AcpReferenceValueFormat format;
+}
+
+class AcpBatchReferenceDescriptor {
+  const AcpBatchReferenceDescriptor({
+    required this.entitySet,
+    required this.scopeMode,
+    required this.selectFields,
+    this.idField = 'Id',
+    this.deletedView = AcpDeletedView.active,
+  });
+
+  final String entitySet;
+  final AcpScopeMode scopeMode;
+  final List<String> selectFields;
+  final String idField;
+  final AcpDeletedView deletedView;
+}
+
+class AcpColumnReferenceDescriptor {
+  const AcpColumnReferenceDescriptor({
+    required this.navigationPath,
+    required this.titleFields,
+    this.subtitleFields = const <AcpReferenceFieldDescriptor>[],
+    this.batchLookup,
+    this.unassignedLabel = 'Not assigned',
+  });
+
+  final String navigationPath;
+  final List<AcpReferenceFieldDescriptor> titleFields;
+  final List<AcpReferenceFieldDescriptor> subtitleFields;
+  final AcpBatchReferenceDescriptor? batchLookup;
+  final String unassignedLabel;
+}
 
 class AcpFieldDescriptor {
   const AcpFieldDescriptor({
@@ -146,6 +206,8 @@ class AcpColumnDescriptor {
     this.currencyCodeKey = 'Currency',
     this.defaultMinorUnit = 2,
     this.valueBuilder,
+    this.reference,
+    this.opaqueIdentifier = false,
   });
 
   final String key;
@@ -156,6 +218,8 @@ class AcpColumnDescriptor {
   final String currencyCodeKey;
   final int defaultMinorUnit;
   final AcpColumnValueBuilder? valueBuilder;
+  final AcpColumnReferenceDescriptor? reference;
+  final bool opaqueIdentifier;
 }
 
 class AcpActionDescriptor {
@@ -222,6 +286,7 @@ class AcpResourceDescriptor {
     this.refreshResourceKeys = const <String>[],
     this.payloadValidator,
     this.deletedViews = const <AcpDeletedView>[AcpDeletedView.active],
+    this.expansions = const <AcpExpandDescriptor>[],
   });
 
   final String key;
@@ -248,6 +313,7 @@ class AcpResourceDescriptor {
   final List<String> refreshResourceKeys;
   final AcpPayloadValidator? payloadValidator;
   final List<AcpDeletedView> deletedViews;
+  final List<AcpExpandDescriptor> expansions;
 
   bool canUpdate(AcpRow row) =>
       allowUpdate && acpRowMatches(row, updateWhenEquals);

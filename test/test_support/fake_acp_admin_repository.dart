@@ -47,6 +47,7 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     if (listRowsResult.isFailure) {
       return Result<AcpRowPage>.failure(listRowsResult.failure!);

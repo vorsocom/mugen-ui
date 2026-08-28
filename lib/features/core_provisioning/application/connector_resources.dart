@@ -61,7 +61,12 @@ final List<AcpResourceDescriptor> connectorResources = <AcpResourceDescriptor>[
     columns: <AcpColumnDescriptor>[
       coreColumn('DisplayName', 'Display Name', flex: 2),
       coreColumn('Status', 'Status'),
-      coreColumn('ConnectorTypeId', 'Connector Type', flex: 2),
+      coreColumn(
+        'ConnectorTypeId',
+        'Connector Type',
+        flex: 2,
+        reference: _connectorTypeDisplay,
+      ),
       coreColumn('SecretRef', 'Managed Key ID', flex: 2),
       coreColumn('EscalationPolicyKey', 'Escalation Policy'),
     ],
@@ -118,13 +123,47 @@ final List<AcpResourceDescriptor> connectorResources = <AcpResourceDescriptor>[
       coreColumn('Status', 'Status'),
       coreColumn('HttpStatus', 'HTTP Status'),
       coreColumn('DurationMs', 'Duration (ms)'),
-      coreColumn('ConnectorInstanceId', 'Connector', flex: 2),
+      coreColumn(
+        'ConnectorInstanceId',
+        'Connector',
+        flex: 2,
+        reference: _connectorInstanceDisplay,
+      ),
       coreColumn('CreatedAt', 'Created', flex: 2),
     ],
     searchFields: const <String>['CapabilityName', 'Status', 'TraceId'],
     defaultOrderBy: 'CreatedAt desc',
   ),
 ];
+
+final AcpColumnReferenceDescriptor _connectorTypeDisplay = coreBatchReference(
+  navigationPath: 'ConnectorType',
+  entitySet: 'OpsConnectorTypes',
+  scopeMode: AcpScopeMode.none,
+  selectFields: const <String>['DisplayName', 'Key', 'AdapterKind'],
+  titleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('DisplayName'),
+    AcpReferenceFieldDescriptor('Key'),
+  ],
+  subtitleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Key'),
+    AcpReferenceFieldDescriptor('AdapterKind'),
+  ],
+);
+
+final AcpColumnReferenceDescriptor _connectorInstanceDisplay =
+    coreBatchReference(
+      navigationPath: 'ConnectorInstance',
+      entitySet: 'OpsConnectorInstances',
+      scopeMode: AcpScopeMode.required,
+      selectFields: const <String>['DisplayName', 'Status'],
+      titleFields: const <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('DisplayName'),
+      ],
+      subtitleFields: const <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Status'),
+      ],
+    );
 
 List<AcpFieldDescriptor> _instanceFields({required bool create}) {
   return <AcpFieldDescriptor>[

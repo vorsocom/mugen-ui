@@ -13,7 +13,11 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _column('ChannelKey', 'Channel'),
       _column('ProfileKey', 'Profile Key'),
       _column('DisplayName', 'Display Name'),
-      _column('ClientProfileId', 'Client Profile'),
+      _column(
+        'ClientProfileId',
+        'Client Profile',
+        reference: _clientProfileDisplay,
+      ),
       _column('ServiceRouteDefaultKey', 'Service Route'),
       _column('IsActive', 'Active'),
     ],
@@ -130,7 +134,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     columns: <AcpColumnDescriptor>[
       _column('RouteKey', 'Route Key'),
       _column('TargetQueueName', 'Queue'),
-      _column('OwnerUserId', 'Owner'),
+      _column('OwnerUserId', 'Owner', reference: _ownerUserDisplay),
       _column('TargetServiceKey', 'Service Key'),
       _column('Priority', 'Priority'),
       _column('IsActive', 'Active'),
@@ -411,10 +415,14 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     description:
         'Canonical channel intake envelopes used for replay, workflow, and case linkage.',
     columns: <AcpColumnDescriptor>[
-      _column('TraceId', 'Trace ID'),
+      _column('TraceId', 'Trace ID', opaqueIdentifier: true),
       _column('Source', 'Source'),
-      _column('LinkedCaseId', 'Linked Case'),
-      _column('LinkedWorkflowInstanceId', 'Workflow'),
+      _column('LinkedCaseId', 'Linked Case', reference: _linkedCaseDisplay),
+      _column(
+        'LinkedWorkflowInstanceId',
+        'Workflow',
+        reference: _linkedWorkflowDisplay,
+      ),
       _column('ReplayCount', 'Replay Count'),
       _column('LastReplayedAt', 'Last Replayed'),
     ],
@@ -511,9 +519,89 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
   ),
 ];
 
-AcpColumnDescriptor _column(String key, String label) {
-  return AcpColumnDescriptor(key: key, label: label);
+AcpColumnDescriptor _column(
+  String key,
+  String label, {
+  AcpColumnReferenceDescriptor? reference,
+  bool opaqueIdentifier = false,
+}) {
+  return AcpColumnDescriptor(
+    key: key,
+    label: label,
+    reference: reference,
+    opaqueIdentifier: opaqueIdentifier,
+  );
 }
+
+const AcpColumnReferenceDescriptor _clientProfileDisplay =
+    AcpColumnReferenceDescriptor(
+      navigationPath: 'ClientProfile',
+      titleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('DisplayName'),
+        AcpReferenceFieldDescriptor('ProfileKey'),
+      ],
+      subtitleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('PlatformKey'),
+        AcpReferenceFieldDescriptor('ProfileKey'),
+      ],
+      batchLookup: AcpBatchReferenceDescriptor(
+        entitySet: 'MessagingClientProfiles',
+        scopeMode: AcpScopeMode.optional,
+        selectFields: <String>['DisplayName', 'PlatformKey', 'ProfileKey'],
+      ),
+    );
+
+const AcpColumnReferenceDescriptor _ownerUserDisplay =
+    AcpColumnReferenceDescriptor(
+      navigationPath: 'OwnerUser',
+      titleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('LoginEmail'),
+        AcpReferenceFieldDescriptor('Username'),
+      ],
+      batchLookup: AcpBatchReferenceDescriptor(
+        entitySet: 'Users',
+        scopeMode: AcpScopeMode.none,
+        selectFields: <String>['LoginEmail', 'Username'],
+        deletedView: AcpDeletedView.all,
+      ),
+    );
+
+const AcpColumnReferenceDescriptor _linkedCaseDisplay =
+    AcpColumnReferenceDescriptor(
+      navigationPath: 'LinkedCase',
+      titleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('CaseNumber'),
+        AcpReferenceFieldDescriptor('Title'),
+      ],
+      subtitleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Title'),
+        AcpReferenceFieldDescriptor('Status'),
+      ],
+      batchLookup: AcpBatchReferenceDescriptor(
+        entitySet: 'OpsCases',
+        scopeMode: AcpScopeMode.required,
+        selectFields: <String>['CaseNumber', 'Title', 'Status'],
+        deletedView: AcpDeletedView.all,
+      ),
+    );
+
+const AcpColumnReferenceDescriptor _linkedWorkflowDisplay =
+    AcpColumnReferenceDescriptor(
+      navigationPath: 'LinkedWorkflowInstance',
+      titleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Title'),
+        AcpReferenceFieldDescriptor('ExternalRef'),
+      ],
+      subtitleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('ExternalRef'),
+        AcpReferenceFieldDescriptor('Status'),
+      ],
+      batchLookup: AcpBatchReferenceDescriptor(
+        entitySet: 'OpsWorkflowInstances',
+        scopeMode: AcpScopeMode.required,
+        selectFields: <String>['Title', 'ExternalRef', 'Status'],
+      ),
+    );
 
 const List<String> _intakeMatchKindOptions = <String>[
   'intent',

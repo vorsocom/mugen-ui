@@ -389,6 +389,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
         pageRequest: const PageRequest(page: 1, pageSize: 1),
         tenantId: tenantId,
         deletedView: resourceState.deletedView,
+        enrichReferences: false,
       );
       if (result.isFailure) {
         continue;

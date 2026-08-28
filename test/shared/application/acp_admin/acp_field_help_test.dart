@@ -79,6 +79,25 @@ void main() {
     );
   });
 
+  test('Billing Price amounts consistently request major-unit input', () {
+    final currencyHelp = acpFieldHelpText(
+      key: 'Currency',
+      label: 'Currency',
+      entitySet: 'BillingPrices',
+    );
+    final amountHelp = acpFieldHelpText(
+      key: 'UnitAmount',
+      label: 'Unit Amount',
+      kind: AcpFieldKind.money,
+      entitySet: 'BillingPrices',
+    );
+
+    expect(currencyHelp, contains('Enter amounts in major units'));
+    expect(amountHelp, contains('150.00'));
+    expect(amountHelp, contains('converts it to minor units'));
+    expect(amountHelp, isNot(contains('for example 15000')));
+  });
+
   test('every built-in ACP form field has explicit descriptive guidance', () {
     final resources = <AcpResourceDescriptor>[
       ...runtimeAdminResources,

@@ -651,14 +651,21 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
     if (column.money && value is int) {
       final minorUnit = switch (row[column.minorUnitKey]) {
         final int value when value >= 0 && value <= 4 => value,
-        final Object value => int.tryParse(value.toString()),
+        final Object value => switch (int.tryParse(value.toString())) {
+          final int parsed when parsed >= 0 && parsed <= 4 => parsed,
+          _ => null,
+        },
         _ => null,
       };
+      final currency = row[column.currencyCodeKey]?.toString().trim() ?? '';
+      if (minorUnit == null) {
+        final prefix = currency.isEmpty ? '' : '$currency ';
+        return '$prefix$value minor units (currency precision unavailable)';
+      }
       final formatted = AcpMoneyCodec.formatMinorUnits(
         value,
-        minorUnit: minorUnit ?? column.defaultMinorUnit,
+        minorUnit: minorUnit,
       );
-      final currency = row[column.currencyCodeKey]?.toString().trim() ?? '';
       return currency.isEmpty ? formatted : '$currency $formatted';
     }
     if (value is bool) {
@@ -2915,9 +2922,14 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       if (controller == null) {
         continue;
       }
+      final minorUnit = _resolvedMinorUnitFor(field);
+      if (minorUnit == null) {
+        controller.clear();
+        continue;
+      }
       controller.text = AcpMoneyCodec.formatMinorUnits(
         entry.value,
-        minorUnit: _minorUnitFor(field),
+        minorUnit: minorUnit,
       );
     }
   }
@@ -3012,9 +3024,13 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         }
         return null;
       case AcpFieldKind.money:
+        final minorUnit = _resolvedMinorUnitFor(field);
+        if (minorUnit == null) {
+          return 'Currency precision is unavailable. Select a currency before entering an amount.';
+        }
         return AcpMoneyCodec.parseMajorUnits(
           trimmed,
-          minorUnit: _minorUnitFor(field),
+          minorUnit: minorUnit,
         ).failure?.message;
       case AcpFieldKind.computed:
         return null;
@@ -3062,13 +3078,14 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     }
   }
 
-  int _minorUnitFor(AcpFieldDescriptor field) {
+  int? _resolvedMinorUnitFor(AcpFieldDescriptor field) {
     final key = field.minorUnitFieldKey;
-    final parsed = key == null
-        ? null
-        : int.tryParse(_currentFieldValue(key)?.trim() ?? '');
-    if (parsed == null || parsed < 0 || parsed > 4) {
+    if (key == null) {
       return field.defaultMinorUnit;
+    }
+    final parsed = int.tryParse(_currentFieldValue(key)?.trim() ?? '');
+    if (parsed == null || parsed < 0 || parsed > 4) {
+      return null;
     }
     return parsed;
   }
@@ -3175,13 +3192,18 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
           _storePayloadValue(payload, field, int.parse(trimmed));
           break;
         case AcpFieldKind.money:
+          final minorUnit = _resolvedMinorUnitFor(field);
+          if (minorUnit == null) {
+            setState(() {
+              _formErrorText =
+                  'Currency precision is unavailable. Select a currency before entering an amount.';
+            });
+            return;
+          }
           _storePayloadValue(
             payload,
             field,
-            AcpMoneyCodec.parseMajorUnits(
-              trimmed,
-              minorUnit: _minorUnitFor(field),
-            ).data!,
+            AcpMoneyCodec.parseMajorUnits(trimmed, minorUnit: minorUnit).data!,
           );
           break;
         case AcpFieldKind.computed:

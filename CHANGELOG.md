@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed monetary administration fields to consistently accept major-unit input,
+  avoid unsafe decimal assumptions when currency precision is unavailable, and
+  keep raw minor-unit amounts out of human-readable reference labels.
 - Added responsive overflow fades and accessible navigation buttons to
   scrollable administration tab strips.
 - Fixed descriptor-driven ACP administration tables to render accessible,

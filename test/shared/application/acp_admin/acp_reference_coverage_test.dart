@@ -144,4 +144,64 @@ void main() {
       'key-refs.KeyId',
     });
   });
+
+  test('billing amount fields use money presentation exclusively', () {
+    const amountKeys = <String>{
+      'Amount',
+      'AmountDue',
+      'SubtotalAmount',
+      'TaxAmount',
+      'TotalAmount',
+      'UnitAmount',
+    };
+    final billingResources = <AcpResourceDescriptor>[
+      ...billingCatalogResources,
+      ...billingOperationsResources,
+    ];
+    final fieldFailures = <String>[];
+    final columnFailures = <String>[];
+    final referenceFailures = <String>[];
+
+    for (final resource in billingResources) {
+      final fields = <AcpFieldDescriptor>[
+        ...resource.createFields,
+        ...resource.updateFields,
+        for (final action in resource.collectionActions) ...action.fields,
+        for (final action in resource.entityActions) ...action.fields,
+      ];
+      for (final field in fields) {
+        if (amountKeys.contains(field.key) &&
+            (field.kind != AcpFieldKind.money ||
+                field.minorUnitFieldKey == null)) {
+          fieldFailures.add('${resource.key}.${field.key}');
+        }
+        final reference = field.reference;
+        if (reference == null) {
+          continue;
+        }
+        for (final subtitle in reference.subtitleFields) {
+          if (amountKeys.contains(subtitle)) {
+            referenceFailures.add('${resource.key}.${field.key} -> $subtitle');
+          }
+        }
+      }
+      for (final column in resource.columns) {
+        if (amountKeys.contains(column.key) && !column.money) {
+          columnFailures.add('${resource.key}.${column.key}');
+        }
+      }
+    }
+
+    expect(fieldFailures, isEmpty, reason: 'Non-money fields: $fieldFailures');
+    expect(
+      columnFailures,
+      isEmpty,
+      reason: 'Non-money columns: $columnFailures',
+    );
+    expect(
+      referenceFailures,
+      isEmpty,
+      reason: 'Raw minor-unit reference subtitles: $referenceFailures',
+    );
+  });
 }

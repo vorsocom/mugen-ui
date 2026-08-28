@@ -8,6 +8,7 @@ import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dar
 import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_delivery_result_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_event_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_filter_options_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tenant_option_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
@@ -30,6 +31,7 @@ void main() {
     expect(find.text('web:room:user'), findsWidgets);
     expect(find.text('hello'), findsOneWidget);
     expect(find.text('Human Reply'), findsWidgets);
+    expect(find.text('Owner: agent@example.com'), findsWidgets);
     final guidance = _fieldGuidance(tester);
     expect(guidance, anyElement(contains('handoff queue is displayed')));
     expect(guidance, anyElement(contains('active, inactive, or all')));
@@ -135,6 +137,35 @@ void main() {
 
     expect(repository.deactivateInputs.single.reason, 'resolved');
   });
+
+  testWidgets('HumanHandoffPanel uses bounded reference filters', (
+    tester,
+  ) async {
+    final repository = _FakeHumanHandoffRepository();
+    await _pumpPanel(tester, repository);
+
+    await tester.tap(find.byKey(const Key('human-handoff-platform-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('web').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const Key('human-handoff-service-route-filter')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Support').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('human-handoff-owner-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('agent@example.com').last);
+    await tester.pumpAndSettle();
+
+    final query = repository.sessionQueries.last;
+    expect(query.platform, 'web');
+    expect(query.serviceRouteKey, 'support');
+    expect(query.ownerUserId, 'agent-1');
+  });
 }
 
 List<String> _fieldGuidance(WidgetTester tester) {
@@ -189,6 +220,8 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
   final List<HumanHandoffReplyInput> replyInputs = <HumanHandoffReplyInput>[];
   final List<HumanHandoffDeactivateInput> deactivateInputs =
       <HumanHandoffDeactivateInput>[];
+  final List<HumanHandoffSessionListQuery> sessionQueries =
+      <HumanHandoffSessionListQuery>[];
 
   @override
   Future<Result<List<HumanHandoffTenantOptionEntity>>> fetchTenants({
@@ -202,9 +235,30 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
   }
 
   @override
+  Future<Result<HumanHandoffFilterOptionsEntity>> fetchFilterOptions({
+    required String tenantId,
+    int top = 200,
+  }) async {
+    return const Result<HumanHandoffFilterOptionsEntity>.success(
+      HumanHandoffFilterOptionsEntity(
+        owners: <HumanHandoffReferenceOptionEntity>[
+          HumanHandoffReferenceOptionEntity(
+            id: 'agent-1',
+            title: 'agent@example.com',
+          ),
+        ],
+        serviceRoutes: <HumanHandoffReferenceOptionEntity>[
+          HumanHandoffReferenceOptionEntity(id: 'support', title: 'Support'),
+        ],
+      ),
+    );
+  }
+
+  @override
   Future<Result<PageResult<HumanHandoffSessionEntity>>> fetchSessions(
     HumanHandoffSessionListQuery query,
   ) async {
+    sessionQueries.add(query);
     return Result<PageResult<HumanHandoffSessionEntity>>.success(
       PageResult<HumanHandoffSessionEntity>(
         items: sessions,
@@ -293,4 +347,6 @@ const HumanHandoffSessionEntity _activeSession = HumanHandoffSessionEntity(
   status: 'active',
   roomId: 'room-1',
   senderId: 'sender-1',
+  serviceRouteKey: 'support',
+  ownerUserId: 'agent-1',
 );

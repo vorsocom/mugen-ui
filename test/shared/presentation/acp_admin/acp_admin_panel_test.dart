@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mugen_ui/features/core_provisioning/application/billing_operations_resources.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
@@ -722,6 +723,64 @@ void main() {
     },
   );
 
+  testWidgets(
+    'money fields never assume two decimals when precision is unavailable',
+    (WidgetTester tester) async {
+      final repository = _UnresolvedMoneyAcpAdminRepository();
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: const <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'payments',
+            title: 'Payments',
+            entitySet: 'Payments',
+            scopeMode: AcpScopeMode.none,
+            columns: <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Amount', label: 'Amount', money: true),
+            ],
+            createFields: <AcpFieldDescriptor>[
+              AcpFieldDescriptor(
+                key: '_CurrencyMinorUnit',
+                label: 'Minor Unit',
+                hidden: true,
+                includeInPayload: false,
+              ),
+              AcpFieldDescriptor(
+                key: 'Amount',
+                label: 'Amount',
+                kind: AcpFieldKind.money,
+                required: true,
+                minorUnitFieldKey: '_CurrencyMinorUnit',
+              ),
+            ],
+            allowCreate: true,
+          ),
+        ],
+      );
+
+      expect(
+        find.text('KWD 12345 minor units (currency precision unavailable)'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Amount')),
+        '12.34',
+      );
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Currency precision is unavailable'),
+        findsWidgets,
+      );
+      expect(repository.createPayloads, isEmpty);
+    },
+  );
+
   testWidgets('conditional references clear stale values and preview impacts', (
     WidgetTester tester,
   ) async {
@@ -916,6 +975,174 @@ void main() {
     expect(copiedText, 'CopyResources-1');
     expect(find.text('Object ID copied.'), findsOneWidget);
   });
+
+  testWidgets(
+    'subscription references render accessible labels and preserve raw IDs',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      final semantics = tester.ensureSemantics();
+      final descriptor = billingOperationsResources.singleWhere(
+        (resource) => resource.key == 'billing-subscriptions',
+      );
+
+      await _pumpPanel(
+        tester,
+        descriptors: <AcpResourceDescriptor>[descriptor],
+        repository: _SubscriptionReferenceRepository(),
+      );
+
+      expect(find.text('Example Company · valet-primary'), findsOneWidget);
+      expect(
+        find.text(
+          'valet-customer-inbox-standard-monthly-usd-v1 · recurring · USD',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('missing-account-uuid'), findsOneWidget);
+      expect(find.text('missing-price-uuid'), findsOneWidget);
+      expect(find.text('Not assigned'), findsNWidgets(2));
+      expect(
+        find.bySemanticsLabel('Account: Example Company · valet-primary'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(
+          'Price: valet-customer-inbox-standard-monthly-usd-v1 · recurring · USD',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('View row').first);
+      await tester.pumpAndSettle();
+      expect(find.text('account-uuid'), findsOneWidget);
+      expect(find.text('price-uuid'), findsOneWidget);
+
+      await tester.binding.setSurfaceSize(const Size(700, 900));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Example Company · valet-primary'), findsOneWidget);
+      expect(find.text('account-uuid'), findsOneWidget);
+      semantics.dispose();
+    },
+  );
+
+  testWidgets(
+    'searchable and multi-select options submit stable payload values',
+    (WidgetTester tester) async {
+      final repository = await _pumpPanel(
+        tester,
+        descriptors: <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'option-resource',
+            title: 'Option Resource',
+            entitySet: 'OptionResources',
+            scopeMode: AcpScopeMode.none,
+            columns: const <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Timezone', label: 'Timezone'),
+            ],
+            createFields: <AcpFieldDescriptor>[
+              const AcpFieldDescriptor(
+                key: 'Timezone',
+                label: 'Timezone',
+                required: true,
+                options: <String>['America/Guyana', 'UTC'],
+                optionLabels: <String, String>{'America/Guyana': 'Guyana time'},
+                searchableOptions: true,
+              ),
+              AcpFieldDescriptor(
+                key: 'CapabilityName',
+                label: 'Capability',
+                required: true,
+                optionsBuilder: (_) => <String>['ping'],
+                searchableOptions: true,
+                allowCustomOption: true,
+              ),
+              const AcpFieldDescriptor(
+                key: 'Capabilities',
+                label: 'Capabilities',
+                kind: AcpFieldKind.stringList,
+                required: true,
+                options: <String>['read', 'write'],
+                multiSelectOptions: true,
+                allowCustomOption: true,
+              ),
+              const AcpFieldDescriptor(
+                key: 'BusinessDays',
+                label: 'Business Days',
+                kind: AcpFieldKind.integerList,
+                options: <String>['1', '2'],
+                optionLabels: <String, String>{'1': 'Monday', '2': 'Tuesday'},
+                multiSelectOptions: true,
+              ),
+            ],
+            allowCreate: true,
+          ),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('acp-searchable-option-Timezone')),
+        'invalid-zone',
+      );
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+      expect(find.text('Select a valid timezone.'), findsOneWidget);
+      expect(repository.createPayloads, isEmpty);
+
+      await tester.enterText(
+        find.byKey(const Key('acp-searchable-option-Timezone')),
+        'Guyana',
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Guyana time').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const Key('acp-searchable-option-CapabilityName')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ping').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('acp-option-Capabilities-read')));
+      await tester.enterText(
+        find.byKey(const Key('acp-custom-option-entry-Capabilities')),
+        'custom.read',
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('acp-custom-option-entry-Capabilities')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('acp-custom-option-entry-Capabilities')),
+          matching: find.byType(IconButton),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('acp-custom-option-Capabilities-custom.read')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const Key('acp-option-BusinessDays-1')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(repository.createPayloads.single, <String, Object?>{
+        'Timezone': 'America/Guyana',
+        'CapabilityName': 'ping',
+        'Capabilities': <String>['read', 'custom.read'],
+        'BusinessDays': <int>[1],
+      });
+    },
+  );
 }
 
 Finder _dialogButton(Type buttonType, String label) {
@@ -964,6 +1191,7 @@ class _TenantRowAcpAdminRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     return Result<AcpRowPage>.success(
       AcpRowPage(
@@ -1008,6 +1236,7 @@ class _ReferenceAcpAdminRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     referenceFilters.addAll(extraFilters);
     final rows = switch (descriptor.entitySet) {
@@ -1043,6 +1272,35 @@ class _ReferenceAcpAdminRepository extends FakeAcpAdminRepository {
   }
 }
 
+class _UnresolvedMoneyAcpAdminRepository extends FakeAcpAdminRepository {
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: const <AcpRow>[
+          <String, Object?>{
+            'Id': 'payment-1',
+            'Currency': 'KWD',
+            'Amount': 12345,
+            'RowVersion': 1,
+          },
+        ],
+        total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
 class _ArchivedAcpAdminRepository extends FakeAcpAdminRepository {
   AcpDeletedView deletedView = AcpDeletedView.active;
 
@@ -1054,6 +1312,7 @@ class _ArchivedAcpAdminRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     this.deletedView = deletedView;
     return Result<AcpRowPage>.success(
@@ -1069,6 +1328,65 @@ class _ArchivedAcpAdminRepository extends FakeAcpAdminRepository {
           },
         ],
         total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
+class _SubscriptionReferenceRepository extends FakeAcpAdminRepository {
+  static const rows = <AcpRow>[
+    <String, Object?>{
+      'Id': 'subscription-1',
+      'TenantId': 'global-id',
+      'AccountId': 'account-uuid',
+      'PriceId': 'price-uuid',
+      'Status': 'active',
+      'RowVersion': 1,
+      'Account': <String, Object?>{
+        'DisplayName': 'Example Company',
+        'Code': 'valet-primary',
+      },
+      'Price': <String, Object?>{
+        'Code': 'valet-customer-inbox-standard-monthly-usd-v1',
+        'PriceType': 'recurring',
+        'Currency': 'USD',
+        'DeletedAt': '2026-07-31T00:00:00Z',
+      },
+    },
+    <String, Object?>{
+      'Id': 'subscription-2',
+      'TenantId': 'global-id',
+      'AccountId': 'missing-account-uuid',
+      'PriceId': 'missing-price-uuid',
+      'Status': 'active',
+      'RowVersion': 1,
+    },
+    <String, Object?>{
+      'Id': 'subscription-3',
+      'TenantId': 'global-id',
+      'AccountId': null,
+      'PriceId': null,
+      'Status': 'draft',
+      'RowVersion': 1,
+    },
+  ];
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: rows,
+        total: rows.length,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
       ),

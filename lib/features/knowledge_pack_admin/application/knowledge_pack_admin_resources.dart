@@ -1,4 +1,5 @@
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
 
 final List<AcpResourceDescriptor>
 knowledgePackAdminResources = <AcpResourceDescriptor>[
@@ -13,7 +14,11 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
       _column('Key', 'Key'),
       _column('Name', 'Name'),
       _column('IsActive', 'Active'),
-      _column('CurrentVersionId', 'Current Version'),
+      _column(
+        'CurrentVersionId',
+        'Current Version',
+        reference: _currentVersionDisplay,
+      ),
       _column('UpdatedAt', 'Updated'),
     ],
     createFields: <AcpFieldDescriptor>[
@@ -35,6 +40,12 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     defaultOrderBy: 'IsActive desc, Key asc',
     allowCreate: true,
     allowUpdate: true,
+    expansions: const <AcpExpandDescriptor>[
+      AcpExpandDescriptor(
+        navigation: 'CurrentVersion',
+        selectFields: <String>['VersionNumber', 'Status'],
+      ),
+    ],
   ),
   AcpResourceDescriptor(
     key: 'knowledge-pack-versions',
@@ -46,7 +57,7 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     columns: <AcpColumnDescriptor>[
       _column('VersionNumber', 'Version'),
       _column('Status', 'Status'),
-      _column('KnowledgePackId', 'Pack'),
+      _column('KnowledgePackId', 'Pack', reference: _knowledgePackDisplay),
       _column('PublishedAt', 'Published'),
       _column('ArchivedAt', 'Archived'),
     ],
@@ -108,6 +119,12 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     defaultOrderBy: 'VersionNumber desc',
     allowCreate: true,
     allowUpdate: true,
+    expansions: const <AcpExpandDescriptor>[
+      AcpExpandDescriptor(
+        navigation: 'KnowledgePack',
+        selectFields: <String>['Name', 'Key'],
+      ),
+    ],
   ),
   AcpResourceDescriptor(
     key: 'knowledge-entries',
@@ -118,7 +135,11 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     columns: <AcpColumnDescriptor>[
       _column('EntryKey', 'Entry Key'),
       _column('Title', 'Title'),
-      _column('KnowledgePackVersionId', 'Version'),
+      _column(
+        'KnowledgePackVersionId',
+        'Version',
+        reference: _knowledgeVersionDisplay('KnowledgePackVersion'),
+      ),
       _column('IsActive', 'Active'),
       _column('UpdatedAt', 'Updated'),
     ],
@@ -141,6 +162,18 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     defaultOrderBy: 'IsActive desc, EntryKey asc',
     allowCreate: true,
     allowUpdate: true,
+    expansions: const <AcpExpandDescriptor>[
+      AcpExpandDescriptor(
+        navigation: 'KnowledgePackVersion',
+        selectFields: <String>['VersionNumber', 'Status'],
+        expands: <AcpExpandDescriptor>[
+          AcpExpandDescriptor(
+            navigation: 'KnowledgePack',
+            selectFields: <String>['Name', 'Key'],
+          ),
+        ],
+      ),
+    ],
   ),
   AcpResourceDescriptor(
     key: 'knowledge-entry-revisions',
@@ -163,16 +196,16 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
       _int('RevisionNumber', 'Revision Number', required: true),
       _multiline('Body', 'Body'),
       _json('BodyJson', 'Body JSON', initialValue: null),
-      _text('Channel', 'Channel'),
-      _text('Locale', 'Locale'),
+      _channel(),
+      _locale(),
       _text('Category', 'Category'),
       _json('Attributes', 'Attributes'),
     ],
     updateFields: <AcpFieldDescriptor>[
       _multiline('Body', 'Body'),
       _json('BodyJson', 'Body JSON', initialValue: null),
-      _text('Channel', 'Channel'),
-      _text('Locale', 'Locale'),
+      _channel(),
+      _locale(),
       _text('Category', 'Category'),
       _json('Attributes', 'Attributes'),
     ],
@@ -189,14 +222,44 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     description: 'Append-only governance approvals and publish decisions.',
     columns: <AcpColumnDescriptor>[
       _column('Action', 'Action'),
-      _column('KnowledgePackVersionId', 'Version'),
-      _column('KnowledgeEntryRevisionId', 'Entry Revision'),
-      _column('ActorUserId', 'Actor'),
+      _column(
+        'KnowledgePackVersionId',
+        'Version',
+        reference: _knowledgeVersionDisplay('KnowledgePackVersion'),
+      ),
+      _column(
+        'KnowledgeEntryRevisionId',
+        'Entry Revision',
+        reference: _entryRevisionDisplay,
+      ),
+      _column('ActorUserId', 'Actor', reference: _actorUserDisplay),
       _column('OccurredAt', 'Occurred'),
     ],
     searchFields: const <String>['Action', 'Note'],
     defaultOrderBy: 'OccurredAt desc',
     emptyMessage: 'No approvals found.',
+    expansions: const <AcpExpandDescriptor>[
+      AcpExpandDescriptor(
+        navigation: 'KnowledgePackVersion',
+        selectFields: <String>['VersionNumber', 'Status'],
+        expands: <AcpExpandDescriptor>[
+          AcpExpandDescriptor(
+            navigation: 'KnowledgePack',
+            selectFields: <String>['Name', 'Key'],
+          ),
+        ],
+      ),
+      AcpExpandDescriptor(
+        navigation: 'KnowledgeEntryRevision',
+        selectFields: <String>['RevisionNumber', 'Status'],
+        expands: <AcpExpandDescriptor>[
+          AcpExpandDescriptor(
+            navigation: 'KnowledgeEntry',
+            selectFields: <String>['Title', 'EntryKey'],
+          ),
+        ],
+      ),
+    ],
   ),
   AcpResourceDescriptor(
     key: 'knowledge-scopes',
@@ -216,11 +279,11 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     createFields: <AcpFieldDescriptor>[
       _knowledgePackVersionId(required: true),
       _knowledgeEntryRevisionId(required: true),
-      _text('Channel', 'Channel'),
-      _text('Locale', 'Locale'),
+      _channel(),
+      _locale(),
       _text('Category', 'Category'),
-      _text('ServiceRouteKey', 'Service Route Key'),
-      _text('ClientProfileKey', 'Client Profile Key'),
+      _serviceRouteKey(),
+      _clientProfileKey(),
       _bool('IsActive', 'Is Active', initialValue: true),
       _json('Attributes', 'Attributes'),
     ],
@@ -235,11 +298,11 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
         'Knowledge Entry Revision ID',
         readOnly: true,
       ),
-      _text('Channel', 'Channel'),
-      _text('Locale', 'Locale'),
+      _channel(),
+      _locale(),
       _text('Category', 'Category'),
-      _text('ServiceRouteKey', 'Service Route Key'),
-      _text('ClientProfileKey', 'Client Profile Key'),
+      _serviceRouteKey(),
+      _clientProfileKey(),
       _bool('IsActive', 'Is Active', initialValue: true),
       _json('Attributes', 'Attributes'),
     ],
@@ -256,9 +319,86 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
   ),
 ];
 
-AcpColumnDescriptor _column(String key, String label) {
-  return AcpColumnDescriptor(key: key, label: label);
+AcpColumnDescriptor _column(
+  String key,
+  String label, {
+  AcpColumnReferenceDescriptor? reference,
+  bool opaqueIdentifier = false,
+}) {
+  return AcpColumnDescriptor(
+    key: key,
+    label: label,
+    reference: reference,
+    opaqueIdentifier: opaqueIdentifier,
+  );
 }
+
+const AcpColumnReferenceDescriptor _currentVersionDisplay =
+    AcpColumnReferenceDescriptor(
+      navigationPath: 'CurrentVersion',
+      titleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('VersionNumber', prefix: 'v'),
+      ],
+      subtitleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Status'),
+      ],
+    );
+
+const AcpColumnReferenceDescriptor _knowledgePackDisplay =
+    AcpColumnReferenceDescriptor(
+      navigationPath: 'KnowledgePack',
+      titleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Name'),
+        AcpReferenceFieldDescriptor('Key'),
+      ],
+      subtitleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Key'),
+      ],
+    );
+
+AcpColumnReferenceDescriptor _knowledgeVersionDisplay(String navigationPath) {
+  return AcpColumnReferenceDescriptor(
+    navigationPath: navigationPath,
+    titleFields: const <AcpReferenceFieldDescriptor>[
+      AcpReferenceFieldDescriptor('KnowledgePack.Name'),
+      AcpReferenceFieldDescriptor('KnowledgePack.Key'),
+      AcpReferenceFieldDescriptor('VersionNumber', prefix: 'v'),
+    ],
+    subtitleFields: const <AcpReferenceFieldDescriptor>[
+      AcpReferenceFieldDescriptor('VersionNumber', prefix: 'v'),
+      AcpReferenceFieldDescriptor('Status'),
+    ],
+  );
+}
+
+const AcpColumnReferenceDescriptor _entryRevisionDisplay =
+    AcpColumnReferenceDescriptor(
+      navigationPath: 'KnowledgeEntryRevision',
+      titleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('KnowledgeEntry.Title'),
+        AcpReferenceFieldDescriptor('KnowledgeEntry.EntryKey'),
+        AcpReferenceFieldDescriptor('RevisionNumber', prefix: 'r'),
+      ],
+      subtitleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('RevisionNumber', prefix: 'r'),
+        AcpReferenceFieldDescriptor('Status'),
+      ],
+    );
+
+const AcpColumnReferenceDescriptor _actorUserDisplay =
+    AcpColumnReferenceDescriptor(
+      navigationPath: 'ActorUser',
+      titleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('LoginEmail'),
+        AcpReferenceFieldDescriptor('Username'),
+      ],
+      batchLookup: AcpBatchReferenceDescriptor(
+        entitySet: 'Users',
+        scopeMode: AcpScopeMode.none,
+        selectFields: <String>['LoginEmail', 'Username'],
+        deletedView: AcpDeletedView.all,
+      ),
+    );
 
 AcpFieldDescriptor _text(
   String key,
@@ -273,6 +413,68 @@ AcpFieldDescriptor _text(
     required: required,
     initialValue: initialValue,
     readOnly: readOnly,
+  );
+}
+
+AcpFieldDescriptor _channel() {
+  return const AcpFieldDescriptor(
+    key: 'Channel',
+    label: 'Channel',
+    options: acpMessagingPlatformOptions,
+    searchableOptions: true,
+    allowCustomOption: true,
+  );
+}
+
+AcpFieldDescriptor _locale() {
+  return const AcpFieldDescriptor(
+    key: 'Locale',
+    label: 'Locale',
+    options: acpBcp47LocaleOptions,
+    searchableOptions: true,
+    allowCustomOption: true,
+  );
+}
+
+AcpFieldDescriptor _clientProfileKey() {
+  return const AcpFieldDescriptor(
+    key: 'ClientProfileKey',
+    label: 'Client Profile',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'MessagingClientProfiles',
+      scopeMode: AcpScopeMode.optional,
+      title: 'Messaging Client Profiles',
+      valueField: 'ProfileKey',
+      searchFields: <String>['PlatformKey', 'ProfileKey', 'DisplayName'],
+      titleFields: <String>['DisplayName', 'ProfileKey', 'Id'],
+      subtitleFields: <String>['PlatformKey', 'ProfileKey', 'IsActive', 'Id'],
+      defaultOrderBy: 'PlatformKey asc, ProfileKey asc',
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _serviceRouteKey() {
+  return const AcpFieldDescriptor(
+    key: 'ServiceRouteKey',
+    label: 'Service Route',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'ChannelProfiles',
+      scopeMode: AcpScopeMode.required,
+      title: 'Service Routes',
+      valueField: 'ServiceRouteDefaultKey',
+      searchFields: <String>[
+        'ServiceRouteDefaultKey',
+        'DisplayName',
+        'ChannelKey',
+        'ProfileKey',
+      ],
+      titleFields: <String>['ServiceRouteDefaultKey', 'DisplayName', 'Id'],
+      subtitleFields: <String>['ChannelKey', 'ProfileKey', 'IsActive', 'Id'],
+      defaultOrderBy: 'ServiceRouteDefaultKey asc',
+      extraFilters: <String>['ServiceRouteDefaultKey ne null'],
+      retainHistoricalSelection: true,
+    ),
   );
 }
 

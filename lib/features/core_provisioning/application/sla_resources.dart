@@ -1,5 +1,6 @@
 import 'package:mugen_ui/features/core_provisioning/application/core_provisioning_descriptors.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
 
 final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
   AcpResourceDescriptor(
@@ -11,7 +12,12 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
     columns: <AcpColumnDescriptor>[
       coreColumn('Code', 'Code'),
       coreColumn('Name', 'Name', flex: 2),
-      coreColumn('CalendarId', 'Calendar', flex: 2),
+      coreColumn(
+        'CalendarId',
+        'Calendar',
+        flex: 2,
+        reference: _calendarDisplay,
+      ),
       coreColumn('IsActive', 'Active'),
     ],
     createFields: <AcpFieldDescriptor>[
@@ -63,6 +69,8 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
         'Timezone',
         required: true,
         hintText: 'IANA timezone, for example America/Guyana',
+        options: acpIanaTimezoneOptions,
+        searchableOptions: true,
       ),
       coreTimeOfDay(
         'BusinessStartTime',
@@ -80,10 +88,13 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
         minimumValue: 1,
         maximumValue: 7,
         applyAfterCreate: true,
+        options: acpBusinessDayLabels.keys.toList(growable: false),
+        optionLabels: acpBusinessDayLabels,
+        multiSelectOptions: true,
       ),
       coreStringList(
         'HolidayRefs',
-        'Holiday References',
+        'Holiday Dates (ISO-8601)',
         applyAfterCreate: true,
       ),
       coreBool(
@@ -101,6 +112,8 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
         'Timezone',
         'Timezone',
         hintText: 'IANA timezone, for example America/Guyana',
+        options: acpIanaTimezoneOptions,
+        searchableOptions: true,
       ),
       coreTimeOfDay('BusinessStartTime', 'Business Start Time'),
       coreTimeOfDay('BusinessEndTime', 'Business End Time'),
@@ -109,8 +122,11 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
         'Business Days (1-7)',
         minimumValue: 1,
         maximumValue: 7,
+        options: acpBusinessDayLabels.keys.toList(growable: false),
+        optionLabels: acpBusinessDayLabels,
+        multiSelectOptions: true,
       ),
-      coreStringList('HolidayRefs', 'Holiday References'),
+      coreStringList('HolidayRefs', 'Holiday Dates (ISO-8601)'),
       coreBool('IsActive', 'Is Active'),
       coreJson('Attributes', 'Attributes'),
     ],
@@ -132,7 +148,7 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
       coreColumn('Severity', 'Severity'),
       coreColumn('TargetMinutes', 'Target Minutes'),
       coreColumn('WarnBeforeMinutes', 'Warn Before'),
-      coreColumn('PolicyId', 'Policy', flex: 2),
+      coreColumn('PolicyId', 'Policy', flex: 2, reference: _policyDisplay),
     ],
     createFields: <AcpFieldDescriptor>[
       _policy(required: true),
@@ -189,6 +205,35 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
     allowUpdate: true,
   ),
 ];
+
+final AcpColumnReferenceDescriptor _calendarDisplay = coreBatchReference(
+  navigationPath: 'Calendar',
+  entitySet: 'OpsSlaCalendars',
+  scopeMode: AcpScopeMode.required,
+  selectFields: const <String>['Name', 'Code', 'Timezone'],
+  titleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Name'),
+    AcpReferenceFieldDescriptor('Code'),
+  ],
+  subtitleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Code'),
+    AcpReferenceFieldDescriptor('Timezone'),
+  ],
+);
+
+final AcpColumnReferenceDescriptor _policyDisplay = coreBatchReference(
+  navigationPath: 'Policy',
+  entitySet: 'OpsSlaPolicies',
+  scopeMode: AcpScopeMode.required,
+  selectFields: const <String>['Name', 'Code'],
+  titleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Name'),
+    AcpReferenceFieldDescriptor('Code'),
+  ],
+  subtitleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Code'),
+  ],
+);
 
 AcpFieldDescriptor _calendar({bool applyAfterCreate = false}) {
   return coreReference(

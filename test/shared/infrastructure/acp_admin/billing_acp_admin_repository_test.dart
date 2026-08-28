@@ -91,6 +91,15 @@ void main() {
       );
       expect(
         delegate.calls
+            .firstWhere(
+              (call) => call.entitySet == 'BillingCurrencyDefinitions',
+            )
+            .deletedView,
+        AcpDeletedView.all,
+        reason: 'historical rows retain archived currency precision',
+      );
+      expect(
+        delegate.calls
             .firstWhere((call) => call.entitySet == 'BillingPrices')
             .deletedView,
         AcpDeletedView.all,
@@ -313,6 +322,7 @@ class _MetadataRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     calls.add((
       entitySet: descriptor.entitySet,

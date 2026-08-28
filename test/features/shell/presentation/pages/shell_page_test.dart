@@ -17,6 +17,7 @@ import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dar
 import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_delivery_result_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_event_entity.dart';
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_filter_options_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tenant_option_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
@@ -2284,6 +2285,26 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
       <HumanHandoffTenantOptionEntity>[
         HumanHandoffTenantOptionEntity(id: 'tenant-1', name: 'Tenant One'),
       ],
+    );
+  }
+
+  @override
+  Future<Result<HumanHandoffFilterOptionsEntity>> fetchFilterOptions({
+    required String tenantId,
+    int top = 200,
+  }) async {
+    return const Result<HumanHandoffFilterOptionsEntity>.success(
+      HumanHandoffFilterOptionsEntity(
+        owners: <HumanHandoffReferenceOptionEntity>[
+          HumanHandoffReferenceOptionEntity(
+            id: 'agent-1',
+            title: 'agent@example.com',
+          ),
+        ],
+        serviceRoutes: <HumanHandoffReferenceOptionEntity>[
+          HumanHandoffReferenceOptionEntity(id: 'support', title: 'Support'),
+        ],
+      ),
     );
   }
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:mugen_ui/features/core_provisioning/application/core_provisioning_descriptors.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 
@@ -61,7 +63,12 @@ final List<AcpResourceDescriptor> connectorResources = <AcpResourceDescriptor>[
     columns: <AcpColumnDescriptor>[
       coreColumn('DisplayName', 'Display Name', flex: 2),
       coreColumn('Status', 'Status'),
-      coreColumn('ConnectorTypeId', 'Connector Type', flex: 2),
+      coreColumn(
+        'ConnectorTypeId',
+        'Connector Type',
+        flex: 2,
+        reference: _connectorTypeDisplay,
+      ),
       coreColumn('SecretRef', 'Managed Key ID', flex: 2),
       coreColumn('EscalationPolicyKey', 'Escalation Policy'),
     ],
@@ -89,7 +96,15 @@ final List<AcpResourceDescriptor> connectorResources = <AcpResourceDescriptor>[
           'Status': <Object>['active'],
         },
         fields: <AcpFieldDescriptor>[
-          coreText('CapabilityName', 'Capability Name', required: true),
+          coreText(
+            'CapabilityName',
+            'Capability Name',
+            required: true,
+            optionsBuilder: _capabilityOptionsFor,
+            searchableOptions: true,
+            allowCustomOption: true,
+            hintText: 'Select a capability declared by this connector type',
+          ),
           coreJson(
             'InputJson',
             'Input JSON',
@@ -105,6 +120,12 @@ final List<AcpResourceDescriptor> connectorResources = <AcpResourceDescriptor>[
     defaultOrderBy: 'DisplayName asc',
     allowCreate: true,
     allowUpdate: true,
+    expansions: const <AcpExpandDescriptor>[
+      AcpExpandDescriptor(
+        navigation: 'ConnectorType',
+        selectFields: <String>['CapabilitiesJson'],
+      ),
+    ],
   ),
   AcpResourceDescriptor(
     key: 'ops-connector-call-logs',
@@ -118,13 +139,47 @@ final List<AcpResourceDescriptor> connectorResources = <AcpResourceDescriptor>[
       coreColumn('Status', 'Status'),
       coreColumn('HttpStatus', 'HTTP Status'),
       coreColumn('DurationMs', 'Duration (ms)'),
-      coreColumn('ConnectorInstanceId', 'Connector', flex: 2),
+      coreColumn(
+        'ConnectorInstanceId',
+        'Connector',
+        flex: 2,
+        reference: _connectorInstanceDisplay,
+      ),
       coreColumn('CreatedAt', 'Created', flex: 2),
     ],
     searchFields: const <String>['CapabilityName', 'Status', 'TraceId'],
     defaultOrderBy: 'CreatedAt desc',
   ),
 ];
+
+final AcpColumnReferenceDescriptor _connectorTypeDisplay = coreBatchReference(
+  navigationPath: 'ConnectorType',
+  entitySet: 'OpsConnectorTypes',
+  scopeMode: AcpScopeMode.none,
+  selectFields: const <String>['DisplayName', 'Key', 'AdapterKind'],
+  titleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('DisplayName'),
+    AcpReferenceFieldDescriptor('Key'),
+  ],
+  subtitleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Key'),
+    AcpReferenceFieldDescriptor('AdapterKind'),
+  ],
+);
+
+final AcpColumnReferenceDescriptor _connectorInstanceDisplay =
+    coreBatchReference(
+      navigationPath: 'ConnectorInstance',
+      entitySet: 'OpsConnectorInstances',
+      scopeMode: AcpScopeMode.required,
+      selectFields: const <String>['DisplayName', 'Status'],
+      titleFields: const <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('DisplayName'),
+      ],
+      subtitleFields: const <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Status'),
+      ],
+    );
 
 List<AcpFieldDescriptor> _instanceFields({required bool create}) {
   return <AcpFieldDescriptor>[
@@ -169,10 +224,44 @@ List<AcpFieldDescriptor> _instanceFields({required bool create}) {
       'Status',
       'Status',
       initialValue: create ? 'active' : null,
-      options: const <String>['active', 'disabled'],
+      options: const <String>['active', 'disabled', 'error'],
     ),
-    coreText('EscalationPolicyKey', 'Escalation Policy Key'),
+    coreReference(
+      'EscalationPolicyKey',
+      'Escalation Policy',
+      entitySet: 'OpsSlaEscalationPolicies',
+      scopeMode: AcpScopeMode.required,
+      valueField: 'PolicyKey',
+      searchFields: const <String>['PolicyKey', 'Name', 'Description'],
+      titleFields: const <String>['Name', 'PolicyKey'],
+      subtitleFields: const <String>['PolicyKey', 'Priority', 'IsActive', 'Id'],
+      defaultOrderBy: 'IsActive desc, Priority asc, PolicyKey asc',
+      retainHistoricalSelection: true,
+    ),
     coreJson('RetryPolicyJson', 'Retry Policy JSON'),
     coreJson('Attributes', 'Attributes'),
   ];
+}
+
+List<String> _capabilityOptionsFor(AcpRow values) {
+  final connectorType = values['ConnectorType'];
+  if (connectorType is! Map) {
+    return const <String>[];
+  }
+  Object? capabilities = connectorType['CapabilitiesJson'];
+  if (capabilities is String) {
+    try {
+      capabilities = jsonDecode(capabilities);
+    } catch (_) {
+      return const <String>[];
+    }
+  }
+  if (capabilities is! Map) {
+    return const <String>[];
+  }
+  return capabilities.keys
+      .map((key) => key.toString().trim())
+      .where((key) => key.isNotEmpty)
+      .toList(growable: false)
+    ..sort();
 }

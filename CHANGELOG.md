@@ -19,6 +19,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.15.1] - 2026-08-28
+
+### Added
+
+### Changed
+
+- Changed administration forms and handoff filters to use searchable entity
+  references, bounded catalog suggestions, multi-select chips, and canonical
+  timezone, locale, platform, and weekday choices where applicable.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed monetary administration fields to consistently accept major-unit input,
+  avoid unsafe decimal assumptions when currency precision is unavailable, and
+  keep raw minor-unit amounts out of human-readable reference labels.
+- Added responsive overflow fades and accessible navigation buttons to
+  scrollable administration tab strips.
+- Fixed descriptor-driven ACP administration tables to render accessible,
+  human-readable relationship labels while preserving UUID fallbacks and raw
+  identifiers for inspection.
+
+### Security
+
 ## [0.15.0] - 2026-08-27
 
 ### Added

@@ -15,6 +15,58 @@ const List<String> _valueFormulaTypes = <String>[
   'min_column',
   'max_column',
 ];
+const List<String> _reportingSourceTables = <String>[
+  'billing_account',
+  'billing_subscription',
+  'billing_usage_event',
+  'billing_usage_allocation',
+  'billing_run',
+  'billing_invoice',
+  'billing_invoice_line',
+  'billing_payment',
+  'billing_ledger_entry',
+  'channel_orchestration_conversation_state',
+  'channel_orchestration_human_handoff_session',
+  'channel_orchestration_work_item',
+  'knowledge_pack_knowledge_entry_revision',
+  'knowledge_pack_knowledge_scope',
+  'ops_connector_call_log',
+  'ops_sla_clock',
+  'ops_sla_breach_event',
+  'ops_workflow_workflow_instance',
+  'ops_workflow_workflow_task',
+];
+const List<String> _reportingTimeColumns = <String>[
+  'created_at',
+  'updated_at',
+  'occurred_at',
+  'started_at',
+  'completed_at',
+  'issued_at',
+  'paid_at',
+  'last_activity_at',
+];
+const List<String> _reportingValueColumns = <String>[
+  'amount',
+  'amount_due',
+  'subtotal_amount',
+  'tax_amount',
+  'total_amount',
+  'quantity',
+  'duration_ms',
+  'value_numeric',
+];
+const List<String> _reportingDimensionColumns = <String>[
+  'tenant_id',
+  'account_id',
+  'subscription_id',
+  'status',
+  'currency',
+  'platform',
+  'service_route_key',
+  'assigned_queue_name',
+  'assigned_service_key',
+];
 
 final List<AcpResourceDescriptor> reportingResources = <AcpResourceDescriptor>[
   AcpResourceDescriptor(
@@ -89,7 +141,12 @@ final List<AcpResourceDescriptor> reportingResources = <AcpResourceDescriptor>[
     title: 'Metric Series',
     entitySet: 'OpsReportingMetricSeries',
     columns: <AcpColumnDescriptor>[
-      coreColumn('MetricDefinitionId', 'Metric', flex: 2),
+      coreColumn(
+        'MetricDefinitionId',
+        'Metric',
+        flex: 2,
+        reference: _metricDisplay('MetricDefinition'),
+      ),
       coreColumn('WindowStart', 'Window Start', flex: 2),
       coreColumn('WindowEnd', 'Window End', flex: 2),
       coreColumn('ScopeKey', 'Scope'),
@@ -102,7 +159,12 @@ final List<AcpResourceDescriptor> reportingResources = <AcpResourceDescriptor>[
     entitySet: 'OpsReportingAggregationJobs',
     columns: <AcpColumnDescriptor>[
       coreColumn('Status', 'Status'),
-      coreColumn('MetricDefinitionId', 'Metric', flex: 2),
+      coreColumn(
+        'MetricDefinitionId',
+        'Metric',
+        flex: 2,
+        reference: _metricDisplay('MetricDefinition'),
+      ),
       coreColumn('WindowStart', 'Window Start', flex: 2),
       coreColumn('WindowEnd', 'Window End', flex: 2),
       coreColumn('ErrorMessage', 'Error', flex: 2),
@@ -114,13 +176,49 @@ final List<AcpResourceDescriptor> reportingResources = <AcpResourceDescriptor>[
     entitySet: 'OpsReportingReportSnapshots',
     columns: <AcpColumnDescriptor>[
       coreColumn('Status', 'Status'),
-      coreColumn('ReportDefinitionId', 'Report', flex: 2),
+      coreColumn(
+        'ReportDefinitionId',
+        'Report',
+        flex: 2,
+        reference: _reportDisplay,
+      ),
       coreColumn('WindowStart', 'Window Start', flex: 2),
       coreColumn('WindowEnd', 'Window End', flex: 2),
       coreColumn('CreatedAt', 'Created', flex: 2),
     ],
   ),
 ];
+
+AcpColumnReferenceDescriptor _metricDisplay(String navigationPath) {
+  return coreBatchReference(
+    navigationPath: navigationPath,
+    entitySet: 'OpsReportingMetricDefinitions',
+    scopeMode: AcpScopeMode.required,
+    selectFields: const <String>['Name', 'Code', 'FormulaType'],
+    titleFields: const <AcpReferenceFieldDescriptor>[
+      AcpReferenceFieldDescriptor('Name'),
+      AcpReferenceFieldDescriptor('Code'),
+    ],
+    subtitleFields: const <AcpReferenceFieldDescriptor>[
+      AcpReferenceFieldDescriptor('Code'),
+      AcpReferenceFieldDescriptor('FormulaType'),
+    ],
+  );
+}
+
+final AcpColumnReferenceDescriptor _reportDisplay = coreBatchReference(
+  navigationPath: 'ReportDefinition',
+  entitySet: 'OpsReportingReportDefinitions',
+  scopeMode: AcpScopeMode.required,
+  selectFields: const <String>['Name', 'Code'],
+  titleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Name'),
+    AcpReferenceFieldDescriptor('Code'),
+  ],
+  subtitleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Code'),
+  ],
+);
 
 List<AcpFieldDescriptor> _metricFields({required bool create}) {
   return <AcpFieldDescriptor>[
@@ -133,16 +231,38 @@ List<AcpFieldDescriptor> _metricFields({required bool create}) {
       initialValue: create ? 'count_rows' : null,
       options: _formulaTypes,
     ),
-    coreText('SourceTable', 'Source Table', required: create),
-    coreText('SourceTimeColumn', 'Source Time Column'),
+    coreText(
+      'SourceTable',
+      'Source Table',
+      required: create,
+      options: _reportingSourceTables,
+      searchableOptions: true,
+      allowCustomOption: true,
+    ),
+    coreText(
+      'SourceTimeColumn',
+      'Source Time Column',
+      options: _reportingTimeColumns,
+      searchableOptions: true,
+      allowCustomOption: true,
+    ),
     coreText(
       'SourceValueColumn',
       'Source Value Column',
       requiredWhenEquals: const <String, List<String>>{
         'FormulaType': _valueFormulaTypes,
       },
+      options: _reportingValueColumns,
+      searchableOptions: true,
+      allowCustomOption: true,
     ),
-    coreText('ScopeColumn', 'Scope Column'),
+    coreText(
+      'ScopeColumn',
+      'Scope Column',
+      options: _reportingDimensionColumns,
+      searchableOptions: true,
+      allowCustomOption: true,
+    ),
     coreJson('SourceFilter', 'Source Filter'),
     coreMultiline('Description', 'Description'),
     coreBool('IsActive', 'Is Active', initialValue: create ? true : null),
@@ -187,7 +307,13 @@ List<AcpFieldDescriptor> _reportFields({required bool create}) {
       ),
     ),
     coreJson('FiltersJson', 'Filters JSON'),
-    coreStringList('GroupByJson', 'Group By Fields'),
+    coreStringList(
+      'GroupByJson',
+      'Group By Fields',
+      options: _reportingDimensionColumns,
+      multiSelectOptions: true,
+      allowCustomOption: true,
+    ),
     coreBool('IsActive', 'Is Active', initialValue: create ? true : null),
     coreJson('Attributes', 'Attributes'),
   ];

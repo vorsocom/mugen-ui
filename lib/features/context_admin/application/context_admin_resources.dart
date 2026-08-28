@@ -1,4 +1,5 @@
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
 
 final List<AcpResourceDescriptor>
 contextAdminResources = <AcpResourceDescriptor>[
@@ -22,9 +23,9 @@ contextAdminResources = <AcpResourceDescriptor>[
       _multiline('Description', 'Description'),
       _platform(),
       _text('ChannelKey', 'Channel Key'),
-      _text('ServiceRouteKey', 'Service Route Key'),
-      _text('ClientProfileKey', 'Client Profile Key'),
-      _text('PolicyId', 'Policy ID'),
+      _serviceRouteKey(),
+      _clientProfileKey(),
+      _policyReference(),
       _multiline('Persona', 'Persona'),
       _bool('IsActive', 'Is Active', initialValue: true),
       _bool('IsDefault', 'Is Default', initialValue: false),
@@ -34,9 +35,9 @@ contextAdminResources = <AcpResourceDescriptor>[
       _multiline('Description', 'Description'),
       _platform(),
       _text('ChannelKey', 'Channel Key'),
-      _text('ServiceRouteKey', 'Service Route Key'),
-      _text('ClientProfileKey', 'Client Profile Key'),
-      _text('PolicyId', 'Policy ID'),
+      _serviceRouteKey(),
+      _clientProfileKey(),
+      _policyReference(),
       _multiline('Persona', 'Persona'),
       _bool('IsActive', 'Is Active', initialValue: true),
       _bool('IsDefault', 'Is Default', initialValue: false),
@@ -106,10 +107,17 @@ contextAdminResources = <AcpResourceDescriptor>[
     ],
     createFields: <AcpFieldDescriptor>[
       _text('BindingKey', 'Binding Key', required: true),
-      _text('ContributorKey', 'Contributor Key', required: true),
+      _text(
+        'ContributorKey',
+        'Contributor Key',
+        required: true,
+        options: _contributorOptions,
+        searchableOptions: true,
+        allowCustomOption: true,
+      ),
       _platform(),
       _text('ChannelKey', 'Channel Key'),
-      _text('ServiceRouteKey', 'Service Route Key'),
+      _serviceRouteKey(),
       _int('Priority', 'Priority', initialValue: 0),
       _bool('IsEnabled', 'Is Enabled', initialValue: true),
       _json('Attributes', 'Attributes'),
@@ -117,7 +125,7 @@ contextAdminResources = <AcpResourceDescriptor>[
     updateFields: <AcpFieldDescriptor>[
       _platform(),
       _text('ChannelKey', 'Channel Key'),
-      _text('ServiceRouteKey', 'Service Route Key'),
+      _serviceRouteKey(),
       _int('Priority', 'Priority'),
       _bool('IsEnabled', 'Is Enabled', initialValue: true),
       _json('Attributes', 'Attributes'),
@@ -148,12 +156,19 @@ contextAdminResources = <AcpResourceDescriptor>[
       _column('IsEnabled', 'Enabled'),
     ],
     createFields: <AcpFieldDescriptor>[
-      _text('SourceKind', 'Source Kind', required: true),
+      _text(
+        'SourceKind',
+        'Source Kind',
+        required: true,
+        options: _sourceKindOptions,
+        searchableOptions: true,
+        allowCustomOption: true,
+      ),
       _text('SourceKey', 'Source Key', required: true),
       _platform(),
       _text('ChannelKey', 'Channel Key'),
-      _text('ServiceRouteKey', 'Service Route Key'),
-      _text('Locale', 'Locale'),
+      _serviceRouteKey(),
+      _locale(),
       _text('Category', 'Category'),
       _bool('IsEnabled', 'Is Enabled', initialValue: true),
       _json('Attributes', 'Attributes'),
@@ -161,8 +176,8 @@ contextAdminResources = <AcpResourceDescriptor>[
     updateFields: <AcpFieldDescriptor>[
       _platform(),
       _text('ChannelKey', 'Channel Key'),
-      _text('ServiceRouteKey', 'Service Route Key'),
-      _text('Locale', 'Locale'),
+      _serviceRouteKey(),
+      _locale(),
       _text('Category', 'Category'),
       _bool('IsEnabled', 'Is Enabled', initialValue: true),
       _json('Attributes', 'Attributes'),
@@ -225,18 +240,113 @@ const List<String> _platformOptions = <String>[
   'wechat',
   'whatsapp',
 ];
+const List<String> _contributorOptions = <String>[
+  'persona_policy',
+  'state',
+  'recent_turns',
+  'knowledge_pack',
+  'channel_orchestration',
+  'ops_case',
+  'audit',
+  'memory',
+];
+const List<String> _sourceKindOptions = <String>[
+  'context_policy',
+  'state_snapshot',
+  'event_log',
+  'knowledge_pack_revision',
+  'channel_orchestration',
+  'ops_case',
+  'audit_biz_trace',
+  'memory_record',
+  'turn_commit',
+];
 
 AcpFieldDescriptor _text(
   String key,
   String label, {
   bool required = false,
   List<String> options = const <String>[],
+  bool searchableOptions = false,
+  bool allowCustomOption = false,
 }) {
   return AcpFieldDescriptor(
     key: key,
     label: label,
     required: required,
     options: options,
+    searchableOptions: searchableOptions,
+    allowCustomOption: allowCustomOption,
+  );
+}
+
+AcpFieldDescriptor _policyReference() {
+  return const AcpFieldDescriptor(
+    key: 'PolicyId',
+    label: 'Context Policy',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'ContextPolicies',
+      scopeMode: AcpScopeMode.required,
+      title: 'Context Policies',
+      searchFields: <String>['PolicyKey', 'Description'],
+      titleFields: <String>['PolicyKey', 'Description', 'Id'],
+      subtitleFields: <String>['Description', 'IsDefault', 'IsActive', 'Id'],
+      defaultOrderBy: 'IsDefault desc, IsActive desc, PolicyKey asc',
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _clientProfileKey() {
+  return const AcpFieldDescriptor(
+    key: 'ClientProfileKey',
+    label: 'Client Profile',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'MessagingClientProfiles',
+      scopeMode: AcpScopeMode.optional,
+      title: 'Messaging Client Profiles',
+      valueField: 'ProfileKey',
+      searchFields: <String>['PlatformKey', 'ProfileKey', 'DisplayName'],
+      titleFields: <String>['DisplayName', 'ProfileKey', 'Id'],
+      subtitleFields: <String>['PlatformKey', 'ProfileKey', 'IsActive', 'Id'],
+      defaultOrderBy: 'PlatformKey asc, ProfileKey asc',
+      filterFieldsFromForm: <String, String>{'PlatformKey': 'Platform'},
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _serviceRouteKey() {
+  return const AcpFieldDescriptor(
+    key: 'ServiceRouteKey',
+    label: 'Service Route',
+    reference: AcpFieldReferenceDescriptor(
+      entitySet: 'ChannelProfiles',
+      scopeMode: AcpScopeMode.required,
+      title: 'Service Routes',
+      valueField: 'ServiceRouteDefaultKey',
+      searchFields: <String>[
+        'ServiceRouteDefaultKey',
+        'DisplayName',
+        'ChannelKey',
+        'ProfileKey',
+      ],
+      titleFields: <String>['ServiceRouteDefaultKey', 'DisplayName', 'Id'],
+      subtitleFields: <String>['ChannelKey', 'ProfileKey', 'IsActive', 'Id'],
+      defaultOrderBy: 'ServiceRouteDefaultKey asc',
+      extraFilters: <String>['ServiceRouteDefaultKey ne null'],
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _locale() {
+  return const AcpFieldDescriptor(
+    key: 'Locale',
+    label: 'Locale',
+    options: acpBcp47LocaleOptions,
+    searchableOptions: true,
+    allowCustomOption: true,
   );
 }
 

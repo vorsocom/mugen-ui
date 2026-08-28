@@ -128,7 +128,7 @@ runtimeAdminResources = <AcpResourceDescriptor>[
         'Managed key-reference metadata for runtime secret rotation and lifecycle actions.',
     columns: <AcpColumnDescriptor>[
       _column('Purpose', 'Purpose', flex: 2),
-      _column('KeyId', 'Key ID', flex: 2),
+      _column('KeyId', 'Key ID', flex: 2, opaqueIdentifier: true),
       _column('Provider', 'Key Provider'),
       _column('Status', 'Status'),
       _column('HasMaterial', 'Has Material'),
@@ -206,8 +206,18 @@ runtimeAdminResources = <AcpResourceDescriptor>[
   ),
 ];
 
-AcpColumnDescriptor _column(String key, String label, {int flex = 1}) {
-  return AcpColumnDescriptor(key: key, label: label, flex: flex);
+AcpColumnDescriptor _column(
+  String key,
+  String label, {
+  int flex = 1,
+  bool opaqueIdentifier = false,
+}) {
+  return AcpColumnDescriptor(
+    key: key,
+    label: label,
+    flex: flex,
+    opaqueIdentifier: opaqueIdentifier,
+  );
 }
 
 const List<String> _messagingPlatformOptions = <String>[

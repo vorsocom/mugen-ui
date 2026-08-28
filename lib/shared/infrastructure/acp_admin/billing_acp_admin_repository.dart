@@ -26,6 +26,7 @@ class BillingAcpAdminRepository implements AcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     final result = await delegate.listRows(
       descriptor: descriptor,
@@ -34,6 +35,7 @@ class BillingAcpAdminRepository implements AcpAdminRepository {
       searchTerm: searchTerm,
       extraFilters: extraFilters,
       deletedView: deletedView,
+      enrichReferences: enrichReferences,
     );
     if (result.isFailure) {
       return result;
@@ -203,7 +205,7 @@ class BillingAcpAdminRepository implements AcpAdminRepository {
         pageSize: 500,
       ),
       pageRequest: const PageRequest(page: 1, pageSize: 500),
-      deletedView: AcpDeletedView.active,
+      deletedView: AcpDeletedView.all,
     );
     if (currencies.isSuccess) {
       _minorUnitsById = <String, int>{};

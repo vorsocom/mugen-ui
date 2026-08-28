@@ -49,7 +49,12 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
       coreColumn('VersionNumber', 'Version'),
       coreColumn('Status', 'Status'),
       coreColumn('IsDefault', 'Default'),
-      coreColumn('WorkflowDefinitionId', 'Definition', flex: 2),
+      coreColumn(
+        'WorkflowDefinitionId',
+        'Definition',
+        flex: 2,
+        reference: _workflowDefinitionDisplay,
+      ),
       coreColumn('PublishedAt', 'Published At', flex: 2),
     ],
     createFields: <AcpFieldDescriptor>[
@@ -68,9 +73,9 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
         applyAfterCreate: true,
       ),
       coreDateTime('PublishedAt', 'Published At', applyAfterCreate: true),
-      coreText(
+      _userReference(
         'PublishedByUserId',
-        'Published By User ID',
+        'Published By User',
         applyAfterCreate: true,
       ),
       coreBool('IsDefault', 'Is Default', applyAfterCreate: true),
@@ -83,7 +88,7 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
         options: const <String>['draft', 'published', 'retired'],
       ),
       coreDateTime('PublishedAt', 'Published At'),
-      coreText('PublishedByUserId', 'Published By User ID'),
+      _userReference('PublishedByUserId', 'Published By User'),
       coreBool('IsDefault', 'Is Default'),
       coreJson('Attributes', 'Attributes'),
     ],
@@ -103,7 +108,12 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
       coreColumn('Name', 'Name', flex: 2),
       coreColumn('IsInitial', 'Initial'),
       coreColumn('IsTerminal', 'Terminal'),
-      coreColumn('WorkflowVersionId', 'Version', flex: 2),
+      coreColumn(
+        'WorkflowVersionId',
+        'Version',
+        flex: 2,
+        reference: _workflowVersionDisplay,
+      ),
     ],
     createFields: <AcpFieldDescriptor>[
       _workflowVersion(required: true),
@@ -134,8 +144,18 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
         'Searchable source-to-target state transitions within a workflow version.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Key', 'Key'),
-      coreColumn('FromStateId', 'From State', flex: 2),
-      coreColumn('ToStateId', 'To State', flex: 2),
+      coreColumn(
+        'FromStateId',
+        'From State',
+        flex: 2,
+        reference: _workflowStateDisplay('FromState'),
+      ),
+      coreColumn(
+        'ToStateId',
+        'To State',
+        flex: 2,
+        reference: _workflowStateDisplay('ToState'),
+      ),
       coreColumn('RequiresApproval', 'Approval'),
       coreColumn('IsActive', 'Active'),
     ],
@@ -145,12 +165,12 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
       _workflowState('FromStateId', 'Source State', required: true),
       _workflowState('ToStateId', 'Target State', required: true),
       coreBool('RequiresApproval', 'Requires Approval', applyAfterCreate: true),
-      coreText(
+      _userReference(
         'AutoAssignUserId',
-        'Auto-assign User ID',
+        'Auto-assign User',
         applyAfterCreate: true,
       ),
-      coreText('AutoAssignQueue', 'Auto-assign Queue', applyAfterCreate: true),
+      _queueReference(applyAfterCreate: true),
       coreJson('CompensationJson', 'Compensation JSON', applyAfterCreate: true),
       coreBool(
         'IsActive',
@@ -165,8 +185,8 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
       _workflowState('FromStateId', 'Source State'),
       _workflowState('ToStateId', 'Target State'),
       coreBool('RequiresApproval', 'Requires Approval'),
-      coreText('AutoAssignUserId', 'Auto-assign User ID'),
-      coreText('AutoAssignQueue', 'Auto-assign Queue'),
+      _userReference('AutoAssignUserId', 'Auto-assign User'),
+      _queueReference(),
       coreJson('CompensationJson', 'Compensation JSON'),
       coreBool('IsActive', 'Is Active'),
       coreJson('Attributes', 'Attributes'),
@@ -177,6 +197,50 @@ final List<AcpResourceDescriptor> workflowResources = <AcpResourceDescriptor>[
     allowUpdate: true,
   ),
 ];
+
+final AcpColumnReferenceDescriptor _workflowDefinitionDisplay =
+    coreBatchReference(
+      navigationPath: 'WorkflowDefinition',
+      entitySet: 'OpsWorkflowDefinitions',
+      scopeMode: AcpScopeMode.required,
+      selectFields: const <String>['Name', 'Key'],
+      titleFields: const <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Name'),
+        AcpReferenceFieldDescriptor('Key'),
+      ],
+      subtitleFields: const <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Key'),
+      ],
+    );
+
+final AcpColumnReferenceDescriptor _workflowVersionDisplay = coreBatchReference(
+  navigationPath: 'WorkflowVersion',
+  entitySet: 'OpsWorkflowVersions',
+  scopeMode: AcpScopeMode.required,
+  selectFields: const <String>['VersionNumber', 'Status'],
+  titleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('VersionNumber', prefix: 'v'),
+  ],
+  subtitleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Status'),
+  ],
+);
+
+AcpColumnReferenceDescriptor _workflowStateDisplay(String navigationPath) {
+  return coreBatchReference(
+    navigationPath: navigationPath,
+    entitySet: 'OpsWorkflowStates',
+    scopeMode: AcpScopeMode.required,
+    selectFields: const <String>['Name', 'Key'],
+    titleFields: const <AcpReferenceFieldDescriptor>[
+      AcpReferenceFieldDescriptor('Name'),
+      AcpReferenceFieldDescriptor('Key'),
+    ],
+    subtitleFields: const <AcpReferenceFieldDescriptor>[
+      AcpReferenceFieldDescriptor('Key'),
+    ],
+  );
+}
 
 AcpFieldDescriptor _workflowDefinition({bool required = false}) {
   return coreReference(
@@ -189,6 +253,42 @@ AcpFieldDescriptor _workflowDefinition({bool required = false}) {
     titleFields: const <String>['Name', 'Key'],
     subtitleFields: const <String>['Key', 'IsActive', 'Id'],
     defaultOrderBy: 'Key asc',
+  );
+}
+
+AcpFieldDescriptor _userReference(
+  String key,
+  String label, {
+  bool applyAfterCreate = false,
+}) {
+  return coreReference(
+    key,
+    label,
+    entitySet: 'Users',
+    scopeMode: AcpScopeMode.none,
+    applyAfterCreate: applyAfterCreate,
+    searchFields: const <String>['LoginEmail', 'Username'],
+    titleFields: const <String>['LoginEmail', 'Username'],
+    subtitleFields: const <String>['Username', 'LoginEmail', 'Id'],
+    defaultOrderBy: 'Username asc',
+    retainHistoricalSelection: true,
+  );
+}
+
+AcpFieldDescriptor _queueReference({bool applyAfterCreate = false}) {
+  return coreReference(
+    'AutoAssignQueue',
+    'Auto-assign Queue',
+    entitySet: 'RoutingRules',
+    scopeMode: AcpScopeMode.required,
+    applyAfterCreate: applyAfterCreate,
+    valueField: 'TargetQueueName',
+    searchFields: const <String>['TargetQueueName', 'RouteKey'],
+    titleFields: const <String>['TargetQueueName', 'RouteKey'],
+    subtitleFields: const <String>['RouteKey', 'IsActive', 'Id'],
+    defaultOrderBy: 'TargetQueueName asc, RouteKey asc',
+    extraFilters: const <String>['TargetQueueName ne null'],
+    retainHistoricalSelection: true,
   );
 }
 

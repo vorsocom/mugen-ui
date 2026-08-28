@@ -1,5 +1,6 @@
 import 'package:mugen_ui/features/core_provisioning/application/core_provisioning_descriptors.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
 
 final List<AcpResourceDescriptor>
 billingCatalogResources = <AcpResourceDescriptor>[
@@ -103,8 +104,18 @@ billingCatalogResources = <AcpResourceDescriptor>[
     description:
         'Included-usage rules for active recurring package Prices. Changes do not rewrite generated historical buckets.',
     columns: <AcpColumnDescriptor>[
-      coreColumn('PriceId', 'Price', flex: 2),
-      coreColumn('MeterDefinitionId', 'Meter', flex: 2),
+      coreColumn(
+        'PriceId',
+        'Price',
+        flex: 2,
+        reference: _catalogPriceReference,
+      ),
+      coreColumn(
+        'MeterDefinitionId',
+        'Meter',
+        flex: 2,
+        reference: _catalogMeterReference,
+      ),
       coreColumn('IncludedQuantity', 'Included'),
       coreColumn('RolloverPolicy', 'Rollover'),
       coreColumn('RowVersion', 'Row Version'),
@@ -120,6 +131,16 @@ billingCatalogResources = <AcpResourceDescriptor>[
       AcpDeletedView.active,
       AcpDeletedView.all,
       AcpDeletedView.archived,
+    ],
+    expansions: const <AcpExpandDescriptor>[
+      AcpExpandDescriptor(
+        navigation: 'Price',
+        selectFields: <String>['Code', 'PriceType', 'Currency'],
+      ),
+      AcpExpandDescriptor(
+        navigation: 'MeterDefinition',
+        selectFields: <String>['Code', 'Unit'],
+      ),
     ],
   ),
   AcpResourceDescriptor(
@@ -289,6 +310,29 @@ billingCatalogResources = <AcpResourceDescriptor>[
   ),
 ];
 
+const AcpColumnReferenceDescriptor _catalogPriceReference =
+    AcpColumnReferenceDescriptor(
+      navigationPath: 'Price',
+      titleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Code'),
+      ],
+      subtitleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('PriceType'),
+        AcpReferenceFieldDescriptor('Currency'),
+      ],
+    );
+
+const AcpColumnReferenceDescriptor _catalogMeterReference =
+    AcpColumnReferenceDescriptor(
+      navigationPath: 'MeterDefinition',
+      titleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Code'),
+      ],
+      subtitleFields: <AcpReferenceFieldDescriptor>[
+        AcpReferenceFieldDescriptor('Unit'),
+      ],
+    );
+
 final List<AcpFieldDescriptor> _productFields = <AcpFieldDescriptor>[
   coreText('Code', 'Code', required: true),
   coreText('Name', 'Name', required: true),
@@ -391,6 +435,8 @@ final List<AcpFieldDescriptor> _runDefinitionFields = <AcpFieldDescriptor>[
     'Timezone',
     required: true,
     hintText: 'IANA timezone, for example America/Guyana',
+    options: acpIanaTimezoneOptions,
+    searchableOptions: true,
   ),
 ];
 
@@ -439,7 +485,14 @@ final List<AcpFieldDescriptor> _taxRateFields = <AcpFieldDescriptor>[
 
 final List<AcpFieldDescriptor> _invoiceTemplateFields = <AcpFieldDescriptor>[
   ..._namedDefinitionFields,
-  coreText('Locale', 'Locale', required: true),
+  coreText(
+    'Locale',
+    'Locale',
+    required: true,
+    options: acpBcp47LocaleOptions,
+    searchableOptions: true,
+    allowCustomOption: true,
+  ),
   coreText(
     'TemplateFormat',
     'Template Format',

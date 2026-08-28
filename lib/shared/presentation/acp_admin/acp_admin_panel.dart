@@ -13,6 +13,7 @@ import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart'
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_money_codec.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_reference_display.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
@@ -578,10 +579,18 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
             key: column.key,
             label: column.label,
             flex: column.flex,
-            cell: (_, row) => AdminCellText(
-              _formatCellValue(row: row, column: column),
-              maxLines: 2,
-            ),
+            cell: (_, row) {
+              final value = _formatCellValue(row: row, column: column);
+              final cell = AdminCellText(value, maxLines: 2);
+              if (column.reference == null) {
+                return cell;
+              }
+              return Semantics(
+                label: '${column.label}: $value',
+                excludeSemantics: true,
+                child: cell,
+              );
+            },
           ),
       ],
       actionsBuilder: (context, row) => SizedBox(
@@ -632,6 +641,9 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
     required AcpRow row,
     required AcpColumnDescriptor column,
   }) {
+    if (column.reference != null) {
+      return acpReferenceDisplayValue(row: row, column: column);
+    }
     final value = column.valueBuilder?.call(row) ?? row[column.key];
     if (value == null) {
       return '';
@@ -639,14 +651,21 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
     if (column.money && value is int) {
       final minorUnit = switch (row[column.minorUnitKey]) {
         final int value when value >= 0 && value <= 4 => value,
-        final Object value => int.tryParse(value.toString()),
+        final Object value => switch (int.tryParse(value.toString())) {
+          final int parsed when parsed >= 0 && parsed <= 4 => parsed,
+          _ => null,
+        },
         _ => null,
       };
+      final currency = row[column.currencyCodeKey]?.toString().trim() ?? '';
+      if (minorUnit == null) {
+        final prefix = currency.isEmpty ? '' : '$currency ';
+        return '$prefix$value minor units (currency precision unavailable)';
+      }
       final formatted = AcpMoneyCodec.formatMinorUnits(
         value,
-        minorUnit: minorUnit ?? column.defaultMinorUnit,
+        minorUnit: minorUnit,
       );
-      final currency = row[column.currencyCodeKey]?.toString().trim() ?? '';
       return currency.isEmpty ? formatted : '$currency $formatted';
     }
     if (value is bool) {
@@ -2587,6 +2606,7 @@ class _AcpDynamicFormDialog extends StatefulWidget {
 class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final Map<String, TextEditingController> _textControllers;
+  late final Map<String, TextEditingController> _optionEntryControllers;
   late final Map<String, bool> _boolValues;
   late final Map<String, int> _initialMoneyValues;
   String? _formErrorText;
@@ -2609,6 +2629,10 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
             text: _initialTextValue(field, _initialFieldValue(field)),
           ),
     };
+    _optionEntryControllers = <String, TextEditingController>{
+      for (final field in widget.fields)
+        if (field.multiSelectOptions) field.key: TextEditingController(),
+    };
     _boolValues = <String, bool>{
       for (final field in widget.fields)
         if (field.kind == AcpFieldKind.boolean)
@@ -2620,6 +2644,9 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
   @override
   void dispose() {
     for (final controller in _textControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _optionEntryControllers.values) {
       controller.dispose();
     }
     super.dispose();
@@ -2818,8 +2845,29 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       );
     }
 
-    if (field.options.isNotEmpty) {
-      final options = _dropdownOptionsFor(field, controller.text);
+    final optionValues = _optionValuesFor(field);
+    if (field.multiSelectOptions) {
+      return _buildMultiOptionField(
+        field: field,
+        controller: controller,
+        options: optionValues,
+        helpText: helpText,
+        helpKey: helpKey,
+      );
+    }
+
+    if (field.searchableOptions || field.optionsBuilder != null) {
+      return _buildSearchableOptionField(
+        field: field,
+        controller: controller,
+        options: optionValues,
+        helpText: helpText,
+        helpKey: helpKey,
+      );
+    }
+
+    if (optionValues.isNotEmpty) {
+      final options = _dropdownOptionsFor(controller.text, optionValues);
       return DropdownButtonFormField<String>(
         key: Key('acp-dynamic-field-${field.key}'),
         initialValue: controller.text.trim().isEmpty
@@ -2838,7 +2886,10 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
               (option) => DropdownMenuItem<String>(
                 key: Key('acp-dynamic-field-${field.key}-option-$option'),
                 value: option,
-                child: Text(option, overflow: TextOverflow.ellipsis),
+                child: Text(
+                  _optionLabel(field, option),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             )
             .toList(growable: false),
@@ -2878,6 +2929,168 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     );
   }
 
+  Widget _buildSearchableOptionField({
+    required AcpFieldDescriptor field,
+    required TextEditingController controller,
+    required List<String> options,
+    required String helpText,
+    required Key helpKey,
+  }) {
+    return Autocomplete<String>(
+      key: Key('acp-dynamic-field-${field.key}'),
+      initialValue: TextEditingValue(
+        text: options.contains(controller.text)
+            ? _optionLabel(field, controller.text)
+            : controller.text,
+      ),
+      displayStringForOption: (option) => _optionLabel(field, option),
+      optionsBuilder: (value) {
+        final query = value.text.trim().toLowerCase();
+        if (query.isEmpty) {
+          return options;
+        }
+        return options.where((option) {
+          final label = _optionLabel(field, option).toLowerCase();
+          return option.toLowerCase().contains(query) || label.contains(query);
+        });
+      },
+      onSelected: (option) {
+        setState(() {
+          controller.text = option;
+          _clearNewlyHiddenFields();
+        });
+      },
+      fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
+        return TextFormField(
+          key: Key('acp-searchable-option-${field.key}'),
+          controller: textController,
+          focusNode: focusNode,
+          readOnly: field.readOnly,
+          decoration: appFormInputDecoration(
+            labelText: field.label,
+            hintText: field.hintText,
+            suffixIcon: const Icon(Icons.manage_search_outlined),
+            helpText: helpText,
+            helpKey: helpKey,
+            errorMaxLines: 4,
+          ),
+          validator: (value) => _validateField(
+            field,
+            _optionValueForInput(field, value ?? '', options),
+          ),
+          onChanged: (value) {
+            controller.text = _optionValueForInput(field, value, options);
+            setState(_clearNewlyHiddenFields);
+          },
+          onFieldSubmitted: (_) => onFieldSubmitted(),
+        );
+      },
+    );
+  }
+
+  Widget _buildMultiOptionField({
+    required AcpFieldDescriptor field,
+    required TextEditingController controller,
+    required List<String> options,
+    required String helpText,
+    required Key helpKey,
+  }) {
+    return FormField<String>(
+      key: Key('acp-dynamic-field-${field.key}'),
+      initialValue: controller.text,
+      validator: (value) => _validateField(field, value ?? ''),
+      builder: (fieldState) {
+        final selected = _decodeStringList(controller.text).toSet();
+        void update(String option, bool include) {
+          setState(() {
+            if (include) {
+              selected.add(option);
+            } else {
+              selected.remove(option);
+            }
+            controller.text = jsonEncode(selected.toList(growable: false));
+          });
+          fieldState.didChange(controller.text);
+          fieldState.validate();
+        }
+
+        void addCustom() {
+          final entryController = _optionEntryControllers[field.key]!;
+          final value = entryController.text.trim();
+          if (value.isEmpty) {
+            return;
+          }
+          update(value, true);
+          entryController.clear();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            appFieldLabelWithHelp(
+              labelText: field.label,
+              helpText: helpText,
+              helpKey: helpKey,
+            ),
+            if (field.hintText != null) ...[
+              const SizedBox(height: 4),
+              Text(field.hintText!),
+            ],
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final option in options)
+                  FilterChip(
+                    key: Key('acp-option-${field.key}-$option'),
+                    label: Text(_optionLabel(field, option)),
+                    selected: selected.contains(option),
+                    onSelected: field.readOnly
+                        ? null
+                        : (value) => update(option, value),
+                  ),
+                for (final value in selected.where(
+                  (value) => !options.contains(value),
+                ))
+                  InputChip(
+                    key: Key('acp-custom-option-${field.key}-$value'),
+                    label: Text(value),
+                    onDeleted: field.readOnly
+                        ? null
+                        : () => update(value, false),
+                  ),
+              ],
+            ),
+            if (field.allowCustomOption && !field.readOnly) ...[
+              const SizedBox(height: 8),
+              TextFormField(
+                key: Key('acp-custom-option-entry-${field.key}'),
+                controller: _optionEntryControllers[field.key],
+                decoration: appFormInputDecoration(
+                  labelText: 'Add custom ${field.label.toLowerCase()}',
+                  helpText:
+                      'Enter an additional value when it is not listed above.',
+                  suffixIcon: IconButton(
+                    tooltip: 'Add custom ${field.label.toLowerCase()}',
+                    onPressed: addCustom,
+                    icon: const Icon(Icons.add),
+                  ),
+                ),
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => addCustom(),
+              ),
+            ],
+            if (fieldState.errorText != null) ...[
+              const SizedBox(height: 6),
+              AppErrorAlert(message: fieldState.errorText!),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
   void _applyReferenceSelection(AcpFieldDescriptor field, AcpRow? row) {
     final reference = field.reference;
     if (reference == null) {
@@ -2903,9 +3116,14 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       if (controller == null) {
         continue;
       }
+      final minorUnit = _resolvedMinorUnitFor(field);
+      if (minorUnit == null) {
+        controller.clear();
+        continue;
+      }
       controller.text = AcpMoneyCodec.formatMinorUnits(
         entry.value,
-        minorUnit: _minorUnitFor(field),
+        minorUnit: minorUnit,
       );
     }
   }
@@ -2985,6 +3203,13 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     if (trimmed.isEmpty) {
       return null;
     }
+    final options = _optionValuesFor(field);
+    if (field.searchableOptions &&
+        !field.allowCustomOption &&
+        options.isNotEmpty &&
+        !options.contains(trimmed)) {
+      return 'Select a valid ${field.label.toLowerCase()}.';
+    }
 
     switch (field.kind) {
       case AcpFieldKind.integer:
@@ -3000,9 +3225,13 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         }
         return null;
       case AcpFieldKind.money:
+        final minorUnit = _resolvedMinorUnitFor(field);
+        if (minorUnit == null) {
+          return 'Currency precision is unavailable. Select a currency before entering an amount.';
+        }
         return AcpMoneyCodec.parseMajorUnits(
           trimmed,
-          minorUnit: _minorUnitFor(field),
+          minorUnit: minorUnit,
         ).failure?.message;
       case AcpFieldKind.computed:
         return null;
@@ -3050,13 +3279,14 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     }
   }
 
-  int _minorUnitFor(AcpFieldDescriptor field) {
+  int? _resolvedMinorUnitFor(AcpFieldDescriptor field) {
     final key = field.minorUnitFieldKey;
-    final parsed = key == null
-        ? null
-        : int.tryParse(_currentFieldValue(key)?.trim() ?? '');
-    if (parsed == null || parsed < 0 || parsed > 4) {
+    if (key == null) {
       return field.defaultMinorUnit;
+    }
+    final parsed = int.tryParse(_currentFieldValue(key)?.trim() ?? '');
+    if (parsed == null || parsed < 0 || parsed > 4) {
+      return null;
     }
     return parsed;
   }
@@ -3110,9 +3340,37 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
     return initialValue?.toString();
   }
 
-  List<String> _dropdownOptionsFor(AcpFieldDescriptor field, String value) {
+  List<String> _optionValuesFor(AcpFieldDescriptor field) {
+    final values = <String, dynamic>{...widget.initialValues};
+    for (final item in widget.fields) {
+      values[item.key] = _currentFieldValue(item.key);
+    }
+    return <String>{
+      ...field.options.map((option) => option.trim()),
+      ...?field.optionsBuilder?.call(values).map((option) => option.trim()),
+    }.where((option) => option.isNotEmpty).toList(growable: false);
+  }
+
+  String _optionLabel(AcpFieldDescriptor field, String option) =>
+      field.optionLabels[option] ?? option;
+
+  String _optionValueForInput(
+    AcpFieldDescriptor field,
+    String input,
+    List<String> options,
+  ) {
+    final normalized = input.trim();
+    for (final option in options) {
+      if (_optionLabel(field, option) == normalized) {
+        return option;
+      }
+    }
+    return normalized;
+  }
+
+  List<String> _dropdownOptionsFor(String value, List<String> fieldOptions) {
     final options = <String>[
-      for (final option in field.options)
+      for (final option in fieldOptions)
         if (option.trim().isNotEmpty) option.trim(),
     ];
     final currentValue = value.trim();
@@ -3163,13 +3421,18 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
           _storePayloadValue(payload, field, int.parse(trimmed));
           break;
         case AcpFieldKind.money:
+          final minorUnit = _resolvedMinorUnitFor(field);
+          if (minorUnit == null) {
+            setState(() {
+              _formErrorText =
+                  'Currency precision is unavailable. Select a currency before entering an amount.';
+            });
+            return;
+          }
           _storePayloadValue(
             payload,
             field,
-            AcpMoneyCodec.parseMajorUnits(
-              trimmed,
-              minorUnit: _minorUnitFor(field),
-            ).data!,
+            AcpMoneyCodec.parseMajorUnits(trimmed, minorUnit: minorUnit).data!,
           );
           break;
         case AcpFieldKind.computed:

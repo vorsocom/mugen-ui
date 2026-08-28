@@ -4,10 +4,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_filter_options_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_session_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/providers/human_handoff_providers.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
+import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
+import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -29,9 +32,6 @@ class HumanHandoffPanel extends ConsumerStatefulWidget {
 }
 
 class _HumanHandoffPanelState extends ConsumerState<HumanHandoffPanel> {
-  final TextEditingController _platformController = TextEditingController();
-  final TextEditingController _serviceRouteController = TextEditingController();
-  final TextEditingController _ownerController = TextEditingController();
   final TextEditingController _replyController = TextEditingController();
 
   @override
@@ -47,9 +47,6 @@ class _HumanHandoffPanelState extends ConsumerState<HumanHandoffPanel> {
 
   @override
   void dispose() {
-    _platformController.dispose();
-    _serviceRouteController.dispose();
-    _ownerController.dispose();
     _replyController.dispose();
     super.dispose();
   }
@@ -62,12 +59,7 @@ class _HumanHandoffPanelState extends ConsumerState<HumanHandoffPanel> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isNarrow = constraints.maxWidth < 940;
-        final queue = _QueuePane(
-          state: state,
-          platformController: _platformController,
-          serviceRouteController: _serviceRouteController,
-          ownerController: _ownerController,
-        );
+        final queue = _QueuePane(state: state);
         final detail = _DetailPane(
           state: state,
           replyController: _replyController,
@@ -108,17 +100,9 @@ class _HumanHandoffPanelState extends ConsumerState<HumanHandoffPanel> {
 }
 
 class _QueuePane extends ConsumerWidget {
-  const _QueuePane({
-    required this.state,
-    required this.platformController,
-    required this.serviceRouteController,
-    required this.ownerController,
-  });
+  const _QueuePane({required this.state});
 
   final HumanHandoffState state;
-  final TextEditingController platformController;
-  final TextEditingController serviceRouteController;
-  final TextEditingController ownerController;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -164,9 +148,10 @@ class _QueuePane extends ConsumerWidget {
               IconButton.filledTonal(
                 key: _refreshButtonKey,
                 tooltip: 'Refresh handoff sessions',
-                onPressed: state.isLoadingSessions
+                onPressed:
+                    state.isLoadingSessions || state.isLoadingFilterOptions
                     ? null
-                    : () => controller.loadSessions(),
+                    : controller.refresh,
                 icon: const Icon(Icons.refresh),
               ),
             ],
@@ -209,9 +194,10 @@ class _QueuePane extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: TextField(
+                child: DropdownButtonFormField<String>(
                   key: _platformFilterKey,
-                  controller: platformController,
+                  initialValue: state.platformFilter,
+                  isExpanded: true,
                   decoration: appFormInputDecoration(
                     labelText: 'Platform',
                     helpText: acpFieldHelpText(
@@ -220,8 +206,20 @@ class _QueuePane extends ConsumerWidget {
                       resourceKey: 'HumanHandoff',
                     ),
                   ),
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: controller.setPlatformFilter,
+                  items: <DropdownMenuItem<String>>[
+                    const DropdownMenuItem<String>(
+                      value: '',
+                      child: Text('All platforms'),
+                    ),
+                    ...acpMessagingPlatformOptions.map(
+                      (platform) => DropdownMenuItem<String>(
+                        value: platform,
+                        child: Text(platform),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      controller.setPlatformFilter(value ?? ''),
                 ),
               ),
             ],
@@ -230,36 +228,65 @@ class _QueuePane extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  key: _serviceRouteFilterKey,
-                  controller: serviceRouteController,
-                  decoration: appFormInputDecoration(
-                    labelText: 'Service Route',
-                    helpText: acpFieldHelpText(
-                      key: 'ServiceRoute',
-                      label: 'Service Route',
-                      resourceKey: 'HumanHandoff',
+                child: AppSearchableSelectField(
+                  fieldKey: _serviceRouteFilterKey,
+                  optionKeyPrefix: 'human-handoff-service-route-option',
+                  labelText: 'Service Route',
+                  options: <HumanHandoffReferenceOptionEntity>[
+                    const HumanHandoffReferenceOptionEntity(
+                      id: '',
+                      title: 'All service routes',
                     ),
+                    ...state.serviceRouteOptions,
+                  ],
+                  selectedOptionKey: state.serviceRouteFilter,
+                  optionKey: (option) => option.id,
+                  optionTitle: (option) => option.title,
+                  optionSubtitle: (option) => option.subtitle,
+                  optionSearchText: (option) => option.searchText,
+                  onSelected: (option) =>
+                      controller.setServiceRouteFilter(option.id),
+                  helpText: acpFieldHelpText(
+                    key: 'ServiceRoute',
+                    label: 'Service Route',
+                    resourceKey: 'HumanHandoff',
                   ),
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: controller.setServiceRouteFilter,
+                  hintText: state.isLoadingFilterOptions
+                      ? 'Loading service routes...'
+                      : 'Search configured service routes',
+                  isLoading: state.isLoadingFilterOptions,
+                  emptyMessage: 'No service routes are available.',
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: TextField(
-                  key: _ownerFilterKey,
-                  controller: ownerController,
-                  decoration: appFormInputDecoration(
-                    labelText: 'Owner',
-                    helpText: acpFieldHelpText(
-                      key: 'Owner',
-                      label: 'Owner',
-                      resourceKey: 'HumanHandoff',
+                child: AppSearchableSelectField(
+                  fieldKey: _ownerFilterKey,
+                  optionKeyPrefix: 'human-handoff-owner-option',
+                  labelText: 'Owner',
+                  options: <HumanHandoffReferenceOptionEntity>[
+                    const HumanHandoffReferenceOptionEntity(
+                      id: '',
+                      title: 'All owners',
                     ),
+                    ...state.ownerOptions,
+                  ],
+                  selectedOptionKey: state.ownerFilter,
+                  optionKey: (option) => option.id,
+                  optionTitle: (option) => option.title,
+                  optionSubtitle: (option) => option.subtitle,
+                  optionSearchText: (option) => option.searchText,
+                  onSelected: (option) => controller.setOwnerFilter(option.id),
+                  helpText: acpFieldHelpText(
+                    key: 'Owner',
+                    label: 'Owner',
+                    resourceKey: 'HumanHandoff',
                   ),
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: controller.setOwnerFilter,
+                  hintText: state.isLoadingFilterOptions
+                      ? 'Loading tenant members...'
+                      : 'Search tenant members',
+                  isLoading: state.isLoadingFilterOptions,
+                  emptyMessage: 'No tenant members are available.',
                 ),
               ),
             ],
@@ -311,6 +338,9 @@ class _SessionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final ownerLabel = ref
+        .watch(humanHandoffControllerProvider)
+        .ownerLabel(session.ownerUserId);
     final statusColor = session.hasDeliveryFailure
         ? AppUiPalette.danger
         : session.isActive
@@ -373,6 +403,7 @@ class _SessionTile extends ConsumerWidget {
                   _TinyMeta(label: 'Room', value: session.roomId),
                   _TinyMeta(label: 'Sender', value: session.senderId),
                   _TinyMeta(label: 'Route', value: session.serviceRouteKey),
+                  _TinyMeta(label: 'Owner', value: ownerLabel),
                   _TinyMeta(
                     label: 'Last user',
                     value: _formatCompactDateTime(session.lastUserMessageAt),
@@ -442,6 +473,9 @@ class _SessionHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final ownerLabel = ref
+        .watch(humanHandoffControllerProvider)
+        .ownerLabel(session.ownerUserId);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -485,7 +519,7 @@ class _SessionHeader extends ConsumerWidget {
               _InfoChip(label: 'Sender', value: session.senderId),
               _InfoChip(label: 'Conversation', value: session.conversationId),
               _InfoChip(label: 'Route', value: session.serviceRouteKey),
-              _InfoChip(label: 'Owner', value: session.ownerUserId),
+              _InfoChip(label: 'Owner', value: ownerLabel),
               _InfoChip(label: 'Delivery', value: session.lastDeliveryStatus),
               _InfoChip(
                 label: 'Last User',

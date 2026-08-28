@@ -25,7 +25,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
       _json('SchemaJson', 'Schema JSON', required: true),
       _schemaStatus(initialValue: 'draft'),
       _dateTime('ActivatedAt', 'Activated At'),
-      _text('ActivatedByUserId', 'Activated By User ID'),
+      _userReference('ActivatedByUserId', 'Activated By User'),
       _text('ChecksumSha256', 'Checksum SHA-256'),
       _json('Attributes', 'Attributes'),
     ],
@@ -35,7 +35,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
       _schemaKind(),
       _schemaStatus(),
       _dateTime('ActivatedAt', 'Activated At'),
-      _text('ActivatedByUserId', 'Activated By User ID'),
+      _userReference('ActivatedByUserId', 'Activated By User'),
       _text('ChecksumSha256', 'Checksum SHA-256'),
       _json('Attributes', 'Attributes'),
     ],
@@ -46,7 +46,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
         target: AcpActionTarget.collection,
         successMessage: 'Validation completed.',
         fields: <AcpFieldDescriptor>[
-          _text('SchemaDefinitionId', 'Schema Definition ID'),
+          _schemaReference(),
           _text('Key', 'Key'),
           _int('Version', 'Version'),
           _json('Payload', 'Payload', required: true, initialValue: const {}),
@@ -58,7 +58,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
         target: AcpActionTarget.collection,
         successMessage: 'Coercion completed.',
         fields: <AcpFieldDescriptor>[
-          _text('SchemaDefinitionId', 'Schema Definition ID'),
+          _schemaReference(),
           _text('Key', 'Key'),
           _int('Version', 'Version'),
           _json('Payload', 'Payload', required: true, initialValue: const {}),
@@ -96,17 +96,48 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
       _column('IsActive', 'Active'),
     ],
     createFields: <AcpFieldDescriptor>[
-      _text('SchemaDefinitionId', 'Schema Definition ID', required: true),
-      _text('TargetNamespace', 'Target Namespace', required: true),
-      _text('TargetEntitySet', 'Target Entity Set', required: true),
-      _text('TargetAction', 'Target Action'),
-      _text('BindingKind', 'Binding Kind', required: true),
+      _schemaReference(required: true),
+      _text(
+        'TargetNamespace',
+        'Target Namespace',
+        required: true,
+        options: _pluginKeyOptions,
+        searchableOptions: true,
+        allowCustomOption: true,
+      ),
+      _text(
+        'TargetEntitySet',
+        'Target Entity Set',
+        required: true,
+        options: _entitySetOptions,
+        searchableOptions: true,
+        allowCustomOption: true,
+      ),
+      _text(
+        'TargetAction',
+        'Target Action',
+        options: _actionOptions,
+        searchableOptions: true,
+        allowCustomOption: true,
+      ),
+      _text(
+        'BindingKind',
+        'Binding Kind',
+        required: true,
+        options: const <String>['create', 'action'],
+      ),
       _bool('IsRequired', 'Is Required', initialValue: true),
       _bool('IsActive', 'Is Active', initialValue: true),
       _json('Attributes', 'Attributes'),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _text('TargetAction', 'Target Action'),
+      _text(
+        'TargetAction',
+        'Target Action',
+        options: _actionOptions,
+        searchableOptions: true,
+        allowCustomOption: true,
+      ),
       _bool('IsRequired', 'Is Required', initialValue: true),
       _bool('IsActive', 'Is Active', initialValue: true),
       _json('Attributes', 'Attributes'),
@@ -136,13 +167,8 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
       _column('RevokedAt', 'Revoked'),
     ],
     createFields: <AcpFieldDescriptor>[
-      _text('PluginKey', 'Plugin Key', required: true),
-      _json(
-        'Capabilities',
-        'Capabilities',
-        required: true,
-        initialValue: const [],
-      ),
+      _pluginKey(),
+      _capabilities(),
       _dateTime('ExpiresAt', 'Expires At'),
       _json('Attributes', 'Attributes'),
     ],
@@ -153,13 +179,8 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
         target: AcpActionTarget.collection,
         successMessage: 'Capability grant recorded.',
         fields: <AcpFieldDescriptor>[
-          _text('PluginKey', 'Plugin Key', required: true),
-          _json(
-            'Capabilities',
-            'Capabilities',
-            required: true,
-            initialValue: const [],
-          ),
+          _pluginKey(),
+          _capabilities(),
           _dateTime('ExpiresAt', 'Expires At'),
           _json('Attributes', 'Attributes'),
         ],
@@ -270,7 +291,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
     description:
         'Metadata-first evidence records with hash verification and lifecycle controls.',
     columns: <AcpColumnDescriptor>[
-      _column('TraceId', 'Trace ID'),
+      _column('TraceId', 'Trace ID', opaqueIdentifier: true),
       _column('SourcePlugin', 'Source Plugin'),
       _column('SubjectNamespace', 'Subject Namespace'),
       _column('StorageUri', 'Storage URI'),
@@ -382,8 +403,8 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
         'Resolved trace and correlation graph edges emitted from ACP request handling.',
     columns: <AcpColumnDescriptor>[
       _column('OccurredAt', 'Occurred'),
-      _column('TraceId', 'Trace ID'),
-      _column('CorrelationId', 'Correlation ID'),
+      _column('TraceId', 'Trace ID', opaqueIdentifier: true),
+      _column('CorrelationId', 'Correlation ID', opaqueIdentifier: true),
       _column('EntitySet', 'Entity Set'),
       _column('Operation', 'Operation'),
       _column('ActionName', 'Action'),
@@ -421,7 +442,7 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
         'Business-trace observability timeline events emitted for ACP handlers.',
     columns: <AcpColumnDescriptor>[
       _column('OccurredAt', 'Occurred'),
-      _column('TraceId', 'Trace ID'),
+      _column('TraceId', 'Trace ID', opaqueIdentifier: true),
       _column('Stage', 'Stage'),
       _column('StatusCode', 'Status'),
       _column('SourcePlugin', 'Source Plugin'),
@@ -454,8 +475,16 @@ final List<AcpResourceDescriptor> acpConsoleResources = <AcpResourceDescriptor>[
   ),
 ];
 
-AcpColumnDescriptor _column(String key, String label) {
-  return AcpColumnDescriptor(key: key, label: label);
+AcpColumnDescriptor _column(
+  String key,
+  String label, {
+  bool opaqueIdentifier = false,
+}) {
+  return AcpColumnDescriptor(
+    key: key,
+    label: label,
+    opaqueIdentifier: opaqueIdentifier,
+  );
 }
 
 const List<String> _schemaKindOptions = <String>['json_schema'];
@@ -471,6 +500,155 @@ const List<String> _dedupStatusOptions = <String>[
 ];
 const List<String> _hashAlgorithmOptions = <String>['sha256'];
 const List<String> _immutabilityOptions = <String>['immutable'];
+const List<String> _pluginKeyOptions = <String>[
+  'acp',
+  'billing',
+  'channel_orchestration',
+  'context_engine',
+  'knowledge_pack',
+  'ops_connector',
+  'ops_governance',
+  'ops_reporting',
+  'ops_sla',
+  'ops_workflow',
+];
+const List<String> _capabilityOptions = <String>[
+  'connector:invoke',
+  'net:outbound',
+  'secrets:read',
+];
+const List<String> _entitySetOptions = <String>[
+  'AuditBizTraceEvents',
+  'AuditCorrelationLinks',
+  'BillingAccounts',
+  'BillingAdjustments',
+  'BillingCreditNotes',
+  'BillingCurrencyDefinitions',
+  'BillingDiscountDefinitions',
+  'BillingEntitlementAdjustments',
+  'BillingEntitlementBuckets',
+  'BillingInvoiceLines',
+  'BillingInvoiceTemplates',
+  'BillingInvoices',
+  'BillingLedgerEntries',
+  'BillingMeterDefinitions',
+  'BillingPaymentAllocations',
+  'BillingPaymentTerms',
+  'BillingPayments',
+  'BillingPriceEntitlements',
+  'BillingPrices',
+  'BillingProducts',
+  'BillingRunDefinitions',
+  'BillingRuns',
+  'BillingSubscriptions',
+  'BillingTaxCodes',
+  'BillingTaxRates',
+  'BillingUsageAllocations',
+  'BillingUsageEvents',
+  'BlocklistEntries',
+  'ChannelProfiles',
+  'ContextContributorBindings',
+  'ContextPolicies',
+  'ContextProfiles',
+  'ContextSourceBindings',
+  'ContextTracePolicies',
+  'ConversationStates',
+  'DedupRecords',
+  'EvidenceBlobs',
+  'IngressBindings',
+  'IntakeRules',
+  'KeyRefs',
+  'KnowledgeApprovals',
+  'KnowledgeEntries',
+  'KnowledgeEntryRevisions',
+  'KnowledgePackVersions',
+  'KnowledgePacks',
+  'KnowledgeScopes',
+  'MessagingClientProfiles',
+  'OpsCases',
+  'OpsConnectorCallLogs',
+  'OpsConnectorInstances',
+  'OpsConnectorTypes',
+  'OpsPolicyDefinitions',
+  'OpsReportingAggregationJobs',
+  'OpsReportingMetricDefinitions',
+  'OpsReportingMetricSeries',
+  'OpsReportingReportDefinitions',
+  'OpsReportingReportSnapshots',
+  'OpsSlaCalendars',
+  'OpsSlaPolicies',
+  'OpsSlaTargets',
+  'OpsWorkflowDefinitions',
+  'OpsWorkflowInstances',
+  'OpsWorkflowStates',
+  'OpsWorkflowTransitions',
+  'OpsWorkflowVersions',
+  'OrchestrationEvents',
+  'OrchestrationPolicies',
+  'PluginCapabilityGrants',
+  'RoutingRules',
+  'RuntimeConfigProfiles',
+  'SchemaBindings',
+  'Schemas',
+  'SystemFlags',
+  'ThrottleRules',
+  'Users',
+  'WorkItems',
+];
+
+const List<String> _actionOptions = <String>[
+  'acquire',
+  'activate',
+  'activate_version',
+  'adjust',
+  'advance_period',
+  'apply_throttle',
+  'approve',
+  'archive',
+  'block_sender',
+  'coerce',
+  'commit_failure',
+  'commit_success',
+  'create_from_channel',
+  'deactivate',
+  'destroy',
+  'escalate',
+  'evaluate_intake',
+  'evaluate_policy',
+  'fail',
+  'grant',
+  'inspect_trace',
+  'invoke',
+  'link_to_case',
+  'place_legal_hold',
+  'publish',
+  'purge',
+  'recompute_window',
+  'reconcile_entitlements',
+  'redact',
+  'register',
+  'reject',
+  'release_legal_hold',
+  'reloadPlatformProfiles',
+  'replay',
+  'resolve_trace',
+  'retire',
+  'retry',
+  'revoke',
+  'rollback_version',
+  'rotate',
+  'route',
+  'run_aggregation',
+  'set_fallback',
+  'submit_for_review',
+  'sweep_expired',
+  'sync_invoice',
+  'test_connection',
+  'tombstone',
+  'unblock_sender',
+  'validate',
+  'verify_hash',
+];
 
 AcpFieldDescriptor _text(
   String key,
@@ -478,6 +656,8 @@ AcpFieldDescriptor _text(
   bool required = false,
   Object? initialValue,
   List<String> options = const <String>[],
+  bool searchableOptions = false,
+  bool allowCustomOption = false,
 }) {
   return AcpFieldDescriptor(
     key: key,
@@ -485,6 +665,67 @@ AcpFieldDescriptor _text(
     required: required,
     initialValue: initialValue,
     options: options,
+    searchableOptions: searchableOptions,
+    allowCustomOption: allowCustomOption,
+  );
+}
+
+AcpFieldDescriptor _schemaReference({bool required = false}) {
+  return AcpFieldDescriptor(
+    key: 'SchemaDefinitionId',
+    label: 'Schema Definition',
+    required: required,
+    reference: const AcpFieldReferenceDescriptor(
+      entitySet: 'Schemas',
+      scopeMode: AcpScopeMode.optional,
+      title: 'Schemas',
+      searchFields: <String>['Key', 'Title', 'Status'],
+      titleFields: <String>['Title', 'Key', 'Id'],
+      subtitleFields: <String>['Key', 'Version', 'Status', 'Id'],
+      defaultOrderBy: 'Key asc, Version desc',
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _userReference(String key, String label) {
+  return AcpFieldDescriptor(
+    key: key,
+    label: label,
+    reference: const AcpFieldReferenceDescriptor(
+      entitySet: 'Users',
+      scopeMode: AcpScopeMode.none,
+      title: 'Users',
+      searchFields: <String>['LoginEmail', 'Username'],
+      titleFields: <String>['LoginEmail', 'Username', 'Id'],
+      subtitleFields: <String>['Username', 'LoginEmail', 'Id'],
+      defaultOrderBy: 'Username asc',
+      retainHistoricalSelection: true,
+    ),
+  );
+}
+
+AcpFieldDescriptor _pluginKey() {
+  return _text(
+    'PluginKey',
+    'Plugin Key',
+    required: true,
+    options: _pluginKeyOptions,
+    searchableOptions: true,
+    allowCustomOption: true,
+  );
+}
+
+AcpFieldDescriptor _capabilities() {
+  return const AcpFieldDescriptor(
+    key: 'Capabilities',
+    label: 'Capabilities',
+    kind: AcpFieldKind.stringList,
+    required: true,
+    options: _capabilityOptions,
+    multiSelectOptions: true,
+    allowCustomOption: true,
+    initialValue: <String>[],
   );
 }
 

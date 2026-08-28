@@ -8,6 +8,7 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     title: 'Packs',
     entitySet: 'KnowledgePacks',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Tenant-scoped knowledge-pack containers for approved response governance.',
     columns: <AcpColumnDescriptor>[
@@ -52,6 +53,7 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     title: 'Versions',
     entitySet: 'KnowledgePackVersions',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Draft, review, approved, published, and archived lifecycle records for knowledge packs.',
     columns: <AcpColumnDescriptor>[
@@ -131,6 +133,7 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     title: 'Entries',
     entitySet: 'KnowledgeEntries',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Knowledge items owned by a specific pack version.',
     columns: <AcpColumnDescriptor>[
       _column('EntryKey', 'Entry Key'),
@@ -180,6 +183,7 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     title: 'Entry Revisions',
     entitySet: 'KnowledgeEntryRevisions',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Revision records containing publish-state-controlled entry content.',
     columns: <AcpColumnDescriptor>[
@@ -219,6 +223,7 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     title: 'Approvals',
     entitySet: 'KnowledgeApprovals',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Append-only governance approvals and publish decisions.',
     columns: <AcpColumnDescriptor>[
       _column('Action', 'Action'),
@@ -266,6 +271,7 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     title: 'Scopes',
     entitySet: 'KnowledgeScopes',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Scoped retrieval constraints for knowledge-pack entry revisions.',
     columns: <AcpColumnDescriptor>[
@@ -396,6 +402,7 @@ const AcpColumnReferenceDescriptor _actorUserDisplay =
         entitySet: 'Users',
         scopeMode: AcpScopeMode.none,
         selectFields: <String>['LoginEmail', 'Username'],
+        literalType: AcpFilterLiteralType.guid,
         deletedView: AcpDeletedView.all,
       ),
     );

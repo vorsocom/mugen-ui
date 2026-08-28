@@ -8,6 +8,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     title: 'Channel Profiles',
     entitySet: 'ChannelProfiles',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Tenant-scoped channel profile registry used by intake, routing, and fallback policies.',
     columns: <AcpColumnDescriptor>[
@@ -54,6 +55,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     title: 'Ingress Bindings',
     entitySet: 'IngressBindings',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Inbound identifier bindings used to resolve tenant and channel context.',
     columns: <AcpColumnDescriptor>[
@@ -95,6 +97,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     title: 'Intake Rules',
     entitySet: 'IntakeRules',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Keyword, menu, or intent rules with explicit precedence metadata.',
     columns: <AcpColumnDescriptor>[
@@ -130,6 +133,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     title: 'Routing Rules',
     entitySet: 'RoutingRules',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Queue, owner, and service targets for resolved orchestration routes.',
     columns: <AcpColumnDescriptor>[
@@ -169,6 +173,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     title: 'Policies',
     entitySet: 'OrchestrationPolicies',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Shared hours, escalation, and fallback defaults for channel-agnostic orchestration.',
     columns: <AcpColumnDescriptor>[
@@ -205,6 +210,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     title: 'Throttle Rules',
     entitySet: 'ThrottleRules',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Sender throttling windows, limits, and optional auto-block behavior.',
     columns: <AcpColumnDescriptor>[
@@ -238,6 +244,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     title: 'Blocklist',
     entitySet: 'BlocklistEntries',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Sender-level blocklist rows and moderation actions for channel operations.',
     columns: <AcpColumnDescriptor>[
@@ -296,6 +303,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     title: 'Conversation State',
     entitySet: 'ConversationStates',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Operational conversation snapshots for intake, routing, throttle, escalation, and fallback.',
     columns: <AcpColumnDescriptor>[
@@ -413,6 +421,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     title: 'Work Items',
     entitySet: 'WorkItems',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Canonical channel intake envelopes used for replay, workflow, and case linkage.',
     columns: <AcpColumnDescriptor>[
@@ -499,6 +508,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     title: 'Events',
     entitySet: 'OrchestrationEvents',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Append-only decision timeline for intake, routing, escalation, and throttle operations.',
     columns: <AcpColumnDescriptor>[
@@ -549,6 +559,7 @@ const AcpColumnReferenceDescriptor _clientProfileDisplay =
         entitySet: 'MessagingClientProfiles',
         scopeMode: AcpScopeMode.optional,
         selectFields: <String>['DisplayName', 'PlatformKey', 'ProfileKey'],
+        literalType: AcpFilterLiteralType.guid,
       ),
     );
 
@@ -563,6 +574,7 @@ const AcpColumnReferenceDescriptor _ownerUserDisplay =
         entitySet: 'Users',
         scopeMode: AcpScopeMode.none,
         selectFields: <String>['LoginEmail', 'Username'],
+        literalType: AcpFilterLiteralType.guid,
         deletedView: AcpDeletedView.all,
       ),
     );
@@ -582,6 +594,7 @@ const AcpColumnReferenceDescriptor _linkedCaseDisplay =
         entitySet: 'OpsCases',
         scopeMode: AcpScopeMode.required,
         selectFields: <String>['CaseNumber', 'Title', 'Status'],
+        literalType: AcpFilterLiteralType.guid,
         deletedView: AcpDeletedView.all,
       ),
     );
@@ -601,6 +614,7 @@ const AcpColumnReferenceDescriptor _linkedWorkflowDisplay =
         entitySet: 'OpsWorkflowInstances',
         scopeMode: AcpScopeMode.required,
         selectFields: <String>['Title', 'ExternalRef', 'Status'],
+        literalType: AcpFilterLiteralType.guid,
       ),
     );
 

@@ -73,6 +73,45 @@ void main() {
     );
   });
 
+  testWidgets(
+    'channel profiles show enriched client labels and retain raw IDs in details',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1800, 1200));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: <Override>[
+            orchestrationAdminRepositoryProvider.overrideWithValue(
+              _ChannelProfileEnrichmentRepository(),
+            ),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(body: ChannelOrchestrationPanel()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('WhatsApp Default · whatsapp · default'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('acp-admin-reference-warning')),
+        findsNothing,
+      );
+      expect(find.text(_clientProfileId), findsNothing);
+
+      await tester.tap(find.byTooltip('View row'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(_clientProfileId), findsOneWidget);
+    },
+  );
+
   test(
     'channel profile create requirements match backend validation surface',
     () {
@@ -461,6 +500,60 @@ class _ClientProfileReferenceRepository extends FakeAcpAdminRepository {
             'ProfileKey': 'default',
             'DisplayName': 'WhatsApp Default',
             'Provider': 'meta',
+          },
+        ],
+        total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
+const String _clientProfileId = '20000000-0000-4000-8000-000000000001';
+
+class _ChannelProfileEnrichmentRepository extends FakeAcpAdminRepository {
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    if (descriptor.entitySet != 'ChannelProfiles') {
+      return super.listRows(
+        descriptor: descriptor,
+        pageRequest: pageRequest,
+        tenantId: tenantId,
+        searchTerm: searchTerm,
+        extraFilters: extraFilters,
+        deletedView: deletedView,
+        enrichReferences: enrichReferences,
+      );
+    }
+
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: const <AcpRow>[
+          <String, Object?>{
+            'Id': '10000000-0000-4000-8000-000000000001',
+            'TenantId': 'tenant-1',
+            'RowVersion': 1,
+            'ChannelKey': 'whatsapp',
+            'ProfileKey': 'default',
+            'DisplayName': 'WhatsApp Channel',
+            'ClientProfileId': _clientProfileId,
+            'ClientProfile': <String, Object?>{
+              'Id': _clientProfileId,
+              'DisplayName': 'WhatsApp Default',
+              'PlatformKey': 'whatsapp',
+              'ProfileKey': 'default',
+            },
+            'ServiceRouteDefaultKey': 'support',
+            'IsActive': true,
           },
         ],
         total: 1,

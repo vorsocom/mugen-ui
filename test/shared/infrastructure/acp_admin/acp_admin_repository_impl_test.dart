@@ -5,7 +5,13 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/features/billing_catalog/application/billing_catalog_resources.dart';
+import 'package:mugen_ui/features/core_provisioning/application/connector_resources.dart';
 import 'package:mugen_ui/features/core_provisioning/application/billing_operations_resources.dart';
+import 'package:mugen_ui/features/core_provisioning/application/reporting_resources.dart';
+import 'package:mugen_ui/features/core_provisioning/application/sla_resources.dart';
+import 'package:mugen_ui/features/core_provisioning/application/workflow_resources.dart';
+import 'package:mugen_ui/features/knowledge_pack_admin/application/knowledge_pack_admin_resources.dart';
+import 'package:mugen_ui/features/orchestration_admin/application/orchestration_admin_resources.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_reference_display.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
@@ -116,6 +122,16 @@ void main() {
       AcpExpandDescriptor(navigation: ' '),
     ],
   );
+  final registeredResources = <AcpResourceDescriptor>[
+    ...billingCatalogResources,
+    ...billingOperationsResources,
+    ...connectorResources,
+    ...reportingResources,
+    ...slaResources,
+    ...workflowResources,
+    ...knowledgePackAdminResources,
+    ...orchestrationAdminResources,
+  ];
 
   test('fetchTenants maps tenant payload and request query', () async {
     final fixture = _RepositoryFixture(
@@ -789,6 +805,220 @@ void main() {
       'Id': 'state-1',
       'Name': 'Draft',
     });
+  });
+
+  test('registered expansion re-fetches use typed GUID filters', () async {
+    var index = 0;
+    for (final source in registeredResources.where(
+      (resource) => resource.expansions.isNotEmpty,
+    )) {
+      index += 1;
+      final suffix = index.toString().padLeft(12, '0');
+      final rowId = '10000000-0000-4000-8000-$suffix';
+      final descriptor = AcpResourceDescriptor(
+        key: source.key,
+        title: source.title,
+        entitySet: source.entitySet,
+        scopeMode: source.scopeMode,
+        keyLiteralType: source.keyLiteralType,
+        columns: const <AcpColumnDescriptor>[],
+        expansions: source.expansions,
+      );
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{'Id': rowId},
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': rowId.toUpperCase(),
+                  for (final expansion in source.expansions)
+                    expansion.navigation: <String, Object?>{},
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: 'tenant-1',
+      );
+
+      expect(result.isSuccess, isTrue, reason: source.entitySet);
+      expect(fixture.client.requests, hasLength(2), reason: source.entitySet);
+      expect(
+        fixture.client.requests[1].queryParameters[r'$filter'],
+        "Id in (guid'$rowId')",
+        reason: source.entitySet,
+      );
+    }
+  });
+
+  test('administration batch references use typed GUID filters', () async {
+    final cases =
+        <
+          ({
+            List<AcpResourceDescriptor> resources,
+            String sourceEntitySet,
+            String columnKey,
+            String targetEntitySet,
+          })
+        >[
+          (
+            resources: orchestrationAdminResources,
+            sourceEntitySet: 'ChannelProfiles',
+            columnKey: 'ClientProfileId',
+            targetEntitySet: 'MessagingClientProfiles',
+          ),
+          (
+            resources: connectorResources,
+            sourceEntitySet: 'OpsConnectorInstances',
+            columnKey: 'ConnectorTypeId',
+            targetEntitySet: 'OpsConnectorTypes',
+          ),
+          (
+            resources: connectorResources,
+            sourceEntitySet: 'OpsConnectorCallLogs',
+            columnKey: 'ConnectorInstanceId',
+            targetEntitySet: 'OpsConnectorInstances',
+          ),
+          (
+            resources: reportingResources,
+            sourceEntitySet: 'OpsReportingMetricSeries',
+            columnKey: 'MetricDefinitionId',
+            targetEntitySet: 'OpsReportingMetricDefinitions',
+          ),
+          (
+            resources: reportingResources,
+            sourceEntitySet: 'OpsReportingReportSnapshots',
+            columnKey: 'ReportDefinitionId',
+            targetEntitySet: 'OpsReportingReportDefinitions',
+          ),
+          (
+            resources: slaResources,
+            sourceEntitySet: 'OpsSlaPolicies',
+            columnKey: 'CalendarId',
+            targetEntitySet: 'OpsSlaCalendars',
+          ),
+          (
+            resources: slaResources,
+            sourceEntitySet: 'OpsSlaTargets',
+            columnKey: 'PolicyId',
+            targetEntitySet: 'OpsSlaPolicies',
+          ),
+          (
+            resources: workflowResources,
+            sourceEntitySet: 'OpsWorkflowVersions',
+            columnKey: 'WorkflowDefinitionId',
+            targetEntitySet: 'OpsWorkflowDefinitions',
+          ),
+          (
+            resources: workflowResources,
+            sourceEntitySet: 'OpsWorkflowStates',
+            columnKey: 'WorkflowVersionId',
+            targetEntitySet: 'OpsWorkflowVersions',
+          ),
+          (
+            resources: workflowResources,
+            sourceEntitySet: 'OpsWorkflowTransitions',
+            columnKey: 'FromStateId',
+            targetEntitySet: 'OpsWorkflowStates',
+          ),
+          (
+            resources: knowledgePackAdminResources,
+            sourceEntitySet: 'KnowledgeApprovals',
+            columnKey: 'ActorUserId',
+            targetEntitySet: 'Users',
+          ),
+          (
+            resources: orchestrationAdminResources,
+            sourceEntitySet: 'WorkItems',
+            columnKey: 'LinkedCaseId',
+            targetEntitySet: 'OpsCases',
+          ),
+          (
+            resources: orchestrationAdminResources,
+            sourceEntitySet: 'WorkItems',
+            columnKey: 'LinkedWorkflowInstanceId',
+            targetEntitySet: 'OpsWorkflowInstances',
+          ),
+        ];
+
+    for (var index = 0; index < cases.length; index += 1) {
+      final batchCase = cases[index];
+      final source = batchCase.resources.singleWhere(
+        (resource) => resource.entitySet == batchCase.sourceEntitySet,
+      );
+      final column = source.columns.singleWhere(
+        (candidate) => candidate.key == batchCase.columnKey,
+      );
+      final lookup = column.reference!.batchLookup!;
+      final suffix = (index + 1).toString().padLeft(12, '0');
+      final rowId = '30000000-0000-4000-8000-$suffix';
+      final targetId = '40000000-0000-4000-8000-$suffix';
+      final descriptor = AcpResourceDescriptor(
+        key: source.key,
+        title: source.title,
+        entitySet: source.entitySet,
+        scopeMode: source.scopeMode,
+        keyLiteralType: source.keyLiteralType,
+        columns: <AcpColumnDescriptor>[column],
+      );
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{'Id': rowId, batchCase.columnKey: targetId},
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': targetId.toUpperCase(),
+                  for (final field in lookup.selectFields) field: 'Reference',
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: 'tenant-1',
+      );
+
+      expect(result.isSuccess, isTrue, reason: batchCase.targetEntitySet);
+      expect(fixture.client.requests, hasLength(2));
+      expect(
+        fixture.client.requests[1].path,
+        endsWith('/${batchCase.targetEntitySet}'),
+      );
+      expect(
+        fixture.client.requests[1].queryParameters[r'$filter'],
+        "Id in (guid'$targetId')",
+        reason:
+            '${batchCase.sourceEntitySet}.${batchCase.columnKey} '
+            '-> ${batchCase.targetEntitySet}',
+      );
+    }
   });
 
   test(

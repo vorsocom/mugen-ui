@@ -8,6 +8,7 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
     title: 'SLA Policies',
     entitySet: 'OpsSlaPolicies',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description: 'Tenant SLA policies linked to searchable business calendars.',
     columns: <AcpColumnDescriptor>[
       coreColumn('Code', 'Code'),
@@ -51,6 +52,7 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
     title: 'SLA Calendars',
     entitySet: 'OpsSlaCalendars',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Timezone-aware business windows, working days, and holiday references.',
     columns: <AcpColumnDescriptor>[
@@ -136,6 +138,7 @@ final List<AcpResourceDescriptor> slaResources = <AcpResourceDescriptor>[
     title: 'SLA Targets',
     entitySet: 'OpsSlaTargets',
     scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
     description:
         'Typed metric, priority, severity, duration, warning, and breach targets.',
     columns: <AcpColumnDescriptor>[
@@ -206,6 +209,7 @@ final AcpColumnReferenceDescriptor _calendarDisplay = coreBatchReference(
   navigationPath: 'Calendar',
   entitySet: 'OpsSlaCalendars',
   scopeMode: AcpScopeMode.required,
+  literalType: AcpFilterLiteralType.guid,
   selectFields: const <String>['Name', 'Code', 'Timezone'],
   titleFields: const <AcpReferenceFieldDescriptor>[
     AcpReferenceFieldDescriptor('Name'),
@@ -221,6 +225,7 @@ final AcpColumnReferenceDescriptor _policyDisplay = coreBatchReference(
   navigationPath: 'Policy',
   entitySet: 'OpsSlaPolicies',
   scopeMode: AcpScopeMode.required,
+  literalType: AcpFilterLiteralType.guid,
   selectFields: const <String>['Name', 'Code'],
   titleFields: const <AcpReferenceFieldDescriptor>[
     AcpReferenceFieldDescriptor('Name'),

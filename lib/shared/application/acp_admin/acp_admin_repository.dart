@@ -12,6 +12,7 @@ abstract class AcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   });
 
   Future<Result<AcpRow>> fetchRow({

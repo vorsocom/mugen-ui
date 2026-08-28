@@ -89,7 +89,12 @@ final List<AcpResourceDescriptor> reportingResources = <AcpResourceDescriptor>[
     title: 'Metric Series',
     entitySet: 'OpsReportingMetricSeries',
     columns: <AcpColumnDescriptor>[
-      coreColumn('MetricDefinitionId', 'Metric', flex: 2),
+      coreColumn(
+        'MetricDefinitionId',
+        'Metric',
+        flex: 2,
+        reference: _metricDisplay('MetricDefinition'),
+      ),
       coreColumn('WindowStart', 'Window Start', flex: 2),
       coreColumn('WindowEnd', 'Window End', flex: 2),
       coreColumn('ScopeKey', 'Scope'),
@@ -102,7 +107,12 @@ final List<AcpResourceDescriptor> reportingResources = <AcpResourceDescriptor>[
     entitySet: 'OpsReportingAggregationJobs',
     columns: <AcpColumnDescriptor>[
       coreColumn('Status', 'Status'),
-      coreColumn('MetricDefinitionId', 'Metric', flex: 2),
+      coreColumn(
+        'MetricDefinitionId',
+        'Metric',
+        flex: 2,
+        reference: _metricDisplay('MetricDefinition'),
+      ),
       coreColumn('WindowStart', 'Window Start', flex: 2),
       coreColumn('WindowEnd', 'Window End', flex: 2),
       coreColumn('ErrorMessage', 'Error', flex: 2),
@@ -114,13 +124,49 @@ final List<AcpResourceDescriptor> reportingResources = <AcpResourceDescriptor>[
     entitySet: 'OpsReportingReportSnapshots',
     columns: <AcpColumnDescriptor>[
       coreColumn('Status', 'Status'),
-      coreColumn('ReportDefinitionId', 'Report', flex: 2),
+      coreColumn(
+        'ReportDefinitionId',
+        'Report',
+        flex: 2,
+        reference: _reportDisplay,
+      ),
       coreColumn('WindowStart', 'Window Start', flex: 2),
       coreColumn('WindowEnd', 'Window End', flex: 2),
       coreColumn('CreatedAt', 'Created', flex: 2),
     ],
   ),
 ];
+
+AcpColumnReferenceDescriptor _metricDisplay(String navigationPath) {
+  return coreBatchReference(
+    navigationPath: navigationPath,
+    entitySet: 'OpsReportingMetricDefinitions',
+    scopeMode: AcpScopeMode.required,
+    selectFields: const <String>['Name', 'Code', 'FormulaType'],
+    titleFields: const <AcpReferenceFieldDescriptor>[
+      AcpReferenceFieldDescriptor('Name'),
+      AcpReferenceFieldDescriptor('Code'),
+    ],
+    subtitleFields: const <AcpReferenceFieldDescriptor>[
+      AcpReferenceFieldDescriptor('Code'),
+      AcpReferenceFieldDescriptor('FormulaType'),
+    ],
+  );
+}
+
+final AcpColumnReferenceDescriptor _reportDisplay = coreBatchReference(
+  navigationPath: 'ReportDefinition',
+  entitySet: 'OpsReportingReportDefinitions',
+  scopeMode: AcpScopeMode.required,
+  selectFields: const <String>['Name', 'Code'],
+  titleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Name'),
+    AcpReferenceFieldDescriptor('Code'),
+  ],
+  subtitleFields: const <AcpReferenceFieldDescriptor>[
+    AcpReferenceFieldDescriptor('Code'),
+  ],
+);
 
 List<AcpFieldDescriptor> _metricFields({required bool create}) {
   return <AcpFieldDescriptor>[

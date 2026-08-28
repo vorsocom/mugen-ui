@@ -298,6 +298,7 @@ class _AdminRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     scopes.add(tenantId);
     final row = switch (descriptor.entitySet) {

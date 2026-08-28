@@ -74,6 +74,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     final path = AcpPathBuilder.collectionPath(
       endpoints: appConfig.api.endpoints,
@@ -110,7 +111,16 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       );
     }
 
-    final items = _decodeRows(body['value']);
+    var items = _decodeRows(body['value']);
+    if (enrichReferences && items.isNotEmpty) {
+      items = await _enrichRows(
+        rows: items,
+        descriptor: descriptor,
+        tenantId: tenantId,
+        deletedView: deletedView,
+        expansionPath: path.data!,
+      );
+    }
     final total = _parseCount(body['@count'], fallback: items.length);
     return Result<AcpRowPage>.success(
       AcpRowPage(
@@ -153,7 +163,15 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       );
     }
 
-    return Result<AcpRow>.success(body);
+    final rows = await _enrichRows(
+      rows: <AcpRow>[body],
+      descriptor: descriptor,
+      tenantId: tenantId,
+      deletedView: AcpDeletedView.active,
+      expansionPath: path.data!,
+      expansionIsEntity: true,
+    );
+    return Result<AcpRow>.success(rows.single);
   }
 
   @override
@@ -335,6 +353,216 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     return const Result<void>.success(null);
   }
 
+  Future<List<AcpRow>> _enrichRows({
+    required List<AcpRow> rows,
+    required AcpResourceDescriptor descriptor,
+    required String? tenantId,
+    required AcpDeletedView deletedView,
+    required String expansionPath,
+    bool expansionIsEntity = false,
+  }) async {
+    var enriched = rows
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+    if (descriptor.expansions.isNotEmpty) {
+      enriched = await _enrichExpandedReferences(
+        rows: enriched,
+        expansions: descriptor.expansions,
+        deletedView: deletedView,
+        path: expansionPath,
+        isEntity: expansionIsEntity,
+      );
+    }
+    return _enrichBatchReferences(
+      rows: enriched,
+      descriptor: descriptor,
+      tenantId: tenantId,
+    );
+  }
+
+  Future<List<AcpRow>> _enrichExpandedReferences({
+    required List<AcpRow> rows,
+    required List<AcpExpandDescriptor> expansions,
+    required AcpDeletedView deletedView,
+    required String path,
+    required bool isEntity,
+  }) async {
+    final ids = rows
+        .map((row) => row.id?.trim() ?? '')
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+    if (ids.isEmpty) {
+      return rows;
+    }
+
+    final response = await _send(
+      AcpRequest(
+        method: HttpMethod.get,
+        path: path,
+        queryParameters: isEntity
+            ? AcpQueryBuilder.buildEntityReferenceQuery(expansions: expansions)
+            : AcpQueryBuilder.buildReferenceBatchQuery(
+                ids: ids,
+                selectFields: const <String>[],
+                expansions: expansions,
+                deletedView: deletedView,
+              ),
+      ),
+    );
+    if (response.isFailure) {
+      return rows;
+    }
+
+    final entityRow = isEntity
+        ? _decodeMap(response.data!.response.body)
+        : null;
+    final expandedRows = isEntity
+        ? <AcpRow?>[entityRow].whereType<AcpRow>().toList(growable: false)
+        : _decodeRows(_decodeMap(response.data!.response.body)?['value']);
+    if (expandedRows.isEmpty) {
+      return rows;
+    }
+
+    final byId = <String, AcpRow>{};
+    for (final row in expandedRows) {
+      final id = row.id;
+      if (id != null) {
+        byId[id] = row;
+      }
+    }
+    return rows
+        .map((row) {
+          final expanded = byId[row.id];
+          if (expanded == null) {
+            return row;
+          }
+          final merged = Map<String, dynamic>.from(row);
+          for (final expansion in expansions) {
+            final navigation = expansion.navigation.trim();
+            if (navigation.isNotEmpty && expanded.containsKey(navigation)) {
+              merged[navigation] = expanded[navigation];
+            }
+          }
+          return merged;
+        })
+        .toList(growable: false);
+  }
+
+  Future<List<AcpRow>> _enrichBatchReferences({
+    required List<AcpRow> rows,
+    required AcpResourceDescriptor descriptor,
+    required String? tenantId,
+  }) async {
+    final groups = <String, _AcpBatchReferenceGroup>{};
+    for (final column in descriptor.columns) {
+      final reference = column.reference;
+      final lookup = reference?.batchLookup;
+      if (reference == null || lookup == null) {
+        continue;
+      }
+      final key = <Object>[
+        lookup.entitySet,
+        lookup.scopeMode.name,
+        lookup.idField,
+        lookup.deletedView.name,
+      ].join('|');
+      final group = groups.putIfAbsent(
+        key,
+        () => _AcpBatchReferenceGroup(lookup),
+      );
+      group.columns.add(column);
+      group.selectFields.addAll(lookup.selectFields);
+    }
+    if (groups.isEmpty) {
+      return rows;
+    }
+
+    final enriched = rows
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+    for (final group in groups.values) {
+      final ids = <String>{};
+      for (final row in enriched) {
+        for (final column in group.columns) {
+          final id = row[column.key]?.toString().trim() ?? '';
+          if (id.isNotEmpty) {
+            ids.add(id);
+          }
+        }
+      }
+      if (ids.isEmpty) {
+        continue;
+      }
+
+      final lookup = group.lookup;
+      final path = AcpPathBuilder.collectionPath(
+        endpoints: appConfig.api.endpoints,
+        entitySet: lookup.entitySet,
+        scopeMode: lookup.scopeMode,
+        tenantId: tenantId,
+      );
+      if (path.isFailure) {
+        continue;
+      }
+      final response = await _send(
+        AcpRequest(
+          method: HttpMethod.get,
+          path: path.data!,
+          queryParameters: AcpQueryBuilder.buildReferenceBatchQuery(
+            ids: ids.toList(growable: false),
+            idField: lookup.idField,
+            selectFields: group.selectFields.toList(growable: false),
+            deletedView: lookup.deletedView,
+          ),
+        ),
+      );
+      if (response.isFailure) {
+        continue;
+      }
+      final body = _decodeMap(response.data!.response.body);
+      final targets = _decodeRows(body?['value']);
+      final byId = <String, AcpRow>{};
+      for (final target in targets) {
+        final id = target[lookup.idField]?.toString().trim() ?? '';
+        if (id.isNotEmpty) {
+          byId[id] = target;
+        }
+      }
+      for (final row in enriched) {
+        for (final column in group.columns) {
+          final id = row[column.key]?.toString().trim() ?? '';
+          final target = byId[id];
+          final path = column.reference?.navigationPath;
+          if (target != null && path != null && path.trim().isNotEmpty) {
+            _writePath(row, path, target);
+          }
+        }
+      }
+    }
+    return enriched;
+  }
+
+  void _writePath(Map<String, dynamic> row, String path, Object? value) {
+    final segments = path
+        .split('.')
+        .map((segment) => segment.trim())
+        .where((segment) => segment.isNotEmpty)
+        .toList(growable: false);
+    if (segments.isEmpty) {
+      return;
+    }
+    Map<String, dynamic> current = row;
+    for (final segment in segments.take(segments.length - 1)) {
+      final nested = switch (current[segment]) {
+        final Map value => Map<String, dynamic>.from(value),
+        _ => <String, dynamic>{},
+      };
+      current[segment] = nested;
+      current = nested;
+    }
+    current[segments.last] = value;
+  }
+
   Future<Result<AuthenticatedResponse>> _send(AcpRequest request) async {
     try {
       final response = await authenticatedHttpClient.send(request);
@@ -419,4 +647,12 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     final parsed = int.tryParse(raw?.toString() ?? '');
     return parsed ?? fallback;
   }
+}
+
+class _AcpBatchReferenceGroup {
+  _AcpBatchReferenceGroup(this.lookup);
+
+  final AcpBatchReferenceDescriptor lookup;
+  final List<AcpColumnDescriptor> columns = <AcpColumnDescriptor>[];
+  final Set<String> selectFields = <String>{};
 }

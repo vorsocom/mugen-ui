@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed descriptor-driven ACP administration tables to render accessible,
+  human-readable relationship labels while preserving UUID fallbacks and raw
+  identifiers for inspection.
+
 ### Security
 
 ## [0.15.0] - 2026-08-27

@@ -626,6 +626,7 @@ class _AdminRepository implements AcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     if (descriptor.entitySet == 'KeyRefs') {
       referenceFilters.add(List<String>.from(extraFilters));

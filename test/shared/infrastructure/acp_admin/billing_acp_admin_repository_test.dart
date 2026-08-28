@@ -313,6 +313,7 @@ class _MetadataRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     calls.add((
       entitySet: descriptor.entitySet,

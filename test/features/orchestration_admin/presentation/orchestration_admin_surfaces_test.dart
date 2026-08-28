@@ -413,6 +413,7 @@ class _ClientProfileReferenceRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     if (descriptor.entitySet == 'ChannelProfiles') {
       if ((searchTerm ?? '').trim().isNotEmpty) {
@@ -519,6 +520,7 @@ class _ReferenceLabelRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     final trimmedSearch = searchTerm?.trim() ?? '';
     if (descriptor.entitySet == 'MessagingClientProfiles') {

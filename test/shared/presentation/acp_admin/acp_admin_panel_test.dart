@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mugen_ui/features/core_provisioning/application/billing_operations_resources.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/pagination.dart';
@@ -916,6 +917,59 @@ void main() {
     expect(copiedText, 'CopyResources-1');
     expect(find.text('Object ID copied.'), findsOneWidget);
   });
+
+  testWidgets(
+    'subscription references render accessible labels and preserve raw IDs',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      final semantics = tester.ensureSemantics();
+      final descriptor = billingOperationsResources.singleWhere(
+        (resource) => resource.key == 'billing-subscriptions',
+      );
+
+      await _pumpPanel(
+        tester,
+        descriptors: <AcpResourceDescriptor>[descriptor],
+        repository: _SubscriptionReferenceRepository(),
+      );
+
+      expect(find.text('Example Company · valet-primary'), findsOneWidget);
+      expect(
+        find.text(
+          'valet-customer-inbox-standard-monthly-usd-v1 · recurring · USD',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('missing-account-uuid'), findsOneWidget);
+      expect(find.text('missing-price-uuid'), findsOneWidget);
+      expect(find.text('Not assigned'), findsNWidgets(2));
+      expect(
+        find.bySemanticsLabel('Account: Example Company · valet-primary'),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(
+          'Price: valet-customer-inbox-standard-monthly-usd-v1 · recurring · USD',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('View row').first);
+      await tester.pumpAndSettle();
+      expect(find.text('account-uuid'), findsOneWidget);
+      expect(find.text('price-uuid'), findsOneWidget);
+
+      await tester.binding.setSurfaceSize(const Size(700, 900));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Example Company · valet-primary'), findsOneWidget);
+      expect(find.text('account-uuid'), findsOneWidget);
+      semantics.dispose();
+    },
+  );
 }
 
 Finder _dialogButton(Type buttonType, String label) {
@@ -964,6 +1018,7 @@ class _TenantRowAcpAdminRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     return Result<AcpRowPage>.success(
       AcpRowPage(
@@ -1008,6 +1063,7 @@ class _ReferenceAcpAdminRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     referenceFilters.addAll(extraFilters);
     final rows = switch (descriptor.entitySet) {
@@ -1054,6 +1110,7 @@ class _ArchivedAcpAdminRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     this.deletedView = deletedView;
     return Result<AcpRowPage>.success(
@@ -1069,6 +1126,65 @@ class _ArchivedAcpAdminRepository extends FakeAcpAdminRepository {
           },
         ],
         total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
+class _SubscriptionReferenceRepository extends FakeAcpAdminRepository {
+  static const rows = <AcpRow>[
+    <String, Object?>{
+      'Id': 'subscription-1',
+      'TenantId': 'global-id',
+      'AccountId': 'account-uuid',
+      'PriceId': 'price-uuid',
+      'Status': 'active',
+      'RowVersion': 1,
+      'Account': <String, Object?>{
+        'DisplayName': 'Example Company',
+        'Code': 'valet-primary',
+      },
+      'Price': <String, Object?>{
+        'Code': 'valet-customer-inbox-standard-monthly-usd-v1',
+        'PriceType': 'recurring',
+        'Currency': 'USD',
+        'DeletedAt': '2026-07-31T00:00:00Z',
+      },
+    },
+    <String, Object?>{
+      'Id': 'subscription-2',
+      'TenantId': 'global-id',
+      'AccountId': 'missing-account-uuid',
+      'PriceId': 'missing-price-uuid',
+      'Status': 'active',
+      'RowVersion': 1,
+    },
+    <String, Object?>{
+      'Id': 'subscription-3',
+      'TenantId': 'global-id',
+      'AccountId': null,
+      'PriceId': null,
+      'Status': 'draft',
+      'RowVersion': 1,
+    },
+  ];
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: rows,
+        total: rows.length,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
       ),

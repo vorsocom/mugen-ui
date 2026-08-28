@@ -59,7 +59,9 @@ void main() {
 
     expect(repository.fetchTenantsCalls, 0);
     expect(repository.activeListCalls.single.entitySet, 'SystemFlags');
+    expect(repository.activeListCalls.single.enrichReferences, isTrue);
     expect(repository.countListCalls.single.entitySet, 'SystemFlags');
+    expect(repository.countListCalls.single.enrichReferences, isFalse);
     expect(controller.resourceStateFor('system-flags').tabCount, 40);
     expect(controller.activeDescriptor.entitySet, 'SystemFlags');
     expect(controller.usesTenantScope(controller.activeDescriptor), isFalse);
@@ -465,6 +467,82 @@ void main() {
   );
 
   test(
+    'reference labels remain hydrated after create, edit, and actions',
+    () async {
+      const referenceDescriptor = AcpResourceDescriptor(
+        key: 'subscriptions',
+        title: 'Subscriptions',
+        entitySet: 'Subscriptions',
+        scopeMode: AcpScopeMode.none,
+        columns: <AcpColumnDescriptor>[
+          AcpColumnDescriptor(
+            key: 'AccountId',
+            label: 'Account',
+            reference: AcpColumnReferenceDescriptor(
+              navigationPath: 'Account',
+              titleFields: <AcpReferenceFieldDescriptor>[
+                AcpReferenceFieldDescriptor('DisplayName'),
+              ],
+            ),
+          ),
+        ],
+        entityActions: <AcpActionDescriptor>[routeAction],
+      );
+      final repository = _FakeAcpAdminRepository()
+        ..createResult = const Result<Object?>.success(<String, Object?>{
+          'Id': 'subscription-1',
+        })
+        ..fetchRowValue = const <String, Object?>{
+          'AccountId': 'account-1',
+          'Account': <String, Object?>{'DisplayName': 'Example Company'},
+        };
+      final controller = AcpAdminController(
+        repository: repository,
+        descriptors: const <AcpResourceDescriptor>[referenceDescriptor],
+        onSessionExpired: () {},
+      );
+      addTearDown(controller.dispose);
+      await controller.loadInitialData();
+
+      await controller.createRow(const <String, dynamic>{
+        'AccountId': 'account-1',
+      });
+      expect(
+        controller.rowById('subscription-1')?['Account'],
+        <String, Object?>{'DisplayName': 'Example Company'},
+      );
+
+      await controller.updateRow(
+        rowId: 'subscription-1',
+        values: const <String, dynamic>{'AccountId': 'account-1'},
+        rowVersion: 1,
+      );
+      expect(
+        controller.rowById('subscription-1')?['Account'],
+        <String, Object?>{'DisplayName': 'Example Company'},
+      );
+
+      await controller.runEntityAction(
+        action: routeAction,
+        rowId: 'subscription-1',
+        values: const <String, dynamic>{'RouteKey': 'default'},
+        rowVersion: 1,
+      );
+      expect(
+        controller.rowById('subscription-1')?['Account'],
+        <String, Object?>{'DisplayName': 'Example Company'},
+      );
+      expect(repository.fetchRowCalls, 3);
+      expect(repository.createCalls.single.values, <String, Object?>{
+        'AccountId': 'account-1',
+      });
+      expect(repository.updateCalls.single.values, <String, Object?>{
+        'AccountId': 'account-1',
+      });
+    },
+  );
+
+  test(
     'failed exact conflict refresh falls back to the resource list',
     () async {
       final repository = _FakeAcpAdminRepository()
@@ -600,6 +678,7 @@ class _ListCall {
     required this.pageSize,
     required this.searchTerm,
     required this.deletedView,
+    required this.enrichReferences,
   });
 
   final String entitySet;
@@ -608,6 +687,7 @@ class _ListCall {
   final int pageSize;
   final String? searchTerm;
   final AcpDeletedView deletedView;
+  final bool enrichReferences;
 }
 
 class _CreateCall {
@@ -716,6 +796,7 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
     <String, Object?>{'status': 'ok'},
   );
   Failure? fetchRowFailure;
+  AcpRow? fetchRowValue;
 
   int fetchTenantsCalls = 0;
   int fetchRowCalls = 0;
@@ -754,6 +835,7 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     listCalls.add(
       _ListCall(
@@ -763,6 +845,7 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
         pageSize: pageRequest.pageSize,
         searchTerm: searchTerm,
         deletedView: deletedView,
+        enrichReferences: enrichReferences,
       ),
     );
 
@@ -800,6 +883,7 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
       'Id': rowId,
       'TenantId': tenantId,
       'RowVersion': 1,
+      ...?fetchRowValue,
     });
   }
 

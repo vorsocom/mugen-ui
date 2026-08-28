@@ -442,6 +442,7 @@ class _KeyRefRecordingAcpAdminRepository extends FakeAcpAdminRepository {
     String? searchTerm,
     List<String> extraFilters = const <String>[],
     AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
   }) async {
     if (descriptor.key != 'key-refs') {
       return super.listRows(

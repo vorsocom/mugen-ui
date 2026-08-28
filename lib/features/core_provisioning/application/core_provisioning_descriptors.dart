@@ -9,6 +9,8 @@ AcpColumnDescriptor coreColumn(
   String currencyCodeKey = 'Currency',
   int defaultMinorUnit = 2,
   AcpColumnValueBuilder? valueBuilder,
+  AcpColumnReferenceDescriptor? reference,
+  bool opaqueIdentifier = false,
 }) {
   return AcpColumnDescriptor(
     key: key,
@@ -19,6 +21,31 @@ AcpColumnDescriptor coreColumn(
     currencyCodeKey: currencyCodeKey,
     defaultMinorUnit: defaultMinorUnit,
     valueBuilder: valueBuilder,
+    reference: reference,
+    opaqueIdentifier: opaqueIdentifier,
+  );
+}
+
+AcpColumnReferenceDescriptor coreBatchReference({
+  required String navigationPath,
+  required String entitySet,
+  required AcpScopeMode scopeMode,
+  required List<String> selectFields,
+  required List<AcpReferenceFieldDescriptor> titleFields,
+  List<AcpReferenceFieldDescriptor> subtitleFields =
+      const <AcpReferenceFieldDescriptor>[],
+  AcpDeletedView deletedView = AcpDeletedView.active,
+}) {
+  return AcpColumnReferenceDescriptor(
+    navigationPath: navigationPath,
+    titleFields: titleFields,
+    subtitleFields: subtitleFields,
+    batchLookup: AcpBatchReferenceDescriptor(
+      entitySet: entitySet,
+      scopeMode: scopeMode,
+      selectFields: selectFields,
+      deletedView: deletedView,
+    ),
   );
 }
 

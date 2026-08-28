@@ -15,6 +15,7 @@ import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
 import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
+import 'package:mugen_ui/shared/presentation/forms/app_temporal_form_fields.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -253,7 +254,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
 
   Future<void> _showPlaceLegalHoldDialog(AuditEventEntity event) async {
     final reasonController = TextEditingController();
-    final untilController = TextEditingController();
+    DateTime? legalHoldUntil;
     final formKey = GlobalKey<FormState>();
     final controller = ref.read(auditAdminControllerProvider.notifier);
 
@@ -272,18 +273,18 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
             validator: _requiredValidator,
           ),
           const SizedBox(height: 8),
-          TextFormField(
-            controller: untilController,
-            decoration: appFormInputDecoration(
-              labelText: 'Legal Hold Until (optional)',
-              hintText: '2026-03-01T00:00:00Z',
-              helpText: _auditFieldHelp(
-                'LegalHoldUntil',
-                'Legal Hold Until',
-                kind: AcpFieldKind.dateTime,
-              ),
+          AppDateTimeFormField(
+            key: const Key('audit-legal-hold-until-field'),
+            pickerButtonKey: const Key('audit-legal-hold-until-field-picker'),
+            clearButtonKey: const Key('audit-legal-hold-until-field-clear'),
+            labelText: 'Legal Hold Until (optional)',
+            helpText: _auditFieldHelp(
+              'LegalHoldUntil',
+              'Legal Hold Until',
+              kind: AcpFieldKind.dateTime,
             ),
-            validator: _optionalDateValidator,
+            value: legalHoldUntil,
+            onChanged: (value) => legalHoldUntil = value,
           ),
         ],
         submitLabel: 'Place Hold',
@@ -305,7 +306,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
               eventId: event.id,
               rowVersion: event.rowVersion,
               reason: reasonController.text.trim(),
-              legalHoldUntil: _parseOptionalDate(untilController.text),
+              legalHoldUntil: legalHoldUntil,
               scopeMode: _scopeMode(),
               tenantId: _selectedTenantId(),
             ),
@@ -450,7 +451,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
     final batchSizeController = TextEditingController();
     final maxBatchesController = TextEditingController();
     final selectedPhases = <String>{};
-    final nowOverrideController = TextEditingController();
+    DateTime? nowOverride;
     final formKey = GlobalKey<FormState>();
     var dryRun = true;
 
@@ -535,18 +536,18 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                   },
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: nowOverrideController,
-                  decoration: appFormInputDecoration(
-                    labelText: 'Now Override (optional)',
-                    hintText: '2026-03-01T00:00:00Z',
-                    helpText: _auditFieldHelp(
-                      'NowOverride',
-                      'Now Override',
-                      kind: AcpFieldKind.dateTime,
-                    ),
+                AppDateTimeFormField(
+                  key: const Key('audit-now-override-field'),
+                  pickerButtonKey: const Key('audit-now-override-field-picker'),
+                  clearButtonKey: const Key('audit-now-override-field-clear'),
+                  labelText: 'Now Override (optional)',
+                  helpText: _auditFieldHelp(
+                    'NowOverride',
+                    'Now Override',
+                    kind: AcpFieldKind.dateTime,
                   ),
-                  validator: _optionalDateValidator,
+                  value: nowOverride,
+                  onChanged: (value) => nowOverride = value,
                 ),
               ],
               submitLabel: 'Run',
@@ -593,9 +594,7 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                           maxBatchesController.text,
                         ),
                         dryRun: dryRun,
-                        nowOverride: _parseOptionalDate(
-                          nowOverrideController.text,
-                        ),
+                        nowOverride: nowOverride,
                         phases: phases.isEmpty ? null : phases,
                       ),
                     );
@@ -618,8 +617,8 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
   }
 
   Future<void> _showVerifyChainDialog() async {
-    final fromController = TextEditingController();
-    final toController = TextEditingController();
+    DateTime? fromOccurredAt;
+    DateTime? toOccurredAt;
     final maxRowsController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     var requireClean = false;
@@ -633,32 +632,32 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
               title: 'Verify Chain',
               formKey: formKey,
               fields: [
-                TextFormField(
-                  controller: fromController,
-                  decoration: appFormInputDecoration(
-                    labelText: 'From Occurred At (optional)',
-                    hintText: '2026-03-01T00:00:00Z',
-                    helpText: _auditFieldHelp(
-                      'FromOccurredAt',
-                      'From Occurred At',
-                      kind: AcpFieldKind.dateTime,
-                    ),
+                AppDateTimeFormField(
+                  key: const Key('audit-verify-from-field'),
+                  pickerButtonKey: const Key('audit-verify-from-field-picker'),
+                  clearButtonKey: const Key('audit-verify-from-field-clear'),
+                  labelText: 'From Occurred At (optional)',
+                  helpText: _auditFieldHelp(
+                    'FromOccurredAt',
+                    'From Occurred At',
+                    kind: AcpFieldKind.dateTime,
                   ),
-                  validator: _optionalDateValidator,
+                  value: fromOccurredAt,
+                  onChanged: (value) => fromOccurredAt = value,
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
-                  controller: toController,
-                  decoration: appFormInputDecoration(
-                    labelText: 'To Occurred At (optional)',
-                    hintText: '2026-03-10T00:00:00Z',
-                    helpText: _auditFieldHelp(
-                      'ToOccurredAt',
-                      'To Occurred At',
-                      kind: AcpFieldKind.dateTime,
-                    ),
+                AppDateTimeFormField(
+                  key: const Key('audit-verify-to-field'),
+                  pickerButtonKey: const Key('audit-verify-to-field-picker'),
+                  clearButtonKey: const Key('audit-verify-to-field-clear'),
+                  labelText: 'To Occurred At (optional)',
+                  helpText: _auditFieldHelp(
+                    'ToOccurredAt',
+                    'To Occurred At',
+                    kind: AcpFieldKind.dateTime,
                   ),
-                  validator: _optionalDateValidator,
+                  value: toOccurredAt,
+                  onChanged: (value) => toOccurredAt = value,
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -708,8 +707,8 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
                       AuditVerifyChainInput(
                         scopeMode: _scopeMode(),
                         tenantId: _selectedTenantId(),
-                        fromOccurredAt: _parseOptionalDate(fromController.text),
-                        toOccurredAt: _parseOptionalDate(toController.text),
+                        fromOccurredAt: fromOccurredAt,
+                        toOccurredAt: toOccurredAt,
                         maxRows: _parseOptionalInt(maxRowsController.text),
                         requireClean: requireClean,
                       ),
@@ -1585,19 +1584,6 @@ String? _requiredValidator(String? value) {
   return null;
 }
 
-String? _optionalDateValidator(String? value) {
-  final raw = value?.trim() ?? '';
-  if (raw.isEmpty) {
-    return null;
-  }
-
-  if (DateTime.tryParse(raw) == null) {
-    return 'Invalid date/time format.';
-  }
-
-  return null;
-}
-
 String? _optionalNonNegativeIntValidator(String? value) {
   final raw = value?.trim() ?? '';
   if (raw.isEmpty) {
@@ -1624,15 +1610,6 @@ String? _optionalPositiveIntValidator(String? value) {
   }
 
   return null;
-}
-
-DateTime? _parseOptionalDate(String raw) {
-  final trimmed = raw.trim();
-  if (trimmed.isEmpty) {
-    return null;
-  }
-
-  return DateTime.tryParse(trimmed)?.toUtc();
 }
 
 int? _parseOptionalInt(String raw) {

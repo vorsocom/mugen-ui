@@ -11,6 +11,7 @@ import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_admin_panel.dart';
 import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
+import 'package:mugen_ui/shared/presentation/forms/app_temporal_form_fields.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 import '../../../test_support/fake_acp_admin_repository.dart';
@@ -523,7 +524,138 @@ void main() {
     expect(find.text('Create Retained Input'), findsNothing);
   });
 
-  testWidgets('timezone validation rejects naive timestamps', (
+  testWidgets('temporal fields use selectors and retain wire payload shapes', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() async {
+      await tester.binding.setSurfaceSize(null);
+    });
+    final repository = await _pumpPanel(
+      tester,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'windows',
+          title: 'Windows',
+          entitySet: 'Windows',
+          scopeMode: AcpScopeMode.none,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'WindowStart', label: 'Window Start'),
+          ],
+          createFields: <AcpFieldDescriptor>[
+            AcpFieldDescriptor(
+              key: 'WindowStart',
+              label: 'Window Start',
+              kind: AcpFieldKind.dateTime,
+              required: true,
+              initialValue: '2026-08-26T12:34:45-04:00',
+            ),
+            AcpFieldDescriptor(
+              key: 'BusinessStart',
+              label: 'Business Start',
+              kind: AcpFieldKind.timeOfDay,
+              initialValue: '08:15:42',
+            ),
+            AcpFieldDescriptor(
+              key: 'HolidayRefs',
+              label: 'Holiday Dates',
+              kind: AcpFieldKind.dateList,
+              initialValue: <String>['2026-12-25', '2026-01-01', '2026-12-25'],
+            ),
+          ],
+          allowCreate: true,
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppDateTimeFormField), findsOneWidget);
+    expect(find.byType(AppTimeOfDayFormField), findsOneWidget);
+    expect(find.byType(AppDateListFormField), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('acp-dynamic-field-WindowStart')),
+        matching: find.byType(EditableText),
+      ),
+      findsNothing,
+    );
+    expect(find.text('2026-08-26 16:34 UTC'), findsOneWidget);
+    expect(find.text('08:15'), findsOneWidget);
+    expect(
+      find.byKey(const Key('app-date-list-chip-2026-01-01')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('app-date-list-chip-2026-12-25')),
+      findsOneWidget,
+    );
+
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(repository.createPayloads.single, <String, Object?>{
+      'WindowStart': '2026-08-26T16:34:45.000Z',
+      'BusinessStart': '08:15:42',
+      'HolidayRefs': <String>['2026-01-01', '2026-12-25'],
+    });
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('acp-dynamic-field-WindowStart-picker')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'OK'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'OK'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('acp-dynamic-field-BusinessStart-picker')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'OK'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('acp-dynamic-field-HolidayRefs-clear')),
+    );
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const Key('acp-dynamic-field-HolidayRefs-picker')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'OK'));
+    await tester.pumpAndSettle();
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+
+    final changedPayload = repository.createPayloads.last;
+    final changedDateTime = DateTime.parse(
+      changedPayload['WindowStart']! as String,
+    );
+    expect(changedDateTime.isUtc, isTrue);
+    expect(changedDateTime.second, 0);
+    expect(changedDateTime.millisecond, 0);
+    expect(changedPayload['BusinessStart'], '08:15:00');
+    expect(changedPayload['HolidayRefs'], hasLength(1));
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('acp-dynamic-field-BusinessStart-clear')),
+    );
+    await tester.tap(
+      find.byKey(const Key('acp-dynamic-field-HolidayRefs-clear')),
+    );
+    await tester.pump();
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(repository.createPayloads.last, <String, Object?>{
+      'WindowStart': '2026-08-26T16:34:45.000Z',
+    });
+  });
+
+  testWidgets('malformed temporal values remain diagnosable and recoverable', (
     WidgetTester tester,
   ) async {
     final repository = await _pumpPanel(
@@ -543,6 +675,7 @@ void main() {
               label: 'Window Start',
               kind: AcpFieldKind.dateTime,
               required: true,
+              initialValue: 'not-a-timestamp',
             ),
           ],
           allowCreate: true,
@@ -552,25 +685,26 @@ void main() {
 
     await tester.tap(find.byKey(const Key('acp-admin-create-button')));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.byKey(const Key('acp-dynamic-field-WindowStart')),
-      '2026-08-26T12:00:00',
-    );
+    expect(find.byTooltip('not-a-timestamp'), findsOneWidget);
+    expect(find.text('Select a UTC date and time'), findsOneWidget);
+
     await tester.tap(_dialogButton(FilledButton, 'Create'));
     await tester.pumpAndSettle();
     expect(find.textContaining('with a timezone'), findsWidgets);
     expect(repository.createPayloads, isEmpty);
 
-    await tester.enterText(
-      find.byKey(const Key('acp-dynamic-field-WindowStart')),
-      '2026-08-26T12:00:00-04:00',
+    await tester.tap(
+      find.byKey(const Key('acp-dynamic-field-WindowStart-picker')),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'OK'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'OK'));
+    await tester.pumpAndSettle();
     await tester.tap(_dialogButton(FilledButton, 'Create'));
     await tester.pumpAndSettle();
-    expect(
-      repository.createPayloads.single['WindowStart'],
-      '2026-08-26T16:00:00.000Z',
-    );
+
+    expect(repository.createPayloads, hasLength(1));
   });
 
   testWidgets('integer-list validation enforces configured bounds', (
@@ -820,6 +954,17 @@ void main() {
               ),
             ),
             const AcpFieldDescriptor(
+              key: 'EffectiveAt',
+              label: 'Effective At',
+              kind: AcpFieldKind.dateTime,
+              initialValue: '2026-08-28T10:30:45Z',
+              visibleWhenEquals: <String, List<Object>>{
+                'PriceType': <Object>['metered'],
+              },
+              clearWhenHidden: true,
+              submitNullWhenHidden: true,
+            ),
+            const AcpFieldDescriptor(
               key: 'QuantityDelta',
               label: 'Quantity Delta',
               kind: AcpFieldKind.integer,
@@ -863,7 +1008,10 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(const Key('acp-dynamic-field-PriceType')));
+    final priceTypeField = find.byKey(const Key('acp-dynamic-field-PriceType'));
+    await tester.ensureVisible(priceTypeField);
+    await tester.pumpAndSettle();
+    await tester.tap(priceTypeField);
     await tester.pumpAndSettle();
     await tester.tap(find.text('recurring').last);
     await tester.pumpAndSettle();
@@ -871,11 +1019,16 @@ void main() {
       find.byKey(const Key('acp-reference-search-MeterDefinitionId')),
       findsNothing,
     );
+    expect(
+      find.byKey(const Key('acp-dynamic-field-EffectiveAt')),
+      findsNothing,
+    );
     await tester.tap(_dialogButton(FilledButton, 'Create'));
     await tester.pumpAndSettle();
     expect(repository.createPayloads.single, <String, Object?>{
       'PriceType': 'recurring',
       'MeterDefinitionId': null,
+      'EffectiveAt': null,
       'QuantityDelta': 8,
     });
   });

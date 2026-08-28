@@ -102,6 +102,12 @@ void main() {
     ]);
     expect(
       dedupDescriptor.createFields
+          .firstWhere((field) => field.key == 'ExpiresAt')
+          .kind,
+      AcpFieldKind.dateTime,
+    );
+    expect(
+      dedupDescriptor.createFields
           .firstWhere((field) => field.key == 'Status')
           .options,
       <String>['in_progress', 'succeeded', 'failed'],

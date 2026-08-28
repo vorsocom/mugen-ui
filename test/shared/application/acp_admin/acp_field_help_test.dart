@@ -98,6 +98,33 @@ void main() {
     expect(amountHelp, isNot(contains('for example 15000')));
   });
 
+  test('temporal fallback help describes selector-driven precision', () {
+    expect(
+      acpFieldHelpText(
+        key: 'UnknownTimestamp',
+        label: 'Unknown Timestamp',
+        kind: AcpFieldKind.dateTime,
+      ),
+      contains('calendar date and 24-hour time'),
+    );
+    expect(
+      acpFieldHelpText(
+        key: 'UnknownTime',
+        label: 'Unknown Time',
+        kind: AcpFieldKind.timeOfDay,
+      ),
+      contains('minute precision'),
+    );
+    expect(
+      acpFieldHelpText(
+        key: 'UnknownDates',
+        label: 'Unknown Dates',
+        kind: AcpFieldKind.dateList,
+      ),
+      contains('YYYY-MM-DD'),
+    );
+  });
+
   test('every built-in ACP form field has explicit descriptive guidance', () {
     final resources = <AcpResourceDescriptor>[
       ...runtimeAdminResources,
@@ -144,7 +171,7 @@ void main() {
       'Whole-number value for "',
       'Controls whether "',
       'JSON value for "',
-      'Timestamp for "',
+      'UTC timestamp for "',
       'Free-text value for "',
     ];
     final checked = <String>{};

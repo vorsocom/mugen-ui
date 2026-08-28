@@ -21,6 +21,7 @@ import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_json_codec.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_json_editor_field.dart';
 import 'package:mugen_ui/shared/presentation/admin/admin_components.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
+import 'package:mugen_ui/shared/presentation/forms/app_temporal_form_fields.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -1721,6 +1722,57 @@ List<int>? _decodeIntegerList(String raw) {
   return parsed;
 }
 
+DateTime? _decodeDateTime(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) {
+    return null;
+  }
+  return DateTime.tryParse(trimmed)?.toUtc();
+}
+
+TimeOfDay? _decodeTimeOfDay(String raw) {
+  final match = RegExp(
+    r'^(?<hour>[01]\d|2[0-3]):(?<minute>[0-5]\d)(?::[0-5]\d(?:\.\d{1,6})?)?$',
+  ).firstMatch(raw.trim());
+  if (match == null) {
+    return null;
+  }
+  return TimeOfDay(
+    hour: int.parse(match.namedGroup('hour')!),
+    minute: int.parse(match.namedGroup('minute')!),
+  );
+}
+
+List<DateTime>? _decodeDateList(String raw) {
+  final values = _decodeStringList(raw);
+  final byDate = <String, DateTime>{};
+  for (final value in values) {
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value);
+    if (match == null) {
+      return null;
+    }
+    final year = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final day = int.parse(match.group(3)!);
+    final date = DateTime.utc(year, month, day);
+    if (date.year != year || date.month != month || date.day != day) {
+      return null;
+    }
+    byDate[value] = date;
+  }
+  final dates = byDate.values.toList()..sort();
+  return dates;
+}
+
+String _formatDateOnly(DateTime value) {
+  final utc = value.toUtc();
+  String twoDigits(int part) => part.toString().padLeft(2, '0');
+  return '${utc.year.toString().padLeft(4, '0')}-${twoDigits(utc.month)}-${twoDigits(utc.day)}';
+}
+
+String _formatTimeOfDay(TimeOfDay value) =>
+    '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:00';
+
 String? _referenceTenantIdFor({
   required AcpFieldReferenceDescriptor reference,
   required AcpAdminState state,
@@ -2854,6 +2906,80 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       );
     }
 
+    if (field.kind == AcpFieldKind.dateTime) {
+      return AppDateTimeFormField(
+        key: Key('acp-dynamic-field-${field.key}'),
+        labelText: field.label,
+        hintText: field.hintText ?? 'Select a UTC date and time',
+        helpText: helpText,
+        helpKey: helpKey,
+        pickerButtonKey: Key('acp-dynamic-field-${field.key}-picker'),
+        clearButtonKey: Key('acp-dynamic-field-${field.key}-clear'),
+        value: _decodeDateTime(controller.text),
+        diagnosticValue: controller.text,
+        required: _isRequired(field),
+        enabled: !field.readOnly,
+        readOnly: field.readOnly,
+        validator: (_) => _validateField(field, controller.text),
+        onChanged: (value) {
+          setState(() {
+            controller.text = value?.toUtc().toIso8601String() ?? '';
+            _clearNewlyHiddenFields();
+          });
+        },
+      );
+    }
+
+    if (field.kind == AcpFieldKind.timeOfDay) {
+      return AppTimeOfDayFormField(
+        key: Key('acp-dynamic-field-${field.key}'),
+        labelText: field.label,
+        hintText: field.hintText ?? 'Select a time',
+        helpText: helpText,
+        helpKey: helpKey,
+        pickerButtonKey: Key('acp-dynamic-field-${field.key}-picker'),
+        clearButtonKey: Key('acp-dynamic-field-${field.key}-clear'),
+        value: _decodeTimeOfDay(controller.text),
+        diagnosticValue: controller.text,
+        required: _isRequired(field),
+        enabled: !field.readOnly,
+        readOnly: field.readOnly,
+        validator: (_) => _validateField(field, controller.text),
+        onChanged: (value) {
+          setState(() {
+            controller.text = value == null ? '' : _formatTimeOfDay(value);
+            _clearNewlyHiddenFields();
+          });
+        },
+      );
+    }
+
+    if (field.kind == AcpFieldKind.dateList) {
+      return AppDateListFormField(
+        key: Key('acp-dynamic-field-${field.key}'),
+        labelText: field.label,
+        hintText: field.hintText ?? 'Add one or more dates',
+        helpText: helpText,
+        helpKey: helpKey,
+        pickerButtonKey: Key('acp-dynamic-field-${field.key}-picker'),
+        clearButtonKey: Key('acp-dynamic-field-${field.key}-clear'),
+        values: _decodeDateList(controller.text) ?? const <DateTime>[],
+        diagnosticValue: controller.text,
+        required: _isRequired(field),
+        enabled: !field.readOnly,
+        readOnly: field.readOnly,
+        validator: (_) => _validateField(field, controller.text),
+        onChanged: (values) {
+          setState(() {
+            controller.text = values.isEmpty
+                ? ''
+                : jsonEncode(values.map(_formatDateOnly).toList());
+            _clearNewlyHiddenFields();
+          });
+        },
+      );
+    }
+
     final optionValues = _optionValuesFor(field);
     if (field.multiSelectOptions) {
       return _buildMultiOptionField(
@@ -3281,6 +3407,15 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
           return 'Enter a 24-hour time as HH:mm or HH:mm:ss.';
         }
         return null;
+      case AcpFieldKind.dateList:
+        final dates = _decodeDateList(trimmed);
+        if (dates == null) {
+          return 'Select valid calendar dates.';
+        }
+        if (_isRequired(field) && dates.isEmpty) {
+          return '${field.label} is required.';
+        }
+        return null;
       case AcpFieldKind.text:
       case AcpFieldKind.multiline:
       case AcpFieldKind.boolean:
@@ -3452,6 +3587,13 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         case AcpFieldKind.stringList:
           _storePayloadValue(payload, field, _decodeStringList(trimmed));
           break;
+        case AcpFieldKind.dateList:
+          _storePayloadValue(
+            payload,
+            field,
+            _decodeDateList(trimmed)!.map(_formatDateOnly).toList(),
+          );
+          break;
         case AcpFieldKind.json:
           _storePayloadValue(payload, field, AcpJsonCodec.parse(trimmed).data);
           break;
@@ -3573,6 +3715,11 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         return AcpJsonCodec.prettyPrint(value);
       case AcpFieldKind.dateTime:
       case AcpFieldKind.timeOfDay:
+        return value.toString();
+      case AcpFieldKind.dateList:
+        if (value is List) {
+          return jsonEncode(value);
+        }
         return value.toString();
       case AcpFieldKind.integerList:
       case AcpFieldKind.stringList:

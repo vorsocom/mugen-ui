@@ -22,6 +22,7 @@ enum AcpFieldKind {
   json,
   dateTime,
   timeOfDay,
+  dateList,
 }
 
 typedef AcpPayloadValidator = String? Function(Map<String, dynamic> payload);

@@ -456,10 +456,22 @@ void main() {
       _field(calendar.updateFields, 'BusinessStartTime').kind,
       AcpFieldKind.timeOfDay,
     );
+    expect(
+      _field(calendar.updateFields, 'BusinessStartTime').hintText,
+      'Select a 24-hour time',
+    );
     final businessDays = _field(calendar.updateFields, 'BusinessDays');
     expect(businessDays.kind, AcpFieldKind.integerList);
     expect(businessDays.minimumValue, 1);
     expect(businessDays.maximumValue, 7);
+    expect(
+      _field(calendar.createFields, 'HolidayRefs').kind,
+      AcpFieldKind.dateList,
+    );
+    expect(
+      _field(calendar.updateFields, 'HolidayRefs').kind,
+      AcpFieldKind.dateList,
+    );
     final target = _resource(slaResources, 'OpsSlaTargets');
     expect(_field(target.createFields, 'TargetMinutes').minimumValue, 1);
     expect(
@@ -485,6 +497,13 @@ void main() {
           .expand((action) => action.fields)
           .where((field) => field.key.startsWith('Window'))
           .every((field) => field.kind == AcpFieldKind.dateTime),
+      isTrue,
+    );
+    expect(
+      metrics.entityActions
+          .expand((action) => action.fields)
+          .where((field) => field.key.startsWith('Window'))
+          .every((field) => field.hintText == 'Select a UTC date and time'),
       isTrue,
     );
     final reports = _resource(

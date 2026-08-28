@@ -99,6 +99,25 @@ void main() {
       containsAll(<String>['MeterCode', 'UsageUnit']),
     );
     expect(prices.deletedViews, AcpDeletedView.values);
+
+    final taxRates = _resource('BillingTaxRates');
+    expect(
+      _field(taxRates.createFields, 'EffectiveFrom').kind,
+      AcpFieldKind.dateTime,
+    );
+    expect(
+      _field(taxRates.updateFields, 'EffectiveTo').kind,
+      AcpFieldKind.dateTime,
+    );
+    final discounts = _resource('BillingDiscountDefinitions');
+    expect(
+      _field(discounts.createFields, 'ValidFrom').kind,
+      AcpFieldKind.dateTime,
+    );
+    expect(
+      _field(discounts.updateFields, 'ValidUntil').kind,
+      AcpFieldKind.dateTime,
+    );
   });
 
   test('Price Entitlements constrain packages, meters, and allowances', () {

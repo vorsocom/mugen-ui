@@ -107,9 +107,9 @@ const Map<String, String> _fieldHelpByContext = <String, String>{
   'billingprices::pricetype':
       'Commercial charging model for the Price: one-time, recurring, or metered. Referenced Prices may make this field immutable.',
   'billingprices::currency':
-      'Three-letter ISO currency code, such as USD or GYD. The amount is stored in that currency’s minor units.',
+      'Three-letter ISO currency code, such as USD or GYD. Enter amounts in major units; the UI converts them to this currency’s minor-unit precision for the API.',
   'billingprices::unitamount':
-      'Charge amount in minor currency units, for example 15000 for USD 150.00. Leave blank only when the backend permits custom pricing.',
+      'Charge amount in major currency units, for example 150.00 for USD. The UI converts it to minor units for the API. Leave blank only when the backend permits custom pricing.',
   'billingprices::intervalunit':
       'Recurring billing period: day, week, month, or year. Use it together with Interval Count.',
   'billingprices::intervalcount':

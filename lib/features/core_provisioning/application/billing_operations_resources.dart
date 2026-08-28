@@ -1469,7 +1469,7 @@ AcpFieldDescriptor _invoice({
     applyAfterCreate: applyAfterCreate,
     searchFields: const <String>['Number', 'Status', 'Currency'],
     titleFields: const <String>['Number', 'Id'],
-    subtitleFields: const <String>['Status', 'Currency', 'TotalAmount'],
+    subtitleFields: const <String>['Status', 'Currency'],
     extraFilters: draftOnly ? const <String>["Status eq 'draft'"] : const [],
     filterFieldsFromForm: const <String, String>{'AccountId': 'AccountId'},
     retainHistoricalSelection: true,
@@ -1488,7 +1488,7 @@ AcpFieldDescriptor _payment({bool required = false}) {
     required: required,
     searchFields: const <String>['ExternalRef', 'Status', 'Currency'],
     titleFields: const <String>['ExternalRef', 'Id'],
-    subtitleFields: const <String>['Status', 'Currency', 'Amount'],
+    subtitleFields: const <String>['Status', 'Currency'],
     copyFieldsFromSelection: const <String, String>{
       'Currency': '_CurrencyCode',
       '_CurrencyMinorUnit': '_CurrencyMinorUnit',
@@ -1504,7 +1504,7 @@ AcpFieldDescriptor _creditNote({bool applyAfterCreate = false}) {
     applyAfterCreate: applyAfterCreate,
     searchFields: const <String>['Number', 'Status', 'ExternalRef'],
     titleFields: const <String>['Number', 'Id'],
-    subtitleFields: const <String>['Status', 'Currency', 'TotalAmount'],
+    subtitleFields: const <String>['Status', 'Currency'],
   );
 }
 
@@ -1560,12 +1560,7 @@ AcpFieldDescriptor _recurringPrice({bool required = false}) {
     required: required,
     searchFields: const <String>['Code', 'Currency'],
     titleFields: const <String>['Code'],
-    subtitleFields: const <String>[
-      'Currency',
-      'UnitAmount',
-      'IntervalUnit',
-      'IntervalCount',
-    ],
+    subtitleFields: const <String>['Currency', 'IntervalUnit', 'IntervalCount'],
     defaultOrderBy: 'Code asc',
     extraFilters: const <String>["PriceType eq 'recurring'"],
     retainHistoricalSelection: true,

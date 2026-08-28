@@ -91,6 +91,15 @@ void main() {
       );
       expect(
         delegate.calls
+            .firstWhere(
+              (call) => call.entitySet == 'BillingCurrencyDefinitions',
+            )
+            .deletedView,
+        AcpDeletedView.all,
+        reason: 'historical rows retain archived currency precision',
+      );
+      expect(
+        delegate.calls
             .firstWhere((call) => call.entitySet == 'BillingPrices')
             .deletedView,
         AcpDeletedView.all,

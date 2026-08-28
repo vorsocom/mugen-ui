@@ -205,7 +205,7 @@ class BillingAcpAdminRepository implements AcpAdminRepository {
         pageSize: 500,
       ),
       pageRequest: const PageRequest(page: 1, pageSize: 500),
-      deletedView: AcpDeletedView.active,
+      deletedView: AcpDeletedView.all,
     );
     if (currencies.isSuccess) {
       _minorUnitsById = <String, int>{};

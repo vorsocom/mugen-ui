@@ -723,6 +723,64 @@ void main() {
     },
   );
 
+  testWidgets(
+    'money fields never assume two decimals when precision is unavailable',
+    (WidgetTester tester) async {
+      final repository = _UnresolvedMoneyAcpAdminRepository();
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: const <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'payments',
+            title: 'Payments',
+            entitySet: 'Payments',
+            scopeMode: AcpScopeMode.none,
+            columns: <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Amount', label: 'Amount', money: true),
+            ],
+            createFields: <AcpFieldDescriptor>[
+              AcpFieldDescriptor(
+                key: '_CurrencyMinorUnit',
+                label: 'Minor Unit',
+                hidden: true,
+                includeInPayload: false,
+              ),
+              AcpFieldDescriptor(
+                key: 'Amount',
+                label: 'Amount',
+                kind: AcpFieldKind.money,
+                required: true,
+                minorUnitFieldKey: '_CurrencyMinorUnit',
+              ),
+            ],
+            allowCreate: true,
+          ),
+        ],
+      );
+
+      expect(
+        find.text('KWD 12345 minor units (currency precision unavailable)'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Amount')),
+        '12.34',
+      );
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Currency precision is unavailable'),
+        findsWidgets,
+      );
+      expect(repository.createPayloads, isEmpty);
+    },
+  );
+
   testWidgets('conditional references clear stale values and preview impacts', (
     WidgetTester tester,
   ) async {
@@ -1092,6 +1150,35 @@ class _ReferenceAcpAdminRepository extends FakeAcpAdminRepository {
       AcpRowPage(
         items: rows,
         total: rows.length,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
+class _UnresolvedMoneyAcpAdminRepository extends FakeAcpAdminRepository {
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: const <AcpRow>[
+          <String, Object?>{
+            'Id': 'payment-1',
+            'Currency': 'KWD',
+            'Amount': 12345,
+            'RowVersion': 1,
+          },
+        ],
+        total: 1,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
       ),

@@ -19,6 +19,7 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
   Result<Object?> createResult = const Result<Object?>.success(
     <String, Object?>{'ok': true},
   );
+  Result<AcpRow>? fetchRowResult;
   Result<Object?> updateResult = const Result<Object?>.success(
     <String, Object?>{'ok': true},
   );
@@ -32,6 +33,10 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
   );
 
   final List<Map<String, dynamic>> createPayloads = <Map<String, dynamic>>[];
+  final List<Map<String, dynamic>> updatePayloads = <Map<String, dynamic>>[];
+  final List<String> updateRowIds = <String>[];
+  final List<int?> updateRowVersions = <int?>[];
+  int fetchRowCalls = 0;
   int collectionActionCalls = 0;
 
   @override
@@ -76,6 +81,11 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
     required String rowId,
     String? tenantId,
   }) async {
+    fetchRowCalls += 1;
+    final configured = fetchRowResult;
+    if (configured != null) {
+      return configured;
+    }
     return Result<AcpRow>.success(<String, Object?>{
       'Id': rowId,
       'TenantId': tenantId,
@@ -154,6 +164,9 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
     String? tenantId,
     int? rowVersion,
   }) async {
+    updatePayloads.add(Map<String, dynamic>.from(values));
+    updateRowIds.add(rowId);
+    updateRowVersions.add(rowVersion);
     return updateResult;
   }
 }

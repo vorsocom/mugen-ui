@@ -1040,7 +1040,10 @@ Future<void> _showCreateDialog<T extends AcpAdminController>({
         );
       }
       if (createdRowId == null) {
-        final createResult = await controller.createRow(split.initialValues);
+        final createResult = await controller.createRow(
+          split.initialValues,
+          deferRefresh: split.postCreateValues.isNotEmpty,
+        );
         mutationResult = createResult;
         if (createResult.isFailure || split.postCreateValues.isEmpty) {
           return _formMutationResult(controller, createResult);
@@ -1063,12 +1066,33 @@ Future<void> _showCreateDialog<T extends AcpAdminController>({
         }
       }
 
-      final latestRow = controller.rowById(createdRowId!)?.rowVersion;
+      if (createdRowVersion == null) {
+        final refreshResult = await controller.fetchRowForMutation(
+          createdRowId!,
+        );
+        createdRowVersion = refreshResult.data?.rowVersion;
+        if (refreshResult.isFailure || createdRowVersion == null) {
+          final detail = refreshResult.failure?.message.trim() ?? '';
+          mutationResult = Result<Object?>.failure(
+            UnexpectedFailure(
+              'The row was created, but its current RowVersion could not be loaded. '
+              'Your input is retained; retry to fetch the created row and apply '
+              'the remaining fields without creating another row.'
+              '${detail.isEmpty ? '' : ' $detail'}',
+            ),
+          );
+          return mutationResult!;
+        }
+      }
+
       final updateResult = await controller.updateRow(
         rowId: createdRowId!,
         values: split.postCreateValues,
-        rowVersion: latestRow ?? createdRowVersion,
+        rowVersion: createdRowVersion,
       );
+      if (updateResult.isFailure && _isConflictFailure(updateResult.failure)) {
+        createdRowVersion = controller.rowById(createdRowId!)?.rowVersion;
+      }
       mutationResult = updateResult;
       return _formMutationResult(controller, updateResult);
     },
@@ -1085,6 +1109,11 @@ Future<void> _showCreateDialog<T extends AcpAdminController>({
     result: mutationResult!,
     successMessage: 'Created successfully.',
   );
+}
+
+bool _isConflictFailure(Failure? failure) {
+  return failure is ConflictFailure ||
+      (failure is ApiFailure && failure.statusCode == 409);
 }
 
 Future<void> _showUpdateDialog<T extends AcpAdminController>({

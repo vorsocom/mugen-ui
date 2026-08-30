@@ -418,6 +418,138 @@ void main() {
     },
   );
 
+  test(
+    'ACP 201 create response contract preserves JSON identity data',
+    () async {
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 201,
+            body: jsonEncode(<String, Object?>{
+              'Id': 'created-from-body',
+              'RowVersion': 5,
+            }),
+            headers: const <String, String>{
+              'Location': '/api/core/acp/v1/Schemas/ignored-location-id',
+            },
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.createRow(
+        descriptor: optionalDescriptor,
+        values: const <String, Object?>{'Key': 'workflow'},
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data, <String, Object?>{
+        'Id': 'created-from-body',
+        'RowVersion': 5,
+      });
+    },
+  );
+
+  test(
+    'empty ACP 201 responses recover global and tenant IDs from Location',
+    () async {
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 201,
+            body: '{"RowVersion":6}',
+            headers: const <String, String>{
+              'LOCATION':
+                  'https://localdev.vorsocomputing.com:8081/api/core/acp/v1/Schemas/global-created?source=create',
+            },
+          ),
+          (_) => _response(
+            statusCode: 201,
+            body: '',
+            headers: const <String, String>{
+              'location':
+                  '/api/core/acp/v1/tenants/tenant-1/ContextProfiles/tenant-created',
+            },
+          ),
+        ],
+      );
+
+      final global = await fixture.repository.createRow(
+        descriptor: optionalDescriptor,
+        values: const <String, Object?>{'Key': 'global'},
+      );
+      final tenant = await fixture.repository.createRow(
+        descriptor: requiredDescriptor,
+        tenantId: 'tenant-1',
+        values: const <String, Object?>{'Name': 'Tenant row'},
+      );
+
+      expect(global.data, <String, Object?>{
+        'RowVersion': 6,
+        'Id': 'global-created',
+      });
+      expect(tenant.data, <String, Object?>{'Id': 'tenant-created'});
+    },
+  );
+
+  test(
+    'create Location parsing accepts an API base URL with a slash',
+    () async {
+      final fixture = _RepositoryFixture(
+        baseUrl: 'https://localdev.vorsocomputing.com:8081/api/',
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 201,
+            body: '',
+            headers: const <String, String>{
+              'Location': 'core/acp/v1/Schemas/slash-base-created',
+            },
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.createRow(
+        descriptor: optionalDescriptor,
+        values: const <String, Object?>{'Key': 'slash-base'},
+      );
+
+      expect(result.data, <String, Object?>{'Id': 'slash-base-created'});
+    },
+  );
+
+  test(
+    'malformed and cross-resource create Locations are rejected safely',
+    () async {
+      final locations = <String>[
+        '/api/core/acp/v1/OtherResources/cross-resource-id',
+        '/api/core/acp/v1/Schemas/..',
+        'https://untrusted.example/api/core/acp/v1/Schemas/cross-origin-id',
+        'mailto:core/acp/v1/Schemas/non-http-id',
+        '/unexpected/api/core/acp/v1/Schemas/unexpected-prefix-id',
+        '/api/core/acp/v1/Schemas/bad%2Fidentifier',
+        'http://[invalid',
+      ];
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          for (final location in locations)
+            (_) => _response(
+              statusCode: 201,
+              body: '',
+              headers: <String, String>{'Location': location},
+            ),
+        ],
+      );
+
+      for (final location in locations) {
+        final result = await fixture.repository.createRow(
+          descriptor: optionalDescriptor,
+          values: <String, Object?>{'LocationCase': location},
+        );
+        expect(result.isSuccess, isTrue, reason: location);
+        expect(result.data, isNull, reason: location);
+      }
+    },
+  );
+
   test('reference metadata does not alter mutation payloads', () async {
     final fixture = _RepositoryFixture(
       handlers: <_AuthHandler>[
@@ -595,6 +727,11 @@ void main() {
         (_) => _response(statusCode: 401, sessionExpired: true),
       ],
     );
+    final updateFixture = _RepositoryFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(statusCode: 500, body: 'update failed'),
+      ],
+    );
     final deleteFixture = _RepositoryFixture(
       handlers: <_AuthHandler>[
         (_) => _response(statusCode: 500, body: 'delete failed'),
@@ -609,6 +746,11 @@ void main() {
       descriptor: optionalDescriptor,
       values: const <String, dynamic>{'Key': 'schema-a'},
     );
+    final updateResult = await updateFixture.repository.updateRow(
+      descriptor: optionalDescriptor,
+      rowId: 'row-1',
+      values: const <String, dynamic>{'Name': 'Updated'},
+    );
     final deleteResult = await deleteFixture.repository.deleteRow(
       descriptor: optionalDescriptor,
       rowId: 'row-1',
@@ -618,6 +760,8 @@ void main() {
     expect(listResult.failure, isA<SessionExpiredFailure>());
     expect(createResult.isFailure, isTrue);
     expect(createResult.failure, isA<SessionExpiredFailure>());
+    expect(updateResult.isFailure, isTrue);
+    expect(updateResult.failure, isA<ApiFailure>());
     expect(deleteResult.isFailure, isTrue);
     expect(deleteResult.failure, isA<ApiFailure>());
   });
@@ -2015,8 +2159,13 @@ class _RepositoryFixture {
         authenticatedHttpClient: client,
       );
 
-  factory _RepositoryFixture({List<_AuthHandler>? handlers}) {
-    final appConfig = AppConfig.defaults();
+  factory _RepositoryFixture({List<_AuthHandler>? handlers, String? baseUrl}) {
+    final defaults = AppConfig.defaults();
+    final appConfig = baseUrl == null
+        ? defaults
+        : defaults.merge(
+            AppConfigurationOverride(api: ApiConfigOverride(baseUrl: baseUrl)),
+          );
     final client = _FakeAuthenticatedHttpClient(handlers: handlers);
     return _RepositoryFixture._(appConfig, client);
   }
@@ -2077,12 +2226,13 @@ AuthenticatedResponse _response({
   required int statusCode,
   String body = '{}',
   bool sessionExpired = false,
+  Map<String, String> headers = const <String, String>{},
 }) {
   return AuthenticatedResponse(
     response: HttpResponse(
       statusCode: statusCode,
       body: body,
-      headers: const <String, String>{},
+      headers: headers,
     ),
     sessionExpired: sessionExpired,
   );

@@ -502,6 +502,55 @@ void main() {
   );
 
   test(
+    'deferred create preserves response metadata and explicitly refreshes rows',
+    () async {
+      final repository = _FakeAcpAdminRepository()
+        ..createResult = const Result<Object?>.success(<String, Object?>{
+          'Id': 'created-id',
+          'RowVersion': 4,
+        })
+        ..fetchRowValue = const <String, Object?>{'RowVersion': 8};
+      final controller = AcpAdminController(
+        repository: repository,
+        descriptors: descriptors,
+        onSessionExpired: () {},
+      );
+      await controller.loadInitialData();
+
+      final createResult = await controller.createRow(const <String, dynamic>{
+        'Key': 'workflow',
+      }, deferRefresh: true);
+
+      expect(createResult.data, <String, Object?>{
+        'Id': 'created-id',
+        'RowVersion': 4,
+      });
+      expect(repository.fetchRowCalls, 0);
+      expect(controller.rowById('created-id'), isNull);
+      expect(controller.state.isMutating, isFalse);
+
+      final refreshResult = await controller.fetchRowForMutation('created-id');
+      expect(refreshResult.isSuccess, isTrue);
+      expect(controller.rowById('created-id')?.rowVersion, 8);
+
+      repository.fetchRowValue = const <String, Object?>{'Id': null};
+      final unidentifiedRefresh = await controller.fetchRowForMutation(
+        'unidentified-id',
+      );
+      expect(unidentifiedRefresh.isSuccess, isTrue);
+      expect(controller.rowById('unidentified-id'), isNull);
+
+      repository.fetchRowFailure = const ApiFailure(
+        503,
+        'Created row unavailable.',
+      );
+      final failedRefresh = await controller.fetchRowForMutation('other-id');
+      expect(failedRefresh.isFailure, isTrue);
+      expect(controller.errorMessage, 'Created row unavailable.');
+    },
+  );
+
+  test(
     'reference labels remain hydrated after create, edit, and actions',
     () async {
       const referenceDescriptor = AcpResourceDescriptor(

@@ -5,8 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
+import 'package:mugen_ui/features/core_provisioning/application/billing_operations_resources.dart';
 import 'package:mugen_ui/features/core_provisioning/domain/entities/core_plugin_access.dart';
 import 'package:mugen_ui/features/core_provisioning/application/billing_workspace_target.dart';
+import 'package:mugen_ui/features/core_provisioning/application/governance_resources.dart';
+import 'package:mugen_ui/features/core_provisioning/application/sla_resources.dart';
+import 'package:mugen_ui/features/core_provisioning/application/workflow_resources.dart';
 import 'package:mugen_ui/features/core_provisioning/domain/repositories/core_plugin_repository.dart';
 import 'package:mugen_ui/features/core_provisioning/infrastructure/repositories/core_plugin_repository_impl.dart';
 import 'package:mugen_ui/features/core_provisioning/presentation/providers/core_provisioning_providers.dart';
@@ -523,6 +527,101 @@ void main() {
     expect(find.text('Create Two Step'), findsNothing);
   });
 
+  for (final formCase
+      in <
+        ({
+          String surface,
+          AcpResourceDescriptor descriptor,
+          Map<String, String> initialValues,
+          String postCreateKey,
+          String postCreateValue,
+        })
+      >[
+        (
+          surface: 'Workflows',
+          descriptor: workflowResources.first,
+          initialValues: <String, String>{
+            'Key': 'ticket-workflow',
+            'Name': 'Ticket Workflow',
+          },
+          postCreateKey: 'Description',
+          postCreateValue: 'Workflow details',
+        ),
+        (
+          surface: 'SLA',
+          descriptor: slaResources.first,
+          initialValues: <String, String>{
+            'Code': 'support-sla',
+            'Name': 'Support SLA',
+          },
+          postCreateKey: 'Description',
+          postCreateValue: 'SLA details',
+        ),
+        (
+          surface: 'Governance',
+          descriptor: governanceResources.first,
+          initialValues: <String, String>{
+            'Code': 'support-policy',
+            'Name': 'Support Policy',
+          },
+          postCreateKey: 'Version',
+          postCreateValue: '2',
+        ),
+        (
+          surface: 'Billing Operations',
+          descriptor: billingOperationsResources.first,
+          initialValues: <String, String>{
+            'Code': 'account-code',
+            'DisplayName': 'Account Name',
+          },
+          postCreateKey: 'Email',
+          postCreateValue: 'billing@example.test',
+        ),
+      ]) {
+    testWidgets(
+      '${formCase.surface} representative form completes two-step create',
+      (tester) async {
+        final repository = _AdminRepository();
+        await _pumpDescriptorPanel(
+          tester,
+          repository: repository,
+          descriptor: formCase.descriptor,
+        );
+
+        await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+        await tester.pumpAndSettle();
+        for (final entry in formCase.initialValues.entries) {
+          await tester.enterText(
+            find.byKey(Key('acp-dynamic-field-${entry.key}')),
+            entry.value,
+          );
+        }
+        await tester.enterText(
+          find.byKey(Key('acp-dynamic-field-${formCase.postCreateKey}')),
+          formCase.postCreateValue,
+        );
+        await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+        await tester.pumpAndSettle();
+
+        expect(repository.createPayloads, hasLength(1));
+        for (final entry in formCase.initialValues.entries) {
+          expect(repository.createPayloads.single[entry.key], entry.value);
+        }
+        expect(
+          repository.createPayloads.single,
+          isNot(contains(formCase.postCreateKey)),
+        );
+        expect(repository.updatePayloads, hasLength(1));
+        expect(
+          repository.updatePayloads.single[formCase.postCreateKey].toString(),
+          formCase.postCreateValue,
+        );
+        expect(repository.updateRowVersions, <int?>[1]);
+        expect(find.text('Create ${formCase.descriptor.title}'), findsNothing);
+      },
+    );
+  }
+
   for (final entry in <(String, Widget)>[
     ('Billing Operations', const BillingOperationsPanel()),
     ('Connectors', const ConnectorsPanel()),
@@ -606,6 +705,7 @@ class _PluginRepository implements CorePluginRepository {
 class _AdminRepository implements AcpAdminRepository {
   final List<Map<String, dynamic>> createPayloads = <Map<String, dynamic>>[];
   final List<Map<String, dynamic>> updatePayloads = <Map<String, dynamic>>[];
+  final List<int?> updateRowVersions = <int?>[];
   final List<List<String>> referenceFilters = <List<String>>[];
   Result<Object?> updateResult = const Result<Object?>.success(null);
   Result<List<AcpTenantOption>> fetchTenantsResult =
@@ -741,6 +841,7 @@ class _AdminRepository implements AcpAdminRepository {
     int? rowVersion,
   }) async {
     updatePayloads.add(Map<String, dynamic>.from(values));
+    updateRowVersions.add(rowVersion);
     return updateResult;
   }
 }

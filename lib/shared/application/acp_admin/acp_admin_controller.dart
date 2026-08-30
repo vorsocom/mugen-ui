@@ -422,7 +422,10 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     await loadActiveResource();
   }
 
-  Future<Result<Object?>> createRow(Map<String, dynamic> values) async {
+  Future<Result<Object?>> createRow(
+    Map<String, dynamic> values, {
+    bool deferRefresh = false,
+  }) async {
     final descriptor = activeDescriptor;
     final tenantId = _tenantIdFor(descriptor);
     state = state.copyWith(isMutating: true, clearError: true);
@@ -436,6 +439,10 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       final createdRow = _objectAsRow(result.data);
       createdRowId = createdRow?.id;
     }
+    if (result.isSuccess && deferRefresh && createdRowId != null) {
+      state = state.copyWith(isMutating: false);
+      return result;
+    }
     return _finishObjectMutation(
       result,
       descriptor: descriptor,
@@ -446,6 +453,26 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       fallbackMessage: 'Could not create ${descriptor.title.toLowerCase()}.',
       refreshResourceKeys: descriptor.refreshResourceKeys,
     );
+  }
+
+  Future<Result<AcpRow>> fetchRowForMutation(String rowId) async {
+    final descriptor = activeDescriptor;
+    final result = await repository.fetchRow(
+      descriptor: descriptor,
+      rowId: rowId,
+      tenantId: _tenantIdFor(descriptor),
+    );
+    if (result.isFailure) {
+      _applyFailure(
+        result.failure!,
+        fallback: 'Could not refresh ${descriptor.title.toLowerCase()}.',
+      );
+      return result;
+    }
+
+    _storeRefreshedRow(descriptor: descriptor, row: result.data!);
+    state = state.copyWith(clearError: true);
+    return result;
   }
 
   Future<Result<Object?>> updateRow({
@@ -808,14 +835,24 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       return;
     }
 
+    _storeRefreshedRow(descriptor: descriptor, row: result.data!);
+  }
+
+  void _storeRefreshedRow({
+    required AcpResourceDescriptor descriptor,
+    required AcpRow row,
+  }) {
+    final rowId = row.id;
+    if (rowId == null) {
+      return;
+    }
     final resourceState = resourceStateFor(descriptor.key);
-    final refreshedRow = result.data!;
     final rows = <AcpRow>[
-      for (final row in resourceState.rows)
-        if (row.id == rowId) refreshedRow else row,
+      for (final existing in resourceState.rows)
+        if (existing.id == rowId) row else existing,
     ];
-    if (!resourceState.rows.any((row) => row.id == rowId)) {
-      rows.insert(0, refreshedRow);
+    if (!resourceState.rows.any((existing) => existing.id == rowId)) {
+      rows.insert(0, row);
     }
     _replaceResourceState(descriptor.key, resourceState.copyWith(rows: rows));
   }

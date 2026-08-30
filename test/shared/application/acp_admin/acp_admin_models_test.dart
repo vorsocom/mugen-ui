@@ -181,14 +181,13 @@ void main() {
       ).keyLiteralType,
       AcpFilterLiteralType.string,
     );
-    expect(
-      const AcpBatchReferenceDescriptor(
-        entitySet: 'Targets',
-        scopeMode: AcpScopeMode.none,
-        selectFields: <String>[],
-      ).literalType,
-      AcpFilterLiteralType.string,
+    const batchReference = AcpBatchReferenceDescriptor(
+      entitySet: 'Targets',
+      scopeMode: AcpScopeMode.none,
+      selectFields: <String>[],
     );
+    expect(batchReference.literalType, AcpFilterLiteralType.string);
+    expect(batchReference.expansions, isEmpty);
   });
 
   test('tenant labels and row pages normalize display values', () {

@@ -12,12 +12,15 @@ class BillingCatalogAdminController extends AcpAdminController {
   }) : super(descriptors: billingCatalogResources);
 
   @override
-  Future<Result<Object?>> createRow(Map<String, dynamic> values) async {
+  Future<Result<Object?>> createRow(
+    Map<String, dynamic> values, {
+    bool deferRefresh = false,
+  }) async {
     final duplicate = await _validateEntitlementUniqueness(values);
     if (duplicate != null) {
       return Result<Object?>.failure(duplicate);
     }
-    return super.createRow(values);
+    return super.createRow(values, deferRefresh: deferRefresh);
   }
 
   @override

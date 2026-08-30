@@ -19,6 +19,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.15.5] - 2026-08-30
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed shared ACP two-step create forms to recover created identifiers from
+  validated `Location` headers, hydrate missing row versions, and retry only
+  post-create updates after recoverable failures.
+- Fixed Billing Operations entitlement buckets to recover recognizable global
+  Price Rule and Meter Definition labels when navigation expansions are
+  incomplete or unavailable.
+
+### Security
+
 ## [0.15.4] - 2026-08-28
 
 ### Added

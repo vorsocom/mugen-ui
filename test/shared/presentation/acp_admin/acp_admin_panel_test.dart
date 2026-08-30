@@ -524,6 +524,319 @@ void main() {
     expect(find.text('Create Retained Input'), findsNothing);
   });
 
+  for (final createCase
+      in <
+        ({
+          String name,
+          Result<Object?> createResult,
+          Result<AcpRow> fetchResult,
+          int expectedRowVersion,
+          int expectedFetchCalls,
+        })
+      >[
+        (
+          name: 'JSON Id and RowVersion',
+          createResult: const Result<Object?>.success(<String, Object?>{
+            'Id': 'created-id',
+            'RowVersion': 5,
+          }),
+          fetchResult: const Result<AcpRow>.success(<String, Object?>{
+            'Id': 'created-id',
+            'RowVersion': 99,
+          }),
+          expectedRowVersion: 5,
+          expectedFetchCalls: 1,
+        ),
+        (
+          name: 'JSON Id without RowVersion',
+          createResult: const Result<Object?>.success(<String, Object?>{
+            'Id': 'created-id',
+          }),
+          fetchResult: const Result<AcpRow>.success(<String, Object?>{
+            'Id': 'created-id',
+            'RowVersion': 7,
+          }),
+          expectedRowVersion: 7,
+          expectedFetchCalls: 2,
+        ),
+      ]) {
+    testWidgets('two-step create handles ${createCase.name} before PATCH', (
+      WidgetTester tester,
+    ) async {
+      final repository = FakeAcpAdminRepository()
+        ..createResult = createCase.createResult
+        ..fetchRowResult = createCase.fetchResult;
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: const <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'two-step-response',
+            title: 'Two Step Response',
+            entitySet: 'TwoStepResponses',
+            scopeMode: AcpScopeMode.none,
+            columns: <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Name', label: 'Name'),
+            ],
+            createFields: <AcpFieldDescriptor>[
+              AcpFieldDescriptor(key: 'Name', label: 'Name', required: true),
+              AcpFieldDescriptor(
+                key: 'Description',
+                label: 'Description',
+                applyAfterCreate: true,
+              ),
+            ],
+            allowCreate: true,
+          ),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Name')),
+        'Created row',
+      );
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Description')),
+        'Applied after create',
+      );
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(repository.createPayloads, <Map<String, dynamic>>[
+        <String, dynamic>{'Name': 'Created row'},
+      ]);
+      expect(repository.updatePayloads, <Map<String, dynamic>>[
+        <String, dynamic>{'Description': 'Applied after create'},
+      ]);
+      expect(repository.updateRowIds, <String>['created-id']);
+      expect(repository.updateRowVersions, <int?>[
+        createCase.expectedRowVersion,
+      ]);
+      expect(repository.fetchRowCalls, createCase.expectedFetchCalls);
+      expect(find.text('Create Two Step Response'), findsNothing);
+    });
+  }
+
+  testWidgets(
+    'missing create identifier warns once and retry never repeats POST',
+    (WidgetTester tester) async {
+      final repository = FakeAcpAdminRepository()
+        ..createResult = const Result<Object?>.success(null);
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: const <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'missing-create-id',
+            title: 'Missing Create ID',
+            entitySet: 'MissingCreateIds',
+            scopeMode: AcpScopeMode.none,
+            columns: <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Name', label: 'Name'),
+            ],
+            createFields: <AcpFieldDescriptor>[
+              AcpFieldDescriptor(key: 'Name', label: 'Name', required: true),
+              AcpFieldDescriptor(
+                key: 'Description',
+                label: 'Description',
+                applyAfterCreate: true,
+              ),
+            ],
+            allowCreate: true,
+          ),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Name')),
+        'Persisted row',
+      );
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Description')),
+        'Retained description',
+      );
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining(
+          'The row was created, but the server did not return its identifier.',
+        ),
+        findsWidgets,
+      );
+      expect(repository.createPayloads, hasLength(1));
+      expect(repository.updatePayloads, isEmpty);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('acp-dynamic-field-Description')),
+            )
+            .controller!
+            .text,
+        'Retained description',
+      );
+
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(repository.createPayloads, hasLength(1));
+      expect(repository.updatePayloads, isEmpty);
+      expect(find.text('Create Missing Create ID'), findsOneWidget);
+    },
+  );
+
+  testWidgets('missing RowVersion retries hydration without repeating create', (
+    WidgetTester tester,
+  ) async {
+    final repository = FakeAcpAdminRepository()
+      ..createResult = const Result<Object?>.success(<String, Object?>{
+        'Id': 'created-id',
+      })
+      ..fetchRowResult = const Result<AcpRow>.failure(
+        ApiFailure(503, 'Created row is temporarily unavailable.'),
+      );
+    await _pumpPanel(
+      tester,
+      repository: repository,
+      descriptors: const <AcpResourceDescriptor>[
+        AcpResourceDescriptor(
+          key: 'version-hydration',
+          title: 'Version Hydration',
+          entitySet: 'VersionHydrations',
+          scopeMode: AcpScopeMode.none,
+          columns: <AcpColumnDescriptor>[
+            AcpColumnDescriptor(key: 'Name', label: 'Name'),
+          ],
+          createFields: <AcpFieldDescriptor>[
+            AcpFieldDescriptor(key: 'Name', label: 'Name', required: true),
+            AcpFieldDescriptor(
+              key: 'Description',
+              label: 'Description',
+              applyAfterCreate: true,
+            ),
+          ],
+          allowCreate: true,
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-Name')),
+      'Created row',
+    );
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-Description')),
+      'Retained after hydration failure',
+    );
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('current RowVersion could not be loaded'),
+      findsWidgets,
+    );
+    expect(repository.createPayloads, hasLength(1));
+    expect(repository.updatePayloads, isEmpty);
+
+    repository.fetchRowResult = const Result<AcpRow>.success(<String, Object?>{
+      'Id': 'created-id',
+      'RowVersion': 3,
+    });
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+
+    expect(repository.createPayloads, hasLength(1));
+    expect(repository.updatePayloads, hasLength(1));
+    expect(repository.updateRowVersions, <int?>[3]);
+    expect(find.text('Create Version Hydration'), findsNothing);
+  });
+
+  testWidgets(
+    'post-create RowVersion conflict refreshes version and retries only PATCH',
+    (WidgetTester tester) async {
+      final repository = FakeAcpAdminRepository()
+        ..createResult = const Result<Object?>.success(<String, Object?>{
+          'Id': 'created-id',
+          'RowVersion': 1,
+        })
+        ..fetchRowResult = const Result<AcpRow>.success(<String, Object?>{
+          'Id': 'created-id',
+          'RowVersion': 2,
+        })
+        ..updateResult = const Result<Object?>.failure(
+          ConflictFailure(
+            ConflictKind.staleRowVersion,
+            'Concurrent update detected.',
+          ),
+        );
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: const <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'conflict-retry',
+            title: 'Conflict Retry',
+            entitySet: 'ConflictRetries',
+            scopeMode: AcpScopeMode.none,
+            columns: <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Name', label: 'Name'),
+            ],
+            createFields: <AcpFieldDescriptor>[
+              AcpFieldDescriptor(key: 'Name', label: 'Name', required: true),
+              AcpFieldDescriptor(
+                key: 'Description',
+                label: 'Description',
+                applyAfterCreate: true,
+              ),
+            ],
+            allowCreate: true,
+          ),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Name')),
+        'Created row',
+      );
+      await tester.enterText(
+        find.byKey(const Key('acp-dynamic-field-Description')),
+        'Retained conflict value',
+      );
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(repository.createPayloads, hasLength(1));
+      expect(repository.updateRowVersions, <int?>[1]);
+      expect(find.textContaining('Concurrent update detected.'), findsWidgets);
+      expect(
+        tester
+            .widget<TextFormField>(
+              find.byKey(const Key('acp-dynamic-field-Description')),
+            )
+            .controller!
+            .text,
+        'Retained conflict value',
+      );
+
+      repository.updateResult = const Result<Object?>.success(null);
+      await tester.tap(_dialogButton(FilledButton, 'Create'));
+      await tester.pumpAndSettle();
+
+      expect(repository.createPayloads, hasLength(1));
+      expect(repository.updatePayloads, hasLength(2));
+      expect(repository.updateRowVersions, <int?>[1, 2]);
+      expect(find.text('Create Conflict Retry'), findsNothing);
+    },
+  );
+
   testWidgets('temporal fields use selectors and retain wire payload shapes', (
     WidgetTester tester,
   ) async {
@@ -1183,6 +1496,43 @@ void main() {
     },
   );
 
+  testWidgets(
+    'entitlement buckets render recognizable fallback labels instead of UUIDs',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1800, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      final descriptor = billingOperationsResources.singleWhere(
+        (resource) => resource.key == 'billing-entitlement-buckets',
+      );
+
+      await _pumpPanel(
+        tester,
+        descriptors: <AcpResourceDescriptor>[descriptor],
+        repository: _EntitlementBucketReferenceRepository(),
+      );
+
+      expect(
+        find.text(
+          'Valet Customer Inbox Lite · Customer inbox minutes · '
+          'valet.customer-inbox.minutes · 150 included',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('valet.customer-inbox.minutes · minute'),
+        findsOneWidget,
+      );
+      expect(find.text('42000000-0000-4000-8000-000000000001'), findsNothing);
+      expect(find.text('43000000-0000-4000-8000-000000000001'), findsNothing);
+      expect(
+        find.byKey(const Key('acp-admin-reference-warning')),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('reference warnings preserve the usable table', (tester) async {
     await _pumpPanel(
       tester,
@@ -1579,6 +1929,53 @@ class _SubscriptionReferenceRepository extends FakeAcpAdminRepository {
       AcpRowPage(
         items: rows,
         total: rows.length,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
+class _EntitlementBucketReferenceRepository extends FakeAcpAdminRepository {
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: const <AcpRow>[
+          <String, Object?>{
+            'Id': '41000000-0000-4000-8000-000000000001',
+            'PriceEntitlementId': '42000000-0000-4000-8000-000000000001',
+            'MeterDefinitionId': '43000000-0000-4000-8000-000000000001',
+            'PriceEntitlement': <String, Object?>{
+              'IncludedQuantity': 150,
+              'Price': <String, Object?>{
+                'Code': 'valet-customer-inbox-lite-monthly-usd-v1',
+                'Product': <String, Object?>{
+                  'Name': 'Valet Customer Inbox Lite',
+                },
+              },
+              'MeterDefinition': <String, Object?>{
+                'Code': 'valet.customer-inbox.minutes',
+                'Description': 'Customer inbox minutes',
+                'Unit': 'minute',
+              },
+            },
+            'MeterDefinition': <String, Object?>{
+              'Code': 'valet.customer-inbox.minutes',
+              'Description': 'Customer inbox minutes',
+              'Unit': 'minute',
+            },
+          },
+        ],
+        total: 1,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
       ),

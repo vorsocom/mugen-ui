@@ -418,6 +418,138 @@ void main() {
     },
   );
 
+  test(
+    'ACP 201 create response contract preserves JSON identity data',
+    () async {
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 201,
+            body: jsonEncode(<String, Object?>{
+              'Id': 'created-from-body',
+              'RowVersion': 5,
+            }),
+            headers: const <String, String>{
+              'Location': '/api/core/acp/v1/Schemas/ignored-location-id',
+            },
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.createRow(
+        descriptor: optionalDescriptor,
+        values: const <String, Object?>{'Key': 'workflow'},
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data, <String, Object?>{
+        'Id': 'created-from-body',
+        'RowVersion': 5,
+      });
+    },
+  );
+
+  test(
+    'empty ACP 201 responses recover global and tenant IDs from Location',
+    () async {
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 201,
+            body: '{"RowVersion":6}',
+            headers: const <String, String>{
+              'LOCATION':
+                  'https://localdev.vorsocomputing.com:8081/api/core/acp/v1/Schemas/global-created?source=create',
+            },
+          ),
+          (_) => _response(
+            statusCode: 201,
+            body: '',
+            headers: const <String, String>{
+              'location':
+                  '/api/core/acp/v1/tenants/tenant-1/ContextProfiles/tenant-created',
+            },
+          ),
+        ],
+      );
+
+      final global = await fixture.repository.createRow(
+        descriptor: optionalDescriptor,
+        values: const <String, Object?>{'Key': 'global'},
+      );
+      final tenant = await fixture.repository.createRow(
+        descriptor: requiredDescriptor,
+        tenantId: 'tenant-1',
+        values: const <String, Object?>{'Name': 'Tenant row'},
+      );
+
+      expect(global.data, <String, Object?>{
+        'RowVersion': 6,
+        'Id': 'global-created',
+      });
+      expect(tenant.data, <String, Object?>{'Id': 'tenant-created'});
+    },
+  );
+
+  test(
+    'create Location parsing accepts an API base URL with a slash',
+    () async {
+      final fixture = _RepositoryFixture(
+        baseUrl: 'https://localdev.vorsocomputing.com:8081/api/',
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 201,
+            body: '',
+            headers: const <String, String>{
+              'Location': 'core/acp/v1/Schemas/slash-base-created',
+            },
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.createRow(
+        descriptor: optionalDescriptor,
+        values: const <String, Object?>{'Key': 'slash-base'},
+      );
+
+      expect(result.data, <String, Object?>{'Id': 'slash-base-created'});
+    },
+  );
+
+  test(
+    'malformed and cross-resource create Locations are rejected safely',
+    () async {
+      final locations = <String>[
+        '/api/core/acp/v1/OtherResources/cross-resource-id',
+        '/api/core/acp/v1/Schemas/..',
+        'https://untrusted.example/api/core/acp/v1/Schemas/cross-origin-id',
+        'mailto:core/acp/v1/Schemas/non-http-id',
+        '/unexpected/api/core/acp/v1/Schemas/unexpected-prefix-id',
+        '/api/core/acp/v1/Schemas/bad%2Fidentifier',
+        'http://[invalid',
+      ];
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          for (final location in locations)
+            (_) => _response(
+              statusCode: 201,
+              body: '',
+              headers: <String, String>{'Location': location},
+            ),
+        ],
+      );
+
+      for (final location in locations) {
+        final result = await fixture.repository.createRow(
+          descriptor: optionalDescriptor,
+          values: <String, Object?>{'LocationCase': location},
+        );
+        expect(result.isSuccess, isTrue, reason: location);
+        expect(result.data, isNull, reason: location);
+      }
+    },
+  );
+
   test('reference metadata does not alter mutation payloads', () async {
     final fixture = _RepositoryFixture(
       handlers: <_AuthHandler>[
@@ -595,6 +727,11 @@ void main() {
         (_) => _response(statusCode: 401, sessionExpired: true),
       ],
     );
+    final updateFixture = _RepositoryFixture(
+      handlers: <_AuthHandler>[
+        (_) => _response(statusCode: 500, body: 'update failed'),
+      ],
+    );
     final deleteFixture = _RepositoryFixture(
       handlers: <_AuthHandler>[
         (_) => _response(statusCode: 500, body: 'delete failed'),
@@ -609,6 +746,11 @@ void main() {
       descriptor: optionalDescriptor,
       values: const <String, dynamic>{'Key': 'schema-a'},
     );
+    final updateResult = await updateFixture.repository.updateRow(
+      descriptor: optionalDescriptor,
+      rowId: 'row-1',
+      values: const <String, dynamic>{'Name': 'Updated'},
+    );
     final deleteResult = await deleteFixture.repository.deleteRow(
       descriptor: optionalDescriptor,
       rowId: 'row-1',
@@ -618,6 +760,8 @@ void main() {
     expect(listResult.failure, isA<SessionExpiredFailure>());
     expect(createResult.isFailure, isTrue);
     expect(createResult.failure, isA<SessionExpiredFailure>());
+    expect(updateResult.isFailure, isTrue);
+    expect(updateResult.failure, isA<ApiFailure>());
     expect(deleteResult.isFailure, isTrue);
     expect(deleteResult.failure, isA<ApiFailure>());
   });
@@ -1227,6 +1371,324 @@ void main() {
   );
 
   test(
+    'Entitlement Bucket complete expansions avoid batch fallback requests',
+    () async {
+      final descriptor = billingOperationsResources.singleWhere(
+        (resource) => resource.entitySet == 'BillingEntitlementBuckets',
+      );
+      const bucketId = '41000000-0000-4000-8000-000000000001';
+      const priceEntitlementId = '42000000-0000-4000-8000-000000000001';
+      const meterId = '43000000-0000-4000-8000-000000000001';
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': bucketId,
+                  'PriceEntitlementId': priceEntitlementId,
+                  'MeterDefinitionId': meterId,
+                },
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': bucketId.toUpperCase(),
+                  'PriceEntitlement': <String, Object?>{
+                    'IncludedQuantity': 150,
+                    'Price': <String, Object?>{
+                      'Code': 'valet-customer-inbox-lite-monthly-usd-v1',
+                      'Product': <String, Object?>{
+                        'Name': 'Valet Customer Inbox Lite',
+                      },
+                    },
+                    'MeterDefinition': <String, Object?>{
+                      'Code': 'valet.customer-inbox.minutes',
+                      'Description': 'Customer inbox minutes',
+                      'Unit': 'minute',
+                    },
+                  },
+                  'MeterDefinition': <String, Object?>{
+                    'Code': 'valet.customer-inbox.minutes',
+                    'Description': 'Customer inbox minutes',
+                    'Unit': 'minute',
+                  },
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: 'tenant-1',
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.referenceWarning, isNull);
+      expect(fixture.client.requests, hasLength(2));
+      final row = result.data!.items.single;
+      expect(
+        acpReferenceDisplayValue(
+          row: row,
+          column: descriptor.columns.singleWhere(
+            (column) => column.key == 'PriceEntitlementId',
+          ),
+        ),
+        'Valet Customer Inbox Lite · Customer inbox minutes · '
+        'valet.customer-inbox.minutes · 150 included',
+      );
+      expect(
+        acpReferenceDisplayValue(
+          row: row,
+          column: descriptor.columns.singleWhere(
+            (column) => column.key == 'MeterDefinitionId',
+          ),
+        ),
+        'valet.customer-inbox.minutes · minute',
+      );
+    },
+  );
+
+  for (final expansionFails in <bool>[false, true]) {
+    test('Entitlement Bucket ${expansionFails ? 'failed' : 'incomplete'} '
+        'expansions resolve through global GUID batch fallbacks', () async {
+      final descriptor = billingOperationsResources.singleWhere(
+        (resource) => resource.entitySet == 'BillingEntitlementBuckets',
+      );
+      const bucketId = '41000000-0000-4000-8000-000000000002';
+      const priceEntitlementId = '42000000-0000-4000-8000-000000000002';
+      const meterId = '43000000-0000-4000-8000-000000000002';
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': bucketId,
+                  'PriceEntitlementId': priceEntitlementId,
+                  'MeterDefinitionId': meterId,
+                },
+              ],
+            }),
+          ),
+          expansionFails
+              ? (_) => _response(
+                  statusCode: 503,
+                  body: 'bucket expansion unavailable',
+                )
+              : (_) => _response(
+                  statusCode: 200,
+                  body: jsonEncode(<String, Object?>{
+                    'value': <Map<String, Object?>>[
+                      <String, Object?>{'Id': bucketId},
+                    ],
+                  }),
+                ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': priceEntitlementId.toUpperCase(),
+                  'IncludedQuantity': 150,
+                  'DeletedAt': '2026-08-27T00:00:00Z',
+                  'Price': <String, Object?>{
+                    'Code': 'valet-customer-inbox-lite-monthly-usd-v1',
+                    'Product': <String, Object?>{
+                      'Name': 'Valet Customer Inbox Lite',
+                    },
+                  },
+                  'MeterDefinition': <String, Object?>{
+                    'Code': 'valet.customer-inbox.minutes',
+                    'Description': 'Customer inbox minutes',
+                    'Unit': 'minute',
+                  },
+                },
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': meterId.toUpperCase(),
+                  'Code': 'valet.customer-inbox.minutes',
+                  'Description': 'Customer inbox minutes',
+                  'Unit': 'minute',
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: 'tenant-1',
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.referenceWarning, isNull);
+      expect(fixture.client.requests, hasLength(4));
+      expect(
+        fixture.client.requests[2].path,
+        'core/acp/v1/BillingPriceEntitlements',
+      );
+      expect(
+        fixture.client.requests[2].queryParameters[r'$filter'],
+        "Id in (guid'$priceEntitlementId')",
+      );
+      expect(fixture.client.requests[2].queryParameters[r'$deleted'], 'all');
+      expect(
+        fixture.client.requests[2].queryParameters[r'$expand'],
+        r'Price($select=Code;$expand=Product($select=Name)),'
+        r'MeterDefinition($select=Code,Unit,Description)',
+      );
+      expect(
+        fixture.client.requests[3].path,
+        'core/acp/v1/BillingMeterDefinitions',
+      );
+      expect(
+        fixture.client.requests[3].queryParameters[r'$filter'],
+        "Id in (guid'$meterId')",
+      );
+      expect(
+        fixture.client.requests[3].queryParameters[r'$select'],
+        'Id,Code,Description,Unit',
+      );
+      final row = result.data!.items.single;
+      final priceRule = row['PriceEntitlement'] as Map?;
+      expect(priceRule?['DeletedAt'], '2026-08-27T00:00:00Z');
+      expect(
+        ((priceRule?['Price'] as Map?)?['Product'] as Map?)?['Name'],
+        'Valet Customer Inbox Lite',
+      );
+      expect(
+        (priceRule?['Price'] as Map?)?['Code'],
+        'valet-customer-inbox-lite-monthly-usd-v1',
+      );
+      expect(
+        acpReferenceDisplayValue(
+          row: row,
+          column: descriptor.columns.singleWhere(
+            (column) => column.key == 'PriceEntitlementId',
+          ),
+        ),
+        'Valet Customer Inbox Lite · Customer inbox minutes · '
+        'valet.customer-inbox.minutes · 150 included',
+      );
+      expect(
+        acpReferenceDisplayValue(
+          row: row,
+          column: descriptor.columns.singleWhere(
+            (column) => column.key == 'MeterDefinitionId',
+          ),
+        ),
+        'valet.customer-inbox.minutes · minute',
+      );
+    });
+  }
+
+  test(
+    'Entitlement Bucket fallback failure retains UUID and warning details',
+    () async {
+      final descriptor = billingOperationsResources.singleWhere(
+        (resource) => resource.entitySet == 'BillingEntitlementBuckets',
+      );
+      const bucketId = '41000000-0000-4000-8000-000000000003';
+      const priceEntitlementId = '42000000-0000-4000-8000-000000000003';
+      const meterId = '43000000-0000-4000-8000-000000000003';
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': bucketId,
+                  'PriceEntitlementId': priceEntitlementId,
+                  'MeterDefinitionId': meterId,
+                },
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{'Id': bucketId},
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 503,
+            body: 'price entitlement lookup unavailable',
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': meterId,
+                  'Code': 'valet.customer-inbox.minutes',
+                  'Unit': 'minute',
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: 'tenant-1',
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.referenceWarning, contains('Price Rule'));
+      expect(
+        result.data?.referenceWarning,
+        contains('price entitlement lookup unavailable'),
+      );
+      expect(
+        result.data?.referenceWarning,
+        isNot(contains('Meter Definition.')),
+      );
+      final row = result.data!.items.single;
+      expect(
+        acpReferenceDisplayValue(
+          row: row,
+          column: descriptor.columns.singleWhere(
+            (column) => column.key == 'PriceEntitlementId',
+          ),
+        ),
+        priceEntitlementId,
+      );
+      expect(
+        acpReferenceDisplayValue(
+          row: row,
+          column: descriptor.columns.singleWhere(
+            (column) => column.key == 'MeterDefinitionId',
+          ),
+        ),
+        'valet.customer-inbox.minutes · minute',
+      );
+    },
+  );
+
+  test(
     'Subscription batch fallbacks isolate tenant Accounts and global Prices',
     () async {
       final descriptor = billingOperationsResources.singleWhere(
@@ -1697,8 +2159,13 @@ class _RepositoryFixture {
         authenticatedHttpClient: client,
       );
 
-  factory _RepositoryFixture({List<_AuthHandler>? handlers}) {
-    final appConfig = AppConfig.defaults();
+  factory _RepositoryFixture({List<_AuthHandler>? handlers, String? baseUrl}) {
+    final defaults = AppConfig.defaults();
+    final appConfig = baseUrl == null
+        ? defaults
+        : defaults.merge(
+            AppConfigurationOverride(api: ApiConfigOverride(baseUrl: baseUrl)),
+          );
     final client = _FakeAuthenticatedHttpClient(handlers: handlers);
     return _RepositoryFixture._(appConfig, client);
   }
@@ -1759,12 +2226,13 @@ AuthenticatedResponse _response({
   required int statusCode,
   String body = '{}',
   bool sessionExpired = false,
+  Map<String, String> headers = const <String, String>{},
 }) {
   return AuthenticatedResponse(
     response: HttpResponse(
       statusCode: statusCode,
       body: body,
-      headers: const <String, String>{},
+      headers: headers,
     ),
     sessionExpired: sessionExpired,
   );

@@ -195,8 +195,9 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       return Result<Object?>.failure(path.failure!);
     }
 
-    return _sendForObject(
+    return _sendForCreateObject(
       AcpRequest(method: HttpMethod.post, path: path.data!, body: values),
+      collectionPath: path.data!,
     );
   }
 
@@ -347,6 +348,106 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     }
 
     return Result<Object?>.success(_decodeJson(response.data!.response.body));
+  }
+
+  Future<Result<Object?>> _sendForCreateObject(
+    AcpRequest request, {
+    required String collectionPath,
+  }) async {
+    final response = await _send(request);
+    if (response.isFailure) {
+      return Result<Object?>.failure(response.failure!);
+    }
+
+    final authenticatedResponse = response.data!;
+    final decoded = _decodeJson(authenticatedResponse.response.body);
+    if (_objectId(decoded) != null) {
+      return Result<Object?>.success(decoded);
+    }
+
+    final locationId = _locationEntityId(
+      authenticatedResponse.response.headers,
+      collectionPath: collectionPath,
+    );
+    if (locationId == null) {
+      return Result<Object?>.success(decoded);
+    }
+
+    final created = decoded is Map
+        ? Map<String, dynamic>.from(decoded)
+        : <String, dynamic>{};
+    created['Id'] = locationId;
+    return Result<Object?>.success(created);
+  }
+
+  String? _objectId(Object? value) {
+    if (value is! Map) {
+      return null;
+    }
+    final id = value['Id']?.toString().trim() ?? '';
+    return id.isEmpty ? null : id;
+  }
+
+  String? _locationEntityId(
+    Map<String, String> headers, {
+    required String collectionPath,
+  }) {
+    final location = _headerValue(headers, 'location')?.trim() ?? '';
+    if (location.isEmpty) {
+      return null;
+    }
+
+    final apiBase = Uri.parse(
+      appConfig.api.baseUrl.endsWith('/')
+          ? appConfig.api.baseUrl
+          : '${appConfig.api.baseUrl}/',
+    );
+    final parsedLocation = Uri.tryParse(location);
+    if (parsedLocation == null) {
+      return null;
+    }
+    final resolvedLocation = apiBase.resolveUri(parsedLocation);
+    if (resolvedLocation.scheme != apiBase.scheme ||
+        resolvedLocation.host.toLowerCase() != apiBase.host.toLowerCase() ||
+        resolvedLocation.port != apiBase.port) {
+      return null;
+    }
+
+    final expectedSegments = apiBase.resolve(collectionPath).pathSegments;
+    final locationSegments = resolvedLocation.pathSegments;
+    if (locationSegments.length != expectedSegments.length + 1) {
+      return null;
+    }
+    for (var index = 0; index < expectedSegments.length; index += 1) {
+      if (locationSegments[index] != expectedSegments[index]) {
+        return null;
+      }
+    }
+
+    final id = locationSegments.last;
+    if (!_isUsableLocationId(id)) {
+      return null;
+    }
+    return id;
+  }
+
+  String? _headerValue(Map<String, String> headers, String name) {
+    final normalizedName = name.toLowerCase();
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == normalizedName) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
+
+  bool _isUsableLocationId(String value) {
+    if (value.isEmpty || value == '.' || value == '..') {
+      return false;
+    }
+    return !value.contains('/') &&
+        !value.contains('\\') &&
+        !value.runes.any((character) => character <= 0x20 || character == 0x7f);
   }
 
   Future<Result<void>> _sendForVoid(AcpRequest request) async {
@@ -523,6 +624,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         lookup.idField,
         lookup.literalType.name,
         lookup.deletedView.name,
+        AcpQueryBuilder.serializeExpansions(lookup.expansions),
       ].join('|');
       final group = groups.putIfAbsent(
         key,
@@ -571,6 +673,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         literalType: lookup.literalType,
         selectFields: group.selectFields.toList(growable: false),
         deletedView: lookup.deletedView,
+        expansions: lookup.expansions,
       );
       if (queryParameters.isEmpty) {
         continue;

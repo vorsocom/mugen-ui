@@ -773,6 +773,12 @@ AcpColumnReferenceDescriptor _meterReference(String navigationPath) {
     subtitleFields: const <AcpReferenceFieldDescriptor>[
       AcpReferenceFieldDescriptor('Unit'),
     ],
+    batchLookup: const AcpBatchReferenceDescriptor(
+      entitySet: 'BillingMeterDefinitions',
+      scopeMode: AcpScopeMode.none,
+      selectFields: <String>['Code', 'Description', 'Unit'],
+      literalType: AcpFilterLiteralType.guid,
+    ),
   );
 }
 
@@ -788,6 +794,14 @@ AcpColumnReferenceDescriptor _priceEntitlementReference(String navigationPath) {
       AcpReferenceFieldDescriptor('MeterDefinition.Code'),
       AcpReferenceFieldDescriptor('IncludedQuantity', suffix: ' included'),
     ],
+    batchLookup: const AcpBatchReferenceDescriptor(
+      entitySet: 'BillingPriceEntitlements',
+      scopeMode: AcpScopeMode.none,
+      selectFields: <String>['IncludedQuantity'],
+      literalType: AcpFilterLiteralType.guid,
+      deletedView: AcpDeletedView.all,
+      expansions: _priceEntitlementNestedExpansions,
+    ),
   );
 }
 
@@ -972,21 +986,27 @@ AcpExpandDescriptor _priceEntitlementExpansion(String navigation) {
   return AcpExpandDescriptor(
     navigation: navigation,
     selectFields: const <String>['IncludedQuantity'],
-    expands: <AcpExpandDescriptor>[
+    expands: _priceEntitlementNestedExpansions,
+  );
+}
+
+const List<AcpExpandDescriptor> _priceEntitlementNestedExpansions =
+    <AcpExpandDescriptor>[
       AcpExpandDescriptor(
         navigation: 'Price',
-        selectFields: const <String>['Code'],
-        expands: const <AcpExpandDescriptor>[
+        selectFields: <String>['Code'],
+        expands: <AcpExpandDescriptor>[
           AcpExpandDescriptor(
             navigation: 'Product',
             selectFields: <String>['Name'],
           ),
         ],
       ),
-      _meterExpansion('MeterDefinition'),
-    ],
-  );
-}
+      AcpExpandDescriptor(
+        navigation: 'MeterDefinition',
+        selectFields: <String>['Code', 'Unit', 'Description'],
+      ),
+    ];
 
 AcpExpandDescriptor _bucketExpansion(String navigation) => _simpleExpansion(
   navigation,

@@ -164,6 +164,31 @@ void main() {
     expect(priceLookup?.entitySet, 'BillingPrices');
     expect(priceLookup?.scopeMode, AcpScopeMode.none);
     expect(priceLookup?.deletedView, AcpDeletedView.all);
+    final priceRuleLookup = buckets.columns
+        .singleWhere((column) => column.key == 'PriceEntitlementId')
+        .reference
+        ?.batchLookup;
+    final meterLookup = buckets.columns
+        .singleWhere((column) => column.key == 'MeterDefinitionId')
+        .reference
+        ?.batchLookup;
+    expect(priceRuleLookup?.entitySet, 'BillingPriceEntitlements');
+    expect(priceRuleLookup?.scopeMode, AcpScopeMode.none);
+    expect(priceRuleLookup?.literalType, AcpFilterLiteralType.guid);
+    expect(priceRuleLookup?.deletedView, AcpDeletedView.all);
+    expect(priceRuleLookup?.selectFields, <String>['IncludedQuantity']);
+    expect(
+      priceRuleLookup?.expansions.map((expansion) => expansion.navigation),
+      <String>['Price', 'MeterDefinition'],
+    );
+    expect(
+      priceRuleLookup?.expansions.first.expands.single.navigation,
+      'Product',
+    );
+    expect(meterLookup?.entitySet, 'BillingMeterDefinitions');
+    expect(meterLookup?.scopeMode, AcpScopeMode.none);
+    expect(meterLookup?.literalType, AcpFilterLiteralType.guid);
+    expect(meterLookup?.selectFields, <String>['Code', 'Description', 'Unit']);
     expect(
       billingOperationsResources.every(
         (resource) => resource.keyLiteralType == AcpFilterLiteralType.guid,

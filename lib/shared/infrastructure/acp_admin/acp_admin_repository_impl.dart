@@ -523,6 +523,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         lookup.idField,
         lookup.literalType.name,
         lookup.deletedView.name,
+        AcpQueryBuilder.serializeExpansions(lookup.expansions),
       ].join('|');
       final group = groups.putIfAbsent(
         key,
@@ -571,6 +572,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         literalType: lookup.literalType,
         selectFields: group.selectFields.toList(growable: false),
         deletedView: lookup.deletedView,
+        expansions: lookup.expansions,
       );
       if (queryParameters.isEmpty) {
         continue;

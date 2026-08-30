@@ -67,6 +67,7 @@ class AcpBatchReferenceDescriptor {
     this.idField = 'Id',
     this.literalType = AcpFilterLiteralType.string,
     this.deletedView = AcpDeletedView.active,
+    this.expansions = const <AcpExpandDescriptor>[],
   });
 
   final String entitySet;
@@ -75,6 +76,7 @@ class AcpBatchReferenceDescriptor {
   final String idField;
   final AcpFilterLiteralType literalType;
   final AcpDeletedView deletedView;
+  final List<AcpExpandDescriptor> expansions;
 }
 
 class AcpColumnReferenceDescriptor {

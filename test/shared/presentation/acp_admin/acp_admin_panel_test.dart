@@ -1183,6 +1183,43 @@ void main() {
     },
   );
 
+  testWidgets(
+    'entitlement buckets render recognizable fallback labels instead of UUIDs',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1800, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      final descriptor = billingOperationsResources.singleWhere(
+        (resource) => resource.key == 'billing-entitlement-buckets',
+      );
+
+      await _pumpPanel(
+        tester,
+        descriptors: <AcpResourceDescriptor>[descriptor],
+        repository: _EntitlementBucketReferenceRepository(),
+      );
+
+      expect(
+        find.text(
+          'Valet Customer Inbox Lite · Customer inbox minutes · '
+          'valet.customer-inbox.minutes · 150 included',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text('valet.customer-inbox.minutes · minute'),
+        findsOneWidget,
+      );
+      expect(find.text('42000000-0000-4000-8000-000000000001'), findsNothing);
+      expect(find.text('43000000-0000-4000-8000-000000000001'), findsNothing);
+      expect(
+        find.byKey(const Key('acp-admin-reference-warning')),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('reference warnings preserve the usable table', (tester) async {
     await _pumpPanel(
       tester,
@@ -1579,6 +1616,53 @@ class _SubscriptionReferenceRepository extends FakeAcpAdminRepository {
       AcpRowPage(
         items: rows,
         total: rows.length,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
+class _EntitlementBucketReferenceRepository extends FakeAcpAdminRepository {
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: const <AcpRow>[
+          <String, Object?>{
+            'Id': '41000000-0000-4000-8000-000000000001',
+            'PriceEntitlementId': '42000000-0000-4000-8000-000000000001',
+            'MeterDefinitionId': '43000000-0000-4000-8000-000000000001',
+            'PriceEntitlement': <String, Object?>{
+              'IncludedQuantity': 150,
+              'Price': <String, Object?>{
+                'Code': 'valet-customer-inbox-lite-monthly-usd-v1',
+                'Product': <String, Object?>{
+                  'Name': 'Valet Customer Inbox Lite',
+                },
+              },
+              'MeterDefinition': <String, Object?>{
+                'Code': 'valet.customer-inbox.minutes',
+                'Description': 'Customer inbox minutes',
+                'Unit': 'minute',
+              },
+            },
+            'MeterDefinition': <String, Object?>{
+              'Code': 'valet.customer-inbox.minutes',
+              'Description': 'Customer inbox minutes',
+              'Unit': 'minute',
+            },
+          },
+        ],
+        total: 1,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
       ),

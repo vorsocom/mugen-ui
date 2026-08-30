@@ -17,6 +17,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Security
+
+## [0.15.5] - 2026-08-30
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
 - Fixed shared ACP two-step create forms to recover created identifiers from
   validated `Location` headers, hydrate missing row versions, and retry only
   post-create updates after recoverable failures.

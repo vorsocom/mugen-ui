@@ -398,6 +398,50 @@ void main() {
       );
     },
   );
+
+  test(
+    'Knowledge Scopes show profile labels and wildcard presentation',
+    () async {
+      final scopeDescriptor = buildKnowledgePackAdminResources(
+        serviceProfilesEnabled: true,
+      ).firstWhere((item) => item.entitySet == 'KnowledgeScopes');
+      delegate.pages['KnowledgeScopes'] = const <AcpRow>[
+        <String, Object?>{
+          'Id': 'scope-profile',
+          'ServiceProfileId': 'profile-1',
+          'ServiceProfile': <String, Object?>{
+            'DisplayName': 'Support',
+            'Key': 'support',
+          },
+        },
+        <String, Object?>{'Id': 'scope-all'},
+      ];
+      final listed = await repository.listRows(
+        descriptor: scopeDescriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: 'tenant-1',
+      );
+      expect(
+        listed.data!.items.first['ServiceProfileLabel'],
+        'Support (support)',
+      );
+      expect(
+        listed.data!.items.last['ServiceProfileLabel'],
+        'All service profiles',
+      );
+
+      delegate.fetchRows['KnowledgeScopes'] = const <String, Object?>{
+        'Id': 'scope-key',
+        'ServiceProfile': <String, Object?>{'Key': 'routing'},
+      };
+      final fetched = await repository.fetchRow(
+        descriptor: scopeDescriptor,
+        rowId: 'scope-key',
+        tenantId: 'tenant-1',
+      );
+      expect(fetched.data!['ServiceProfileLabel'], 'routing');
+    },
+  );
 }
 
 AcpResourceDescriptor _descriptor(String entitySet) =>

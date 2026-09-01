@@ -13,6 +13,7 @@ import 'package:mugen_ui/features/shell/presentation/providers/shell_providers.d
 import 'package:mugen_ui/features/shell/presentation/widgets/route_views.dart';
 import 'package:mugen_ui/features/shell/presentation/widgets/settings_panel.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
+import 'package:mugen_ui/shared/presentation/acp_admin/acp_workspace_navigation.dart';
 
 const Key _shellNoAccessibleRoutesKey = Key('shell-no-access-routes');
 const Key _shellUserBarTitleKey = Key('shell-user-bar-title');
@@ -1033,6 +1034,7 @@ Widget _buildDrawerNavItem({
       focusColor: AppUiPalette.drawerSelected,
       splashColor: AppUiPalette.accent.withValues(alpha: 0.18),
       onTap: () {
+        ref.read(acpWorkspaceNavigationProvider.notifier).clear();
         ref.read(shellControllerProvider.notifier).setRoute(item.id);
       },
       child: AnimatedContainer(

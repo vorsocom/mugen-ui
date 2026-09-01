@@ -10,6 +10,8 @@ enum AcpFilterLiteralType { string, guid }
 
 enum AcpReferenceValueFormat { plain, monthYear }
 
+enum AcpColumnPresentation { text, status }
+
 enum AcpFieldKind {
   text,
   multiline,
@@ -89,6 +91,7 @@ class AcpColumnReferenceDescriptor {
     this.batchLookup,
     this.unassignedLabel = 'Not assigned',
     this.targetResourceKey,
+    this.targetRouteId,
   });
 
   final String navigationPath;
@@ -97,6 +100,63 @@ class AcpColumnReferenceDescriptor {
   final AcpBatchReferenceDescriptor? batchLookup;
   final String unassignedLabel;
   final String? targetResourceKey;
+  final String? targetRouteId;
+}
+
+class AcpNavigationDescriptor {
+  const AcpNavigationDescriptor({
+    required this.label,
+    required this.targetResourceKey,
+    this.targetRouteId,
+    this.sourceField = 'Id',
+    this.targetFilterKey,
+  });
+
+  final String label;
+  final String targetResourceKey;
+  final String? targetRouteId;
+  final String sourceField;
+  final String? targetFilterKey;
+}
+
+class AcpDetailFieldDescriptor {
+  const AcpDetailFieldDescriptor({
+    required this.key,
+    required this.label,
+    this.presentation = AcpColumnPresentation.text,
+  });
+
+  final String key;
+  final String label;
+  final AcpColumnPresentation presentation;
+}
+
+class AcpDetailSectionDescriptor {
+  const AcpDetailSectionDescriptor({
+    required this.title,
+    this.fields = const <AcpDetailFieldDescriptor>[],
+    this.links = const <AcpNavigationDescriptor>[],
+  });
+
+  final String title;
+  final List<AcpDetailFieldDescriptor> fields;
+  final List<AcpNavigationDescriptor> links;
+}
+
+class AcpWorkspaceTarget {
+  const AcpWorkspaceTarget({
+    required this.routeId,
+    required this.resourceKey,
+    this.tenantId,
+    this.rowId,
+    this.filterValues = const <String, String>{},
+  });
+
+  final String routeId;
+  final String resourceKey;
+  final String? tenantId;
+  final String? rowId;
+  final Map<String, String> filterValues;
 }
 
 class AcpFilterDescriptor {
@@ -107,6 +167,7 @@ class AcpFilterDescriptor {
     this.options = const <String>[],
     this.optionLabels = const <String, String>{},
     this.hintText,
+    this.reference,
   });
 
   final String key;
@@ -115,6 +176,7 @@ class AcpFilterDescriptor {
   final List<String> options;
   final Map<String, String> optionLabels;
   final String? hintText;
+  final AcpFieldReferenceDescriptor? reference;
 }
 
 class AcpFieldDescriptor {
@@ -207,6 +269,9 @@ class AcpFieldReferenceDescriptor {
     this.extraFilters = const <String>[],
     this.filterFieldsFromForm = const <String, String>{},
     this.copyFieldsFromSelection = const <String, String>{},
+    this.contextFieldsFromForm = const <String, String>{},
+    this.expansions = const <AcpExpandDescriptor>[],
+    this.disabledReasonField,
     this.retainHistoricalSelection = false,
   });
 
@@ -231,6 +296,16 @@ class AcpFieldReferenceDescriptor {
   /// dependent typed inputs without placing reference records in payloads.
   final Map<String, String> copyFieldsFromSelection;
 
+  /// Maps context keys used by repository decorators to current form fields.
+  /// Context values are never emitted as API filters or mutation payloads.
+  final Map<String, String> contextFieldsFromForm;
+
+  final List<AcpExpandDescriptor> expansions;
+
+  /// Rows with a non-empty value in this field remain visible but cannot be
+  /// selected. The value is rendered as the actionable reason.
+  final String? disabledReasonField;
+
   /// Exact-ID hydration ignores active-only search filters so an existing
   /// historical relationship remains understandable.
   final bool retainHistoricalSelection;
@@ -248,6 +323,7 @@ class AcpColumnDescriptor {
     this.valueBuilder,
     this.reference,
     this.opaqueIdentifier = false,
+    this.presentation = AcpColumnPresentation.text,
   });
 
   final String key;
@@ -260,6 +336,7 @@ class AcpColumnDescriptor {
   final AcpColumnValueBuilder? valueBuilder;
   final AcpColumnReferenceDescriptor? reference;
   final bool opaqueIdentifier;
+  final AcpColumnPresentation presentation;
 }
 
 class AcpActionDescriptor {
@@ -342,6 +419,8 @@ class AcpResourceDescriptor {
     this.expansions = const <AcpExpandDescriptor>[],
     this.keyLiteralType = AcpFilterLiteralType.string,
     this.optionalApiSurface = false,
+    this.referenceContext = const <String, dynamic>{},
+    this.detailSections = const <AcpDetailSectionDescriptor>[],
   });
 
   final String key;
@@ -372,6 +451,8 @@ class AcpResourceDescriptor {
   final List<AcpExpandDescriptor> expansions;
   final AcpFilterLiteralType keyLiteralType;
   final bool optionalApiSurface;
+  final Map<String, dynamic> referenceContext;
+  final List<AcpDetailSectionDescriptor> detailSections;
 
   bool canUpdate(AcpRow row) =>
       allowUpdate && acpRowMatches(row, updateWhenEquals);

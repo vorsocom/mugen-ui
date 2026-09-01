@@ -41,6 +41,11 @@ class KnowledgePackAdminRepository implements AcpAdminRepository {
       return result;
     }
     final page = result.data!;
+    if (descriptor.entitySet == 'KnowledgeScopes') {
+      return Result<AcpRowPage>.success(
+        _copyPage(page, rows: page.items.map(_scopeDisplay).toList()),
+      );
+    }
     if (descriptor.entitySet == projectionDescriptor.entitySet) {
       return Result<AcpRowPage>.success(
         _copyPage(page, rows: page.items.map(_safeProjection).toList()),
@@ -66,6 +71,9 @@ class KnowledgePackAdminRepository implements AcpAdminRepository {
     );
     if (result.isFailure) {
       return result;
+    }
+    if (descriptor.entitySet == 'KnowledgeScopes') {
+      return Result<AcpRow>.success(_scopeDisplay(result.data!));
     }
     if (descriptor.entitySet == projectionDescriptor.entitySet) {
       return Result<AcpRow>.success(_safeProjection(result.data!));
@@ -269,6 +277,17 @@ class KnowledgePackAdminRepository implements AcpAdminRepository {
         '${row['AttemptCount'] ?? 0}/${row['MaxAttempts'] ?? 0}';
     row['LastCompletedOrFailedAt'] = knowledgeProjectionLastEvent(row);
     row['ActiveTargetMatch'] = knowledgeProjectionMatchLabel(row);
+    return row;
+  }
+
+  AcpRow _scopeDisplay(AcpRow source) {
+    final row = Map<String, dynamic>.from(source);
+    final profile = _map(row['ServiceProfile']);
+    final displayName = profile?['DisplayName']?.toString().trim() ?? '';
+    final key = profile?['Key']?.toString().trim() ?? '';
+    row['ServiceProfileLabel'] = displayName.isEmpty
+        ? (key.isEmpty ? 'All service profiles' : key)
+        : (key.isEmpty ? displayName : '$displayName ($key)');
     return row;
   }
 

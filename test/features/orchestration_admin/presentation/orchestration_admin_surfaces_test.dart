@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/orchestration_admin/application/orchestration_admin_resources.dart';
 import 'package:mugen_ui/features/orchestration_admin/presentation/providers/orchestration_admin_providers.dart';
@@ -10,7 +11,9 @@ import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
+import 'package:mugen_ui/shared/presentation/acp_admin/acp_workspace_navigation.dart';
 
+import '../../../test_support/acp_workspace_target_controller.dart';
 import '../../../test_support/fake_acp_admin_repository.dart';
 import '../../../test_support/recording_auth_controller.dart';
 
@@ -71,6 +74,37 @@ void main() {
       find.textContaining('Configure channel intake, routing, throttling'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('Channel Orchestration consumes a scoped workspace target', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          orchestrationAdminRepositoryProvider.overrideWithValue(
+            FakeAcpAdminRepository(),
+          ),
+          acpWorkspaceNavigationProvider.overrideWith(
+            () => FixedAcpWorkspaceNavigationController(
+              AcpWorkspaceTarget(
+                routeId: RouteIds.channelOrchestration,
+                resourceKey: 'ingress-bindings',
+                tenantId: 'tenant-1',
+                rowId: 'binding-1',
+                filterValues: const <String, String>{'IsActive': 'true'},
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: ChannelOrchestrationPanel()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Ingress Bindings'), findsWidgets);
+    expect(find.text('binding-1'), findsWidgets);
   });
 
   testWidgets(

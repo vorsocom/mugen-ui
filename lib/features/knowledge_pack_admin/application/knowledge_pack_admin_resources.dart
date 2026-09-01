@@ -479,6 +479,146 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
   ),
 ];
 
+List<AcpResourceDescriptor> buildKnowledgePackAdminResources({
+  required bool serviceProfilesEnabled,
+}) {
+  if (!serviceProfilesEnabled) {
+    return knowledgePackAdminResources;
+  }
+  return knowledgePackAdminResources
+      .map(
+        (descriptor) => descriptor.entitySet == 'KnowledgeScopes'
+            ? _knowledgeScopeWithServiceProfile(descriptor)
+            : descriptor,
+      )
+      .toList(growable: false);
+}
+
+AcpResourceDescriptor _knowledgeScopeWithServiceProfile(
+  AcpResourceDescriptor source,
+) {
+  return AcpResourceDescriptor(
+    key: source.key,
+    title: source.title,
+    entitySet: source.entitySet,
+    scopeMode: source.scopeMode,
+    columns: <AcpColumnDescriptor>[
+      ...source.columns,
+      const AcpColumnDescriptor(
+        key: 'ServiceProfileId',
+        label: 'Service Profile',
+        flex: 2,
+        reference: AcpColumnReferenceDescriptor(
+          navigationPath: 'ServiceProfile',
+          titleFields: <AcpReferenceFieldDescriptor>[
+            AcpReferenceFieldDescriptor('DisplayName'),
+            AcpReferenceFieldDescriptor('Key'),
+          ],
+          subtitleFields: <AcpReferenceFieldDescriptor>[
+            AcpReferenceFieldDescriptor('Key'),
+          ],
+          batchLookup: AcpBatchReferenceDescriptor(
+            entitySet: 'ServiceProfiles',
+            scopeMode: AcpScopeMode.required,
+            selectFields: <String>['DisplayName', 'Key', 'Status'],
+            literalType: AcpFilterLiteralType.guid,
+            deletedView: AcpDeletedView.all,
+          ),
+          unassignedLabel: 'All service profiles',
+          targetRouteId: 'service-profiles',
+          targetResourceKey: 'service-profiles',
+        ),
+      ),
+    ],
+    description: source.description,
+    createFields: <AcpFieldDescriptor>[
+      ...source.createFields,
+      _knowledgeScopeServiceProfileField,
+    ],
+    updateFields: <AcpFieldDescriptor>[
+      ...source.updateFields,
+      _knowledgeScopeServiceProfileField,
+    ],
+    collectionActions: source.collectionActions,
+    entityActions: source.entityActions,
+    searchFields: source.searchFields,
+    filters: <AcpFilterDescriptor>[
+      ...source.filters,
+      const AcpFilterDescriptor(
+        key: 'ServiceProfileId',
+        label: 'Service Profile',
+        literalType: AcpFilterLiteralType.guid,
+        hintText: 'Search Service Profiles',
+        reference: AcpFieldReferenceDescriptor(
+          entitySet: 'ServiceProfiles',
+          scopeMode: AcpScopeMode.required,
+          title: 'Service Profiles',
+          searchFields: <String>['Key', 'DisplayName', 'Status'],
+          titleFields: <String>['DisplayName', 'Key'],
+          subtitleFields: <String>['Key', 'Status'],
+          retainHistoricalSelection: true,
+        ),
+      ),
+    ],
+    defaultOrderBy: source.defaultOrderBy,
+    emptyMessage: source.emptyMessage,
+    allowCreate: source.allowCreate,
+    allowUpdate: source.allowUpdate,
+    allowDelete: source.allowDelete,
+    allowRestore: source.allowRestore,
+    pageSize: source.pageSize,
+    actionsColumnLeading: source.actionsColumnLeading,
+    updateWhenEquals: source.updateWhenEquals,
+    group: source.group,
+    refreshResourceKeys: source.refreshResourceKeys,
+    payloadValidator: source.payloadValidator,
+    deletedViews: source.deletedViews,
+    expansions: source.expansions,
+    keyLiteralType: source.keyLiteralType,
+    optionalApiSurface: source.optionalApiSurface,
+    detailSections: const <AcpDetailSectionDescriptor>[
+      AcpDetailSectionDescriptor(
+        title: 'Knowledge Scope targeting',
+        fields: <AcpDetailFieldDescriptor>[
+          AcpDetailFieldDescriptor(key: 'Channel', label: 'Channel'),
+          AcpDetailFieldDescriptor(key: 'Locale', label: 'Locale'),
+          AcpDetailFieldDescriptor(key: 'Category', label: 'Category'),
+          AcpDetailFieldDescriptor(
+            key: 'ServiceProfileLabel',
+            label: 'Service Profile',
+          ),
+          AcpDetailFieldDescriptor(
+            key: 'ServiceRouteKey',
+            label: 'Service Route',
+          ),
+          AcpDetailFieldDescriptor(
+            key: 'ClientProfileKey',
+            label: 'Client Profile',
+          ),
+          AcpDetailFieldDescriptor(key: 'IsActive', label: 'Active'),
+        ],
+      ),
+    ],
+  );
+}
+
+const AcpFieldDescriptor
+_knowledgeScopeServiceProfileField = AcpFieldDescriptor(
+  key: 'ServiceProfileId',
+  label: 'Service Profile',
+  hintText:
+      'Optional stable service identity. Leave empty to allow every Service Profile. Service Route selects behavior; Client Profile selects channel-client configuration.',
+  reference: AcpFieldReferenceDescriptor(
+    entitySet: 'ServiceProfiles',
+    scopeMode: AcpScopeMode.required,
+    title: 'Service Profiles',
+    searchFields: <String>['Key', 'DisplayName', 'Status'],
+    titleFields: <String>['DisplayName', 'Key'],
+    subtitleFields: <String>['Key', 'Status'],
+    retainHistoricalSelection: true,
+  ),
+);
+
 AcpColumnDescriptor _column(
   String key,
   String label, {

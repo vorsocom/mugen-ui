@@ -23,6 +23,8 @@ import 'package:mugen_ui/features/portal/presentation/pages/portal_document_page
 import 'package:mugen_ui/features/portal/presentation/pages/portal_landing_page.dart';
 import 'package:mugen_ui/features/rbac_admin/presentation/widgets/rbac_management_panel.dart';
 import 'package:mugen_ui/features/runtime_admin/presentation/widgets/runtime_control_panel.dart';
+import 'package:mugen_ui/features/service_profile_admin/presentation/providers/service_profile_admin_providers.dart';
+import 'package:mugen_ui/features/service_profile_admin/presentation/widgets/service_profile_panel.dart';
 import 'package:mugen_ui/features/shell/presentation/pages/shell_page.dart';
 import 'package:mugen_ui/features/tenant_admin/presentation/widgets/tenant_management_panel.dart';
 import 'package:mugen_ui/features/tenant_invite/presentation/pages/invite_redeem_page.dart';
@@ -50,6 +52,7 @@ MugenUiAppDefinition buildDefaultAppDefinition() {
       _coreChannelOrchestrationModule,
       _coreContextEngineModule,
       _coreKnowledgePackModule,
+      _coreServiceProfileModule,
       _coreRuntimeModule,
       _coreAuditModule,
       _coreAcpConsoleModule,
@@ -276,6 +279,22 @@ final MugenUiModule _coreKnowledgePackModule = MugenUiModule(
   ],
 );
 
+final MugenUiModule _coreServiceProfileModule = MugenUiModule(
+  id: 'core.service_profile',
+  shellRoutes: <ShellRouteDefinition>[
+    ShellRouteDefinition(
+      id: CoreShellRouteIds.serviceProfiles,
+      title: 'Service Profiles',
+      icon: Icons.badge_outlined,
+      section: 'Platform Configuration',
+      group: 'Platform Capabilities',
+      requiredRoles: <String>['$acpNamespace:administrator'],
+      availabilityProvider: serviceProfileShellAvailabilityProvider,
+      builder: _buildServiceProfileRoute,
+    ),
+  ],
+);
+
 final MugenUiModule _coreAcpConsoleModule = MugenUiModule(
   id: 'core.acp_console',
   shellRoutes: const <ShellRouteDefinition>[
@@ -453,6 +472,9 @@ Widget _buildContextEngineRoute(BuildContext context) =>
 
 Widget _buildKnowledgePackRoute(BuildContext context) =>
     const Padding(padding: EdgeInsets.all(24), child: KnowledgePackPanel());
+
+Widget _buildServiceProfileRoute(BuildContext context) =>
+    const Padding(padding: EdgeInsets.all(24), child: ServiceProfilePanel());
 
 Widget _buildAcpConsoleRoute(BuildContext context) =>
     const Padding(padding: EdgeInsets.all(24), child: AcpConsolePanel());

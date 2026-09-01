@@ -36,15 +36,19 @@ typedef _AcpReferenceSearch =
       AcpFieldReferenceDescriptor reference,
       String searchTerm,
       List<String> extraFilters,
+      Map<String, dynamic> context,
     );
 typedef _AcpReferenceLookup =
     Future<Result<AcpRow>> Function(
       AcpFieldReferenceDescriptor reference,
       String value,
       List<String> extraFilters,
+      Map<String, dynamic> context,
     );
 typedef _AcpFormSubmit =
     Future<Result<Object?>> Function(Map<String, dynamic> payload);
+typedef AcpWorkspaceNavigation =
+    Future<void> Function(AcpWorkspaceTarget target);
 
 class AcpAdminPanel<T extends AcpAdminController>
     extends ConsumerStatefulWidget {
@@ -57,6 +61,8 @@ class AcpAdminPanel<T extends AcpAdminController>
     this.initialResourceKey,
     this.initialTenantId,
     this.initialRowId,
+    this.initialFilterValues = const <String, String>{},
+    this.onNavigate,
   });
 
   final StateNotifierProvider<T, AcpAdminState> controllerProvider;
@@ -66,6 +72,8 @@ class AcpAdminPanel<T extends AcpAdminController>
   final String? initialResourceKey;
   final String? initialTenantId;
   final String? initialRowId;
+  final Map<String, String> initialFilterValues;
+  final AcpWorkspaceNavigation? onNavigate;
 
   @override
   ConsumerState<AcpAdminPanel<T>> createState() => _AcpAdminPanelState<T>();
@@ -91,6 +99,12 @@ class _AcpAdminPanelState<T extends AcpAdminController>
           resourceKey.isNotEmpty &&
           controller.descriptors.any((item) => item.key == resourceKey)) {
         await controller.selectResource(resourceKey);
+      }
+      if (widget.initialFilterValues.isNotEmpty) {
+        for (final entry in widget.initialFilterValues.entries) {
+          controller.setFilterValue(entry.key, entry.value);
+        }
+        await controller.loadActiveResource();
       }
       final rowId = widget.initialRowId?.trim();
       if (!mounted || rowId == null || rowId.isEmpty) {
@@ -223,8 +237,20 @@ class _AcpAdminPanelState<T extends AcpAdminController>
                   onOpenReference: (row, column) async {
                     final targetResourceKey =
                         column.reference?.targetResourceKey;
+                    final targetRouteId = column.reference?.targetRouteId;
                     final targetId = row[column.key]?.toString().trim() ?? '';
                     if (targetResourceKey == null || targetId.isEmpty) {
+                      return;
+                    }
+                    if (targetRouteId != null && widget.onNavigate != null) {
+                      await widget.onNavigate!(
+                        AcpWorkspaceTarget(
+                          routeId: targetRouteId,
+                          resourceKey: targetResourceKey,
+                          tenantId: row.tenantId ?? state.selectedTenantId,
+                          rowId: targetId,
+                        ),
+                      );
                       return;
                     }
                     await controller.selectResource(targetResourceKey);
@@ -247,6 +273,12 @@ class _AcpAdminPanelState<T extends AcpAdminController>
                   : _AcpRowDetailDrawer(
                       descriptor: descriptor,
                       row: _selectedRow!,
+                      onNavigate: (navigation) => _openDetailNavigation(
+                        controller: controller,
+                        state: state,
+                        row: _selectedRow!,
+                        navigation: navigation,
+                      ),
                       onClose: () {
                         setState(() {
                           _selectedRow = null;
@@ -293,6 +325,51 @@ class _AcpAdminPanelState<T extends AcpAdminController>
       _selectedResourceKey = resourceKey;
       _selectedRow = null;
     }
+  }
+
+  Future<void> _openDetailNavigation({
+    required T controller,
+    required AcpAdminState state,
+    required AcpRow row,
+    required AcpNavigationDescriptor navigation,
+  }) async {
+    final value = row[navigation.sourceField]?.toString().trim() ?? '';
+    if (value.isEmpty) {
+      return;
+    }
+    final filterKey = navigation.targetFilterKey;
+    final target = AcpWorkspaceTarget(
+      routeId: navigation.targetRouteId ?? '',
+      resourceKey: navigation.targetResourceKey,
+      tenantId: row.tenantId ?? state.selectedTenantId,
+      rowId: filterKey == null ? value : null,
+      filterValues: filterKey == null
+          ? const <String, String>{}
+          : <String, String>{filterKey: value},
+    );
+    if (navigation.targetRouteId != null && widget.onNavigate != null) {
+      await widget.onNavigate!(target);
+      return;
+    }
+    await controller.selectResource(navigation.targetResourceKey);
+    if (filterKey != null) {
+      controller.setFilterValue(filterKey, value);
+      await controller.loadActiveResource();
+      if (mounted) {
+        setState(() {
+          _selectedRow = null;
+        });
+      }
+      return;
+    }
+    final result = await controller.fetchRowForMutation(value);
+    if (!mounted || result.isFailure) {
+      return;
+    }
+    setState(() {
+      _selectedRow = result.data;
+      _selectedResourceKey = navigation.targetResourceKey;
+    });
   }
 }
 
@@ -493,8 +570,17 @@ class _ToolbarRowState<T extends AcpAdminController>
           ),
         for (final filter in descriptor.filters)
           SizedBox(
-            width: 220,
-            child: filter.options.isNotEmpty
+            width: filter.reference == null ? 220 : 320,
+            child: filter.reference != null
+                ? _AcpToolbarReferenceFilter<T>(
+                    key: ValueKey<String>(
+                      'acp-admin-filter-${descriptor.key}-${filter.key}',
+                    ),
+                    controllerProvider: controllerProvider,
+                    filter: filter,
+                    value: resourceState.filterValues[filter.key] ?? '',
+                  )
+                : filter.options.isNotEmpty
                 ? DropdownButtonFormField<String>(
                     key: ValueKey<String>(
                       'acp-admin-filter-${descriptor.key}-${filter.key}',
@@ -551,6 +637,82 @@ class _ToolbarRowState<T extends AcpAdminController>
           label: const Text('Refresh'),
         ),
       ],
+    );
+  }
+}
+
+class _AcpToolbarReferenceFilter<T extends AcpAdminController>
+    extends ConsumerStatefulWidget {
+  const _AcpToolbarReferenceFilter({
+    required this.controllerProvider,
+    required this.filter,
+    required this.value,
+    super.key,
+  });
+
+  final StateNotifierProvider<T, AcpAdminState> controllerProvider;
+  final AcpFilterDescriptor filter;
+  final String value;
+
+  @override
+  ConsumerState<_AcpToolbarReferenceFilter<T>> createState() =>
+      _AcpToolbarReferenceFilterState<T>();
+}
+
+class _AcpToolbarReferenceFilterState<T extends AcpAdminController>
+    extends ConsumerState<_AcpToolbarReferenceFilter<T>> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(covariant _AcpToolbarReferenceFilter<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value && _controller.text != widget.value) {
+      _controller.text = widget.value;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reference = widget.filter.reference!;
+    return _AcpReferenceField(
+      field: AcpFieldDescriptor(
+        key: widget.filter.key,
+        label: widget.filter.label,
+        hintText: widget.filter.hintText,
+        reference: reference,
+      ),
+      controller: _controller,
+      search: _referenceSearchFor(
+        ref: ref,
+        controllerProvider: widget.controllerProvider,
+      ),
+      lookup: _referenceLookupFor(
+        ref: ref,
+        controllerProvider: widget.controllerProvider,
+      ),
+      helpText: 'Filter ${widget.filter.label.toLowerCase()} exactly.',
+      helpKey: Key('acp-admin-filter-help-${widget.filter.key}'),
+      validator: (_) => null,
+      extraFilters: () => reference.extraFilters,
+      context: () => const <String, dynamic>{},
+      onSelectionChanged: (row) async {
+        final value = row?[reference.valueField]?.toString().trim() ?? '';
+        final controller = ref.read(widget.controllerProvider.notifier);
+        controller.setFilterValue(widget.filter.key, value);
+        await controller.loadActiveResource();
+      },
     );
   }
 }
@@ -674,7 +836,12 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
             flex: column.flex,
             cell: (_, row) {
               final value = _formatCellValue(row: row, column: column);
-              final cell = AdminCellText(value, maxLines: 2);
+              final cell = column.presentation == AcpColumnPresentation.status
+                  ? Align(
+                      alignment: Alignment.centerLeft,
+                      child: AdminStatusChip(label: value),
+                    )
+                  : AdminCellText(value, maxLines: 2);
               if (column.reference == null) {
                 return cell;
               }
@@ -1719,7 +1886,7 @@ _AcpReferenceSearch _referenceSearchFor<T extends AcpAdminController>({
   String? tenantIdOverride,
   bool useTenantIdOverride = false,
 }) {
-  return (reference, searchTerm, dynamicFilters) {
+  return (reference, searchTerm, dynamicFilters, context) {
     final state = ref.read(controllerProvider);
     final controller = ref.read(controllerProvider.notifier);
     final tenantId = _referenceTenantIdFor(
@@ -1742,6 +1909,8 @@ _AcpReferenceSearch _referenceSearchFor<T extends AcpAdminController>({
         searchFields: reference.searchFields,
         defaultOrderBy: reference.defaultOrderBy,
         pageSize: reference.pageSize,
+        expansions: reference.expansions,
+        referenceContext: context,
       ),
       pageRequest: PageRequest(page: 1, pageSize: reference.pageSize),
       tenantId: tenantId,
@@ -1757,7 +1926,7 @@ _AcpReferenceLookup _referenceLookupFor<T extends AcpAdminController>({
   String? tenantIdOverride,
   bool useTenantIdOverride = false,
 }) {
-  return (reference, value, dynamicFilters) async {
+  return (reference, value, dynamicFilters, context) async {
     final state = ref.read(controllerProvider);
     final controller = ref.read(controllerProvider.notifier);
     final tenantId = _referenceTenantIdFor(
@@ -1777,6 +1946,8 @@ _AcpReferenceLookup _referenceLookupFor<T extends AcpAdminController>({
       scopeMode: reference.scopeMode,
       columns: const <AcpColumnDescriptor>[],
       defaultOrderBy: reference.defaultOrderBy,
+      expansions: reference.expansions,
+      referenceContext: context,
     );
     if (reference.valueField == reference.idField &&
         (reference.retainHistoricalSelection ||
@@ -2016,11 +2187,13 @@ class _AcpRowDetailDrawer extends StatelessWidget {
     required this.descriptor,
     required this.row,
     required this.onClose,
+    required this.onNavigate,
   });
 
   final AcpResourceDescriptor descriptor;
   final AcpRow row;
   final VoidCallback onClose;
+  final Future<void> Function(AcpNavigationDescriptor navigation) onNavigate;
 
   @override
   Widget build(BuildContext context) {
@@ -2052,8 +2225,42 @@ class _AcpRowDetailDrawer extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 8),
-            for (final entry in row.entries)
-              _AcpDetailField(label: entry.key, value: entry.value),
+            if (descriptor.detailSections.isEmpty)
+              for (final entry in row.entries)
+                _AcpDetailField(label: entry.key, value: entry.value)
+            else
+              for (final section in descriptor.detailSections) ...[
+                Text(
+                  section.title,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                for (final field in section.fields)
+                  _AcpDetailField(
+                    label: field.label,
+                    value: row[field.key],
+                    presentation: field.presentation,
+                  ),
+                for (final link in section.links)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      key: Key(
+                        'acp-detail-link-${descriptor.key}-${link.targetResourceKey}',
+                      ),
+                      onPressed:
+                          (row[link.sourceField]?.toString().trim() ?? '')
+                              .isEmpty
+                          ? null
+                          : () => onNavigate(link),
+                      icon: const Icon(Icons.open_in_new, size: 18),
+                      label: Text(link.label),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+              ],
           ],
         ),
       ),
@@ -2062,10 +2269,15 @@ class _AcpRowDetailDrawer extends StatelessWidget {
 }
 
 class _AcpDetailField extends StatelessWidget {
-  const _AcpDetailField({required this.label, required this.value});
+  const _AcpDetailField({
+    required this.label,
+    required this.value,
+    this.presentation = AcpColumnPresentation.text,
+  });
 
   final String label;
   final Object? value;
+  final AcpColumnPresentation presentation;
 
   @override
   Widget build(BuildContext context) {
@@ -2093,7 +2305,12 @@ class _AcpDetailField extends StatelessWidget {
               borderRadius: BorderRadius.circular(adminCompactRadius),
               border: Border.all(color: AppUiPalette.border),
             ),
-            child: Text(text, maxLines: 8, overflow: TextOverflow.ellipsis),
+            child: presentation == AcpColumnPresentation.status
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: AdminStatusChip(label: text),
+                  )
+                : Text(text, maxLines: 8, overflow: TextOverflow.ellipsis),
           ),
         ],
       ),
@@ -2162,6 +2379,7 @@ class _AcpReferenceField extends StatefulWidget {
     required this.helpKey,
     required this.validator,
     required this.extraFilters,
+    required this.context,
     required this.onSelectionChanged,
     super.key,
   });
@@ -2174,6 +2392,7 @@ class _AcpReferenceField extends StatefulWidget {
   final Key helpKey;
   final FormFieldValidator<String> validator;
   final List<String> Function() extraFilters;
+  final Map<String, dynamic> Function() context;
   final ValueChanged<AcpRow?> onSelectionChanged;
 
   @override
@@ -2304,16 +2523,26 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
             final row = _results[index];
             final value = _referenceValue(row);
             final isSelected = widget.controller.text.trim() == value;
+            final disabledReasonField = _reference.disabledReasonField;
+            final disabledReason = disabledReasonField == null
+                ? ''
+                : row[disabledReasonField]?.toString().trim() ?? '';
             return ListTile(
               key: Key('acp-reference-option-${widget.field.key}-$value'),
-              enabled: value.isNotEmpty,
+              enabled: value.isNotEmpty && disabledReason.isEmpty,
               selected: isSelected,
               leading: Icon(
                 isSelected ? Icons.check_circle_outline : Icons.link_outlined,
               ),
               title: Text(_referenceTitle(row)),
-              subtitle: Text(_referenceSubtitle(row)),
-              onTap: value.isEmpty ? null : () => _selectRow(row, fieldState),
+              subtitle: Text(
+                disabledReason.isEmpty
+                    ? _referenceSubtitle(row)
+                    : '${_referenceSubtitle(row)}  |  $disabledReason',
+              ),
+              onTap: value.isEmpty || disabledReason.isNotEmpty
+                  ? null
+                  : () => _selectRow(row, fieldState),
             );
           },
         ),
@@ -2362,6 +2591,7 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
       _reference,
       term,
       widget.extraFilters(),
+      widget.context(),
     );
     if (!mounted || generation != _searchGeneration) {
       return;
@@ -2394,6 +2624,7 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
       _reference,
       selectedValue,
       widget.extraFilters(),
+      widget.context(),
     );
     if (!mounted ||
         _selectedRow != null ||
@@ -2512,6 +2743,7 @@ class _AcpMultiReferenceField extends StatefulWidget {
     required this.controller,
     required this.search,
     required this.extraFilters,
+    required this.context,
     required this.helpText,
     required this.helpKey,
     required this.validator,
@@ -2522,6 +2754,7 @@ class _AcpMultiReferenceField extends StatefulWidget {
   final TextEditingController controller;
   final _AcpReferenceSearch search;
   final List<String> Function() extraFilters;
+  final Map<String, dynamic> Function() context;
   final String helpText;
   final Key helpKey;
   final FormFieldValidator<String> validator;
@@ -2707,6 +2940,7 @@ class _AcpMultiReferenceFieldState extends State<_AcpMultiReferenceField> {
       _reference,
       term,
       widget.extraFilters(),
+      widget.context(),
     );
     if (!mounted || generation != _searchGeneration) {
       return;
@@ -2994,6 +3228,8 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         widget.referenceSearch != null &&
         widget.referenceLookup != null) {
       List<String> extraFilters() => _referenceFilters(field.reference!);
+      Map<String, dynamic> referenceContext() =>
+          _referenceContext(field.reference!);
       if (field.reference!.multiSelect) {
         return _AcpMultiReferenceField(
           key: Key('acp-dynamic-field-${field.key}'),
@@ -3001,6 +3237,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
           controller: controller,
           search: widget.referenceSearch!,
           extraFilters: extraFilters,
+          context: referenceContext,
           helpText: helpText,
           helpKey: helpKey,
           validator: (value) => _validateField(field, value ?? ''),
@@ -3016,6 +3253,7 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
         helpKey: helpKey,
         validator: (value) => _validateField(field, value ?? ''),
         extraFilters: extraFilters,
+        context: referenceContext,
         onSelectionChanged: (row) => _applyReferenceSelection(field, row),
       );
     }
@@ -3371,6 +3609,16 @@ class _AcpDynamicFormDialogState extends State<_AcpDynamicFormDialog> {
       _reformatInitialMoneyFields();
       _clearNewlyHiddenFields();
     });
+  }
+
+  Map<String, dynamic> _referenceContext(
+    AcpFieldReferenceDescriptor reference,
+  ) {
+    return <String, dynamic>{
+      for (final entry in reference.contextFieldsFromForm.entries)
+        if ((_currentFieldValue(entry.value) ?? '').trim().isNotEmpty)
+          entry.key: _currentFieldValue(entry.value)!.trim(),
+    };
   }
 
   void _reformatInitialMoneyFields() {

@@ -16,6 +16,7 @@ import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
 
 const String knowledgePackPluginToken = 'core.fw.knowledge_pack';
+const String _serviceProfilePluginToken = 'core.fw.service_profile';
 
 final knowledgePackShellAvailabilityProvider = Provider<ShellRouteAvailability>(
   (ref) {
@@ -34,6 +35,16 @@ final knowledgePackShellAvailabilityProvider = Provider<ShellRouteAvailability>(
   },
 );
 
+final knowledgePackAdminResourcesProvider =
+    Provider<List<AcpResourceDescriptor>>((ref) {
+      final serviceProfileEnabled = ref
+          .watch(corePluginAccessProvider(_serviceProfilePluginToken))
+          .maybeWhen(data: (value) => value.isAvailable, orElse: () => false);
+      return buildKnowledgePackAdminResources(
+        serviceProfilesEnabled: serviceProfileEnabled,
+      );
+    });
+
 final knowledgePackAdminRepositoryProvider = Provider<AcpAdminRepository>((
   ref,
 ) {
@@ -41,9 +52,10 @@ final knowledgePackAdminRepositoryProvider = Provider<AcpAdminRepository>((
     appConfig: ref.watch(appConfigProvider),
     authenticatedHttpClient: ref.watch(authenticatedHttpClientProvider),
   );
+  final resources = ref.watch(knowledgePackAdminResourcesProvider);
   return KnowledgePackAdminRepository(
     delegate: delegate,
-    projectionDescriptor: knowledgePackAdminResources.firstWhere(
+    projectionDescriptor: resources.firstWhere(
       (descriptor) => descriptor.entitySet == 'KnowledgeIndexProjections',
     ),
   );
@@ -51,6 +63,8 @@ final knowledgePackAdminRepositoryProvider = Provider<AcpAdminRepository>((
 
 final knowledgePackAdminControllerProvider =
     StateNotifierProvider<KnowledgePackAdminController, AcpAdminState>((ref) {
+      ref.watch(knowledgePackAdminResourcesProvider);
+      ref.watch(knowledgePackAdminRepositoryProvider);
       return KnowledgePackAdminController(
         ref,
         onProjectionUpdate: (message) {
@@ -70,7 +84,7 @@ class KnowledgePackAdminController extends AcpAdminController {
   }) : _onProjectionUpdate = onProjectionUpdate,
        super(
          repository: ref.read(knowledgePackAdminRepositoryProvider),
-         descriptors: knowledgePackAdminResources,
+         descriptors: ref.read(knowledgePackAdminResourcesProvider),
          onSessionExpired: () {
            ref.read(authControllerProvider.notifier).refreshSession();
          },

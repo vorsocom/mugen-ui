@@ -19,7 +19,9 @@ import 'package:mugen_ui/shared/application/pagination.dart';
 import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/features/shell/application/shell_route_access.dart';
+import 'package:mugen_ui/shared/presentation/acp_admin/acp_workspace_navigation.dart';
 
+import '../../../test_support/acp_workspace_target_controller.dart';
 import '../../../test_support/fake_acp_admin_repository.dart';
 import '../../../test_support/recording_auth_controller.dart';
 
@@ -179,6 +181,79 @@ void main() {
       find.textContaining('Manage knowledge packs, lifecycle versions'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('Knowledge Packs consume a scoped workspace target', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          knowledgePackAdminRepositoryProvider.overrideWithValue(
+            FakeAcpAdminRepository(),
+          ),
+          acpWorkspaceNavigationProvider.overrideWith(
+            () => FixedAcpWorkspaceNavigationController(
+              AcpWorkspaceTarget(
+                routeId: RouteIds.knowledgePacks,
+                resourceKey: 'knowledge-scopes',
+                tenantId: 'tenant-1',
+                rowId: 'scope-1',
+                filterValues: const <String, String>{
+                  'ServiceProfileId': 'profile-1',
+                },
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(home: Scaffold(body: KnowledgePackPanel())),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Scopes'), findsWidgets);
+    expect(find.text('scope-1'), findsWidgets);
+  });
+
+  testWidgets('Knowledge Scope reference opens its Service Profile', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          corePluginAccessProvider.overrideWith(
+            (ref, token) async => const CorePluginAccess.available(),
+          ),
+          knowledgePackAdminRepositoryProvider.overrideWithValue(
+            _KnowledgeScopeServiceProfileRepository(),
+          ),
+          knowledgePackAdminResourcesProvider.overrideWithValue(
+            buildKnowledgePackAdminResources(serviceProfilesEnabled: true),
+          ),
+          acpWorkspaceNavigationProvider.overrideWith(
+            () => FixedAcpWorkspaceNavigationController(
+              AcpWorkspaceTarget(
+                routeId: RouteIds.knowledgePacks,
+                resourceKey: 'knowledge-scopes',
+                tenantId: 'tenant-1',
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(home: Scaffold(body: KnowledgePackPanel())),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profile One · profile-one'));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(KnowledgePackPanel)),
+    );
+    final target = container.read(acpWorkspaceNavigationProvider);
+    expect(target?.routeId, RouteIds.serviceProfiles);
+    expect(target?.resourceKey, 'service-profiles');
+    expect(target?.rowId, 'profile-1');
   });
 
   testWidgets(
@@ -591,6 +666,42 @@ class _KnowledgePackEnrichmentRepository extends FakeAcpAdminRepository {
           },
         ],
         total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
+class _KnowledgeScopeServiceProfileRepository extends FakeAcpAdminRepository {
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    final rows = descriptor.entitySet == 'KnowledgeScopes'
+        ? const <AcpRow>[
+            <String, Object?>{
+              'Id': 'scope-1',
+              'TenantId': 'tenant-1',
+              'ServiceProfileId': 'profile-1',
+              'ServiceProfile': <String, Object?>{
+                'Id': 'profile-1',
+                'DisplayName': 'Profile One',
+                'Key': 'profile-one',
+              },
+            },
+          ]
+        : const <AcpRow>[];
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: rows,
+        total: rows.length,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
       ),

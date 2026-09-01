@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.17.0] - 2026-09-01
+
+### Added
+
 - Added capability-gated Service Profile administration for stable service
   identities, ingress endpoint routing, Billing Subscription Product access,
   and optional Knowledge Scope targeting.

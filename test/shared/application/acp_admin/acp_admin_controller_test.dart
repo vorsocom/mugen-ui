@@ -190,6 +190,64 @@ void main() {
     },
   );
 
+  test('exact filters and optional API surfaces are guarded', () async {
+    const filterable = AcpResourceDescriptor(
+      key: 'filterable',
+      title: 'Filterable',
+      entitySet: 'FilterableRows',
+      scopeMode: AcpScopeMode.none,
+      columns: <AcpColumnDescriptor>[],
+      filters: <AcpFilterDescriptor>[
+        AcpFilterDescriptor(
+          key: 'OwnerId',
+          label: 'Owner',
+          literalType: AcpFilterLiteralType.guid,
+        ),
+        AcpFilterDescriptor(key: 'Status', label: 'Status'),
+      ],
+    );
+    const optional = AcpResourceDescriptor(
+      key: 'optional',
+      title: 'Optional',
+      entitySet: 'OptionalRows',
+      scopeMode: AcpScopeMode.none,
+      columns: <AcpColumnDescriptor>[],
+      optionalApiSurface: true,
+    );
+    final repository = _FakeAcpAdminRepository();
+    final controller = AcpAdminController(
+      repository: repository,
+      descriptors: const <AcpResourceDescriptor>[filterable, optional],
+      onSessionExpired: () {},
+    );
+    addTearDown(controller.dispose);
+    expect(controller.resourceStateFor('optional').isAvailable, isFalse);
+
+    await controller.loadInitialData();
+    expect(controller.resourceStateFor('optional').isAvailable, isTrue);
+    controller.setFilterValue('missing', 'ignored');
+    controller.setFilterValue('OwnerId', ' owner-id ');
+    controller.setFilterValue('Status', "reviewer's");
+    await controller.loadActiveResource();
+    expect(repository.activeListCalls.last.extraFilters, <String>[
+      "OwnerId eq guid'owner-id'",
+      "Status eq 'reviewer''s'",
+    ]);
+    controller.setFilterValue('Status', '');
+    expect(controller.state.activeResourceState.filterValues, <String, String>{
+      'OwnerId': 'owner-id',
+    });
+    await controller.refreshResource('missing');
+
+    repository.listRowsResult = const Result<AcpRowPage>.failure(
+      ApiFailure(404, 'missing'),
+    );
+    await controller.refreshResourceCounts();
+    expect(controller.resourceStateFor('optional').isAvailable, isFalse);
+    await controller.selectResource('optional');
+    expect(controller.state.activeResourceKey, 'filterable');
+  });
+
   test(
     'soft-delete views reload supported resources and reject others',
     () async {
@@ -763,6 +821,7 @@ class _ListCall {
     required this.searchTerm,
     required this.deletedView,
     required this.enrichReferences,
+    required this.extraFilters,
   });
 
   final String entitySet;
@@ -772,6 +831,7 @@ class _ListCall {
   final String? searchTerm;
   final AcpDeletedView deletedView;
   final bool enrichReferences;
+  final List<String> extraFilters;
 }
 
 class _CreateCall {
@@ -930,6 +990,7 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
         searchTerm: searchTerm,
         deletedView: deletedView,
         enrichReferences: enrichReferences,
+        extraFilters: extraFilters,
       ),
     );
 

@@ -30,6 +30,8 @@ typedef AcpColumnValueBuilder = Object? Function(AcpRow row);
 typedef AcpInitialValueFactory = Object? Function();
 typedef AcpComputedValueBuilder = String Function(Map<String, String> values);
 typedef AcpOptionsBuilder = List<String> Function(AcpRow values);
+typedef AcpActionMessageBuilder = String Function(AcpRow? row);
+typedef AcpActionSuccessMessageBuilder = String Function(Object? result);
 
 typedef AcpRow = Map<String, dynamic>;
 
@@ -86,6 +88,7 @@ class AcpColumnReferenceDescriptor {
     this.subtitleFields = const <AcpReferenceFieldDescriptor>[],
     this.batchLookup,
     this.unassignedLabel = 'Not assigned',
+    this.targetResourceKey,
   });
 
   final String navigationPath;
@@ -93,6 +96,25 @@ class AcpColumnReferenceDescriptor {
   final List<AcpReferenceFieldDescriptor> subtitleFields;
   final AcpBatchReferenceDescriptor? batchLookup;
   final String unassignedLabel;
+  final String? targetResourceKey;
+}
+
+class AcpFilterDescriptor {
+  const AcpFilterDescriptor({
+    required this.key,
+    required this.label,
+    this.literalType = AcpFilterLiteralType.string,
+    this.options = const <String>[],
+    this.optionLabels = const <String, String>{},
+    this.hintText,
+  });
+
+  final String key;
+  final String label;
+  final AcpFilterLiteralType literalType;
+  final List<String> options;
+  final Map<String, String> optionLabels;
+  final String? hintText;
 }
 
 class AcpFieldDescriptor {
@@ -246,10 +268,12 @@ class AcpActionDescriptor {
     required this.label,
     required this.target,
     this.confirmMessage,
+    this.confirmMessageBuilder,
     this.fields = const <AcpFieldDescriptor>[],
     this.includeRowVersion = false,
     this.icon,
     this.successMessage,
+    this.successMessageBuilder,
     this.showInToolbar = true,
     this.showInRowMenu = false,
     this.prefillFieldsFromRow = false,
@@ -263,10 +287,12 @@ class AcpActionDescriptor {
   final String label;
   final AcpActionTarget target;
   final String? confirmMessage;
+  final AcpActionMessageBuilder? confirmMessageBuilder;
   final List<AcpFieldDescriptor> fields;
   final bool includeRowVersion;
   final IconData? icon;
   final String? successMessage;
+  final AcpActionSuccessMessageBuilder? successMessageBuilder;
   final bool showInToolbar;
   final bool showInRowMenu;
   final bool prefillFieldsFromRow;
@@ -276,6 +302,14 @@ class AcpActionDescriptor {
   final AcpPayloadValidator? payloadValidator;
 
   bool isVisibleFor(AcpRow row) => acpRowMatches(row, visibleWhenEquals);
+
+  String? confirmationFor(AcpRow? row) =>
+      confirmMessageBuilder?.call(row) ?? confirmMessage;
+
+  String successMessageFor(Object? result) =>
+      successMessageBuilder?.call(result) ??
+      successMessage ??
+      'Action completed.';
 }
 
 class AcpResourceDescriptor {
@@ -291,6 +325,7 @@ class AcpResourceDescriptor {
     this.collectionActions = const <AcpActionDescriptor>[],
     this.entityActions = const <AcpActionDescriptor>[],
     this.searchFields = const <String>[],
+    this.filters = const <AcpFilterDescriptor>[],
     this.defaultOrderBy,
     this.emptyMessage = 'No rows found.',
     this.allowCreate = false,
@@ -306,6 +341,7 @@ class AcpResourceDescriptor {
     this.deletedViews = const <AcpDeletedView>[AcpDeletedView.active],
     this.expansions = const <AcpExpandDescriptor>[],
     this.keyLiteralType = AcpFilterLiteralType.string,
+    this.optionalApiSurface = false,
   });
 
   final String key;
@@ -319,6 +355,7 @@ class AcpResourceDescriptor {
   final List<AcpActionDescriptor> collectionActions;
   final List<AcpActionDescriptor> entityActions;
   final List<String> searchFields;
+  final List<AcpFilterDescriptor> filters;
   final String? defaultOrderBy;
   final String emptyMessage;
   final bool allowCreate;
@@ -334,6 +371,7 @@ class AcpResourceDescriptor {
   final List<AcpDeletedView> deletedViews;
   final List<AcpExpandDescriptor> expansions;
   final AcpFilterLiteralType keyLiteralType;
+  final bool optionalApiSurface;
 
   bool canUpdate(AcpRow row) =>
       allowUpdate && acpRowMatches(row, updateWhenEquals);

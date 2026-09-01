@@ -54,9 +54,11 @@ void main() {
       label: 'Rotate',
       target: AcpActionTarget.collection,
       confirmMessage: 'Rotate now?',
+      confirmMessageBuilder: _actionConfirmation,
       fields: <AcpFieldDescriptor>[field],
       includeRowVersion: true,
       successMessage: 'Rotation completed.',
+      successMessageBuilder: _actionSuccess,
       showInToolbar: false,
       showInRowMenu: true,
       prefillFieldsFromRow: true,
@@ -76,6 +78,15 @@ void main() {
       collectionActions: <AcpActionDescriptor>[action],
       entityActions: <AcpActionDescriptor>[action],
       searchFields: <String>['DisplayName'],
+      filters: <AcpFilterDescriptor>[
+        AcpFilterDescriptor(
+          key: 'Status',
+          label: 'Status',
+          options: <String>['ready'],
+          optionLabels: <String, String>{'ready': 'Ready'},
+          hintText: 'Exact status',
+        ),
+      ],
       defaultOrderBy: 'DisplayName asc',
       emptyMessage: 'Nothing here.',
       allowCreate: true,
@@ -92,6 +103,7 @@ void main() {
         AcpDeletedView.archived,
       ],
       keyLiteralType: AcpFilterLiteralType.guid,
+      optionalApiSurface: true,
     );
 
     expect(field.key, 'SecretValue');
@@ -138,9 +150,11 @@ void main() {
     expect(column.valueBuilder!(<String, Object?>{'Value': 7}), 7);
     expect(action.target, AcpActionTarget.collection);
     expect(action.confirmMessage, 'Rotate now?');
+    expect(action.confirmationFor(const <String, Object?>{}), 'Confirm row.');
     expect(action.fields.single, same(field));
     expect(action.includeRowVersion, isTrue);
     expect(action.successMessage, 'Rotation completed.');
+    expect(action.successMessageFor(null), 'Result received.');
     expect(action.showInToolbar, isFalse);
     expect(action.showInRowMenu, isTrue);
     expect(action.prefillFieldsFromRow, isTrue);
@@ -155,6 +169,14 @@ void main() {
     expect(resource.collectionActions.single, same(action));
     expect(resource.entityActions.single, same(action));
     expect(resource.searchFields, <String>['DisplayName']);
+    expect(resource.filters.single.key, 'Status');
+    expect(resource.filters.single.label, 'Status');
+    expect(resource.filters.single.literalType, AcpFilterLiteralType.string);
+    expect(resource.filters.single.options, <String>['ready']);
+    expect(resource.filters.single.optionLabels, <String, String>{
+      'ready': 'Ready',
+    });
+    expect(resource.filters.single.hintText, 'Exact status');
     expect(resource.defaultOrderBy, 'DisplayName asc');
     expect(resource.emptyMessage, 'Nothing here.');
     expect(resource.allowCreate, isTrue);
@@ -171,6 +193,15 @@ void main() {
       AcpDeletedView.archived,
     ]);
     expect(resource.keyLiteralType, AcpFilterLiteralType.guid);
+    expect(resource.optionalApiSurface, isTrue);
+    expect(
+      const AcpActionDescriptor(
+        name: 'plain',
+        label: 'Plain',
+        target: AcpActionTarget.entity,
+      ).successMessageFor(null),
+      'Action completed.',
+    );
     expect(
       const AcpResourceDescriptor(
         key: 'strings',
@@ -246,3 +277,7 @@ String _computedValue(Map<String, String> values) => values['Value'] ?? '';
 Object? _columnValue(AcpRow row) => row['Value'];
 
 String? _payloadValidator(Map<String, dynamic> payload) => null;
+
+String _actionConfirmation(AcpRow? row) => 'Confirm row.';
+
+String _actionSuccess(Object? result) => 'Result received.';

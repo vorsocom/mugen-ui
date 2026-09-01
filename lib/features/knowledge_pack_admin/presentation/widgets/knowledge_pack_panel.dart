@@ -12,7 +12,7 @@ class KnowledgePackPanel extends StatelessWidget {
       controllerProvider: knowledgePackAdminControllerProvider,
       title: 'Knowledge Packs',
       description:
-          'Configure knowledge packs, versions, entries, revisions, approvals, and retrieval scopes.',
+          'Manage knowledge packs, lifecycle versions, searchable projections, entries, approvals, and retrieval scopes.',
     );
   }
 }

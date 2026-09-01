@@ -1,5 +1,6 @@
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
+import 'package:mugen_ui/features/knowledge_pack_admin/application/knowledge_pack_projection_status.dart';
 
 final List<AcpResourceDescriptor>
 knowledgePackAdminResources = <AcpResourceDescriptor>[
@@ -17,9 +18,12 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
       _column('IsActive', 'Active'),
       _column(
         'CurrentVersionId',
-        'Current Version',
+        'Relational Version',
         reference: _currentVersionDisplay,
       ),
+      _column('Searchability', 'Searchability'),
+      _column('PendingReplacement', 'Pending Replacement'),
+      _column('ProjectionAttention', 'Attention'),
       _column('UpdatedAt', 'Updated'),
     ],
     createFields: <AcpFieldDescriptor>[
@@ -44,7 +48,7 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     expansions: const <AcpExpandDescriptor>[
       AcpExpandDescriptor(
         navigation: 'CurrentVersion',
-        selectFields: <String>['VersionNumber', 'Status'],
+        selectFields: <String>['Id', 'VersionNumber', 'Status'],
       ),
     ],
   ),
@@ -55,13 +59,18 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     scopeMode: AcpScopeMode.required,
     keyLiteralType: AcpFilterLiteralType.guid,
     description:
-        'Draft, review, approved, published, and archived lifecycle records for knowledge packs.',
+        'Version lifecycle and active-gateway search projection readiness for knowledge packs.',
     columns: <AcpColumnDescriptor>[
       _column('VersionNumber', 'Version'),
-      _column('Status', 'Status'),
+      _column('Status', 'Lifecycle'),
+      _column('IsCurrentVersion', 'Current'),
+      _column('ProjectionStatus', 'Searchability'),
+      _column('ProjectionTarget', 'Provider / Target'),
+      _column('ProjectionDocumentCount', 'Documents'),
+      _column('ProjectionLastAt', 'Completed / Failed'),
+      _column('ProjectionFailure', 'Failure'),
+      _column('ProjectionMatchesActive', 'Active Target'),
       _column('KnowledgePackId', 'Pack', reference: _knowledgePackDisplay),
-      _column('PublishedAt', 'Published'),
-      _column('ArchivedAt', 'Archived'),
     ],
     createFields: <AcpFieldDescriptor>[
       _knowledgePackId(required: true),
@@ -97,14 +106,21 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
       _versionAction(
         name: 'publish',
         label: 'Publish',
-        confirmMessage: 'Publish this version?',
-        successMessage: 'Knowledge pack version published.',
+        confirmMessage:
+            'Publish this approved version? Publication may remain queued until indexing completes.',
+        successMessage: 'Published.',
+        successMessageBuilder: _publishSuccessMessage,
+        visibleWhenEquals: const <String, List<Object>>{
+          'Status': <Object>['approved'],
+          'HasActiveProjection': <Object>[false],
+        },
       ),
       _versionAction(
         name: 'archive',
         label: 'Archive',
         confirmMessage: 'Archive this version?',
         successMessage: 'Knowledge pack version archived.',
+        confirmMessageBuilder: _archiveConfirmation,
         fields: <AcpFieldDescriptor>[
           _multiline('Reason', 'Reason'),
           _multiline('Note', 'Note'),
@@ -113,8 +129,24 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
       _versionAction(
         name: 'rollback_version',
         label: 'Rollback Version',
-        confirmMessage: 'Rollback publication to this version?',
+        confirmMessage:
+            'Rollback publication to this historical version? The change may remain staged until indexing completes.',
         successMessage: 'Knowledge pack publication rolled back.',
+        successMessageBuilder: _rollbackSuccessMessage,
+        visibleWhenEquals: const <String, List<Object>>{
+          'CanRollback': <Object>[true],
+        },
+      ),
+      _versionAction(
+        name: 'reindex',
+        label: 'Reindex',
+        confirmMessage:
+            'Queue a fresh search projection for this published version?',
+        successMessage: 'Reindex queued.',
+        successMessageBuilder: _queuedActionSuccessMessage,
+        visibleWhenEquals: const <String, List<Object>>{
+          'CanReindex': <Object>[true],
+        },
       ),
     ],
     searchFields: const <String>['Status', 'Note'],
@@ -124,7 +156,7 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     expansions: const <AcpExpandDescriptor>[
       AcpExpandDescriptor(
         navigation: 'KnowledgePack',
-        selectFields: <String>['Name', 'Key'],
+        selectFields: <String>['Name', 'Key', 'CurrentVersionId'],
       ),
     ],
   ),
@@ -267,6 +299,128 @@ knowledgePackAdminResources = <AcpResourceDescriptor>[
     ],
   ),
   AcpResourceDescriptor(
+    key: 'knowledge-index-projections',
+    title: 'Projections',
+    entitySet: 'KnowledgeIndexProjections',
+    scopeMode: AcpScopeMode.required,
+    keyLiteralType: AcpFilterLiteralType.guid,
+    optionalApiSurface: true,
+    description:
+        'System-created search projection attempts. Retry failures here; reindex published versions from Versions.',
+    columns: <AcpColumnDescriptor>[
+      _column('Status', 'Status', valueBuilder: knowledgeProjectionStateLabel),
+      _column('Operation', 'Operation'),
+      _column('KnowledgePackId', 'Pack', reference: _knowledgePackDisplay),
+      _column(
+        'KnowledgePackVersionId',
+        'Version',
+        reference: _knowledgeVersionDisplay('KnowledgePackVersion'),
+      ),
+      _column('Provider', 'Provider'),
+      _column(
+        'TargetFingerprint',
+        'Target Fingerprint',
+        flex: 2,
+        opaqueIdentifier: true,
+      ),
+      _column(
+        'ContentChecksum',
+        'Content Checksum',
+        flex: 2,
+        opaqueIdentifier: true,
+      ),
+      _column('ProjectionSchemaVersion', 'Schema'),
+      _column('DocumentCount', 'Documents'),
+      _column('AttemptSummary', 'Attempts'),
+      _column('RequestedAt', 'Requested'),
+      _column('StartedAt', 'Started'),
+      _column('LastCompletedOrFailedAt', 'Completed / Failed'),
+      _column('FailureCode', 'Failure Code'),
+      _column('FailureDetail', 'Failure', flex: 2),
+      _column('ActiveTargetMatch', 'Active Target'),
+    ],
+    entityActions: <AcpActionDescriptor>[
+      AcpActionDescriptor(
+        name: 'retry',
+        label: 'Retry',
+        target: AcpActionTarget.entity,
+        includeRowVersion: true,
+        confirmMessage: 'Retry this failed projection attempt?',
+        successMessage: 'Projection retry queued.',
+        successMessageBuilder: _queuedActionSuccessMessage,
+        visibleWhenEquals: const <String, List<Object>>{
+          'Status': <Object>['failed'],
+        },
+        refreshResourceKeys: const <String>[
+          'knowledge-pack-versions',
+          'knowledge-packs',
+        ],
+      ),
+    ],
+    searchFields: const <String>[
+      'Status',
+      'Operation',
+      'Provider',
+      'FailureCode',
+      'FailureDetail',
+    ],
+    filters: const <AcpFilterDescriptor>[
+      AcpFilterDescriptor(
+        key: 'KnowledgePackId',
+        label: 'Pack ID',
+        literalType: AcpFilterLiteralType.guid,
+        hintText: 'Exact pack ID',
+      ),
+      AcpFilterDescriptor(
+        key: 'KnowledgePackVersionId',
+        label: 'Version ID',
+        literalType: AcpFilterLiteralType.guid,
+        hintText: 'Exact version ID',
+      ),
+      AcpFilterDescriptor(
+        key: 'Status',
+        label: 'Status',
+        options: <String>[
+          'queued',
+          'processing',
+          'ready',
+          'failed',
+          'cancelled',
+        ],
+        optionLabels: <String, String>{
+          'queued': 'Queued',
+          'processing': 'Indexing',
+          'ready': 'Ready',
+          'failed': 'Failed',
+          'cancelled': 'Cancelled',
+        },
+      ),
+      AcpFilterDescriptor(
+        key: 'Provider',
+        label: 'Provider',
+        hintText: 'Exact provider label',
+      ),
+    ],
+    defaultOrderBy: 'RequestedAt desc',
+    emptyMessage: 'No search projections found.',
+    expansions: const <AcpExpandDescriptor>[
+      AcpExpandDescriptor(
+        navigation: 'KnowledgePack',
+        selectFields: <String>['Name', 'Key', 'CurrentVersionId'],
+      ),
+      AcpExpandDescriptor(
+        navigation: 'KnowledgePackVersion',
+        selectFields: <String>['VersionNumber', 'Status', 'KnowledgePackId'],
+        expands: <AcpExpandDescriptor>[
+          AcpExpandDescriptor(
+            navigation: 'KnowledgePack',
+            selectFields: <String>['Name', 'Key', 'CurrentVersionId'],
+          ),
+        ],
+      ),
+    ],
+  ),
+  AcpResourceDescriptor(
     key: 'knowledge-scopes',
     title: 'Scopes',
     entitySet: 'KnowledgeScopes',
@@ -330,10 +484,14 @@ AcpColumnDescriptor _column(
   String label, {
   AcpColumnReferenceDescriptor? reference,
   bool opaqueIdentifier = false,
+  int flex = 1,
+  AcpColumnValueBuilder? valueBuilder,
 }) {
   return AcpColumnDescriptor(
     key: key,
     label: label,
+    flex: flex,
+    valueBuilder: valueBuilder,
     reference: reference,
     opaqueIdentifier: opaqueIdentifier,
   );
@@ -348,6 +506,7 @@ const AcpColumnReferenceDescriptor _currentVersionDisplay =
       subtitleFields: <AcpReferenceFieldDescriptor>[
         AcpReferenceFieldDescriptor('Status'),
       ],
+      targetResourceKey: 'knowledge-pack-versions',
     );
 
 const AcpColumnReferenceDescriptor _knowledgePackDisplay =
@@ -360,6 +519,7 @@ const AcpColumnReferenceDescriptor _knowledgePackDisplay =
       subtitleFields: <AcpReferenceFieldDescriptor>[
         AcpReferenceFieldDescriptor('Key'),
       ],
+      targetResourceKey: 'knowledge-packs',
     );
 
 AcpColumnReferenceDescriptor _knowledgeVersionDisplay(String navigationPath) {
@@ -374,6 +534,7 @@ AcpColumnReferenceDescriptor _knowledgeVersionDisplay(String navigationPath) {
       AcpReferenceFieldDescriptor('VersionNumber', prefix: 'v'),
       AcpReferenceFieldDescriptor('Status'),
     ],
+    targetResourceKey: 'knowledge-pack-versions',
   );
 }
 
@@ -641,6 +802,9 @@ AcpActionDescriptor _versionAction({
   required String label,
   required String confirmMessage,
   required String successMessage,
+  AcpActionMessageBuilder? confirmMessageBuilder,
+  AcpActionSuccessMessageBuilder? successMessageBuilder,
+  Map<String, List<Object>> visibleWhenEquals = const <String, List<Object>>{},
   List<AcpFieldDescriptor> fields = const <AcpFieldDescriptor>[
     AcpFieldDescriptor(
       key: 'Note',
@@ -657,7 +821,43 @@ AcpActionDescriptor _versionAction({
     target: AcpActionTarget.entity,
     includeRowVersion: true,
     confirmMessage: confirmMessage,
+    confirmMessageBuilder: confirmMessageBuilder,
     successMessage: successMessage,
+    successMessageBuilder: successMessageBuilder,
+    visibleWhenEquals: visibleWhenEquals,
+    refreshResourceKeys: const <String>[
+      'knowledge-packs',
+      'knowledge-index-projections',
+    ],
     fields: fields,
   );
+}
+
+String _publishSuccessMessage(Object? result) =>
+    _isQueuedResult(result) ? 'Publication queued.' : 'Published.';
+
+String _rollbackSuccessMessage(Object? result) => _isQueuedResult(result)
+    ? 'Rollback queued.'
+    : 'Knowledge pack publication rolled back.';
+
+String _queuedActionSuccessMessage(Object? result) =>
+    _isQueuedResult(result) ? 'Projection queued.' : 'Action completed.';
+
+bool _isQueuedResult(Object? result) {
+  if (result is! Map) {
+    return false;
+  }
+  return result['ProjectionId']?.toString().trim().isNotEmpty == true &&
+      const <String>{
+        'queued',
+        'processing',
+      }.contains(result['Status']?.toString().trim().toLowerCase());
+}
+
+String _archiveConfirmation(AcpRow? row) {
+  if (row?['IsPublishedOrIndexing'] == true) {
+    return 'Archive this version? It is currently published or indexing; '
+        'search availability may change.';
+  }
+  return 'Archive this version?';
 }

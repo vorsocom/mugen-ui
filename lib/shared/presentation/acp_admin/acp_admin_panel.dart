@@ -220,6 +220,25 @@ class _AcpAdminPanelState<T extends AcpAdminController>
                       _selectedResourceKey = state.activeResourceKey;
                     });
                   },
+                  onOpenReference: (row, column) async {
+                    final targetResourceKey =
+                        column.reference?.targetResourceKey;
+                    final targetId = row[column.key]?.toString().trim() ?? '';
+                    if (targetResourceKey == null || targetId.isEmpty) {
+                      return;
+                    }
+                    await controller.selectResource(targetResourceKey);
+                    final result = await controller.fetchRowForMutation(
+                      targetId,
+                    );
+                    if (!mounted || result.isFailure) {
+                      return;
+                    }
+                    setState(() {
+                      _selectedRow = result.data;
+                      _selectedResourceKey = targetResourceKey;
+                    });
+                  },
                   mutationsEnabled: widget.mutationsEnabled,
                 ),
               );
@@ -294,6 +313,10 @@ class _ResourceSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return AdminTabs(
       items: descriptors
+          .where(
+            (descriptor) =>
+                state.resourceStates[descriptor.key]?.isAvailable == true,
+          )
           .map((descriptor) {
             final resourceState = state.resourceStates[descriptor.key];
             return AdminTabItem(
@@ -328,10 +351,14 @@ class _ToolbarRow<T extends AcpAdminController> extends ConsumerStatefulWidget {
 class _ToolbarRowState<T extends AcpAdminController>
     extends ConsumerState<_ToolbarRow<T>> {
   Timer? _searchDebounce;
+  final Map<String, Timer> _filterDebounces = <String, Timer>{};
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    for (final timer in _filterDebounces.values) {
+      timer.cancel();
+    }
     super.dispose();
   }
 
@@ -464,6 +491,59 @@ class _ToolbarRowState<T extends AcpAdminController>
               },
             ),
           ),
+        for (final filter in descriptor.filters)
+          SizedBox(
+            width: 220,
+            child: filter.options.isNotEmpty
+                ? DropdownButtonFormField<String>(
+                    key: ValueKey<String>(
+                      'acp-admin-filter-${descriptor.key}-${filter.key}',
+                    ),
+                    initialValue: resourceState.filterValues[filter.key],
+                    isExpanded: true,
+                    decoration: appFormInputDecoration(
+                      labelText: filter.label,
+                      hintText: filter.hintText,
+                      helpText: 'Filter ${filter.label.toLowerCase()} exactly.',
+                    ),
+                    items: <DropdownMenuItem<String>>[
+                      const DropdownMenuItem<String>(
+                        value: '',
+                        child: Text('All'),
+                      ),
+                      for (final option in filter.options)
+                        DropdownMenuItem<String>(
+                          value: option,
+                          child: Text(filter.optionLabels[option] ?? option),
+                        ),
+                    ],
+                    onChanged: (value) async {
+                      controller.setFilterValue(filter.key, value ?? '');
+                      await controller.loadActiveResource();
+                    },
+                  )
+                : TextFormField(
+                    key: ValueKey<String>(
+                      'acp-admin-filter-${descriptor.key}-${filter.key}',
+                    ),
+                    initialValue: resourceState.filterValues[filter.key] ?? '',
+                    decoration: appFormInputDecoration(
+                      labelText: filter.label,
+                      hintText: filter.hintText,
+                      helpText: 'Filter ${filter.label.toLowerCase()} exactly.',
+                    ),
+                    onChanged: (value) {
+                      _filterDebounces[filter.key]?.cancel();
+                      _filterDebounces[filter.key] = Timer(
+                        _acpAdminSearchDebounce,
+                        () async {
+                          controller.setFilterValue(filter.key, value);
+                          await controller.loadActiveResource();
+                        },
+                      );
+                    },
+                  ),
+          ),
         TextButton.icon(
           key: const Key('acp-admin-refresh-button'),
           onPressed: controller.refresh,
@@ -547,6 +627,7 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
     required this.isBusy,
     required this.selectedRow,
     required this.onViewRow,
+    required this.onOpenReference,
     required this.mutationsEnabled,
   });
 
@@ -556,6 +637,8 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
   final bool isBusy;
   final AcpRow? selectedRow;
   final ValueChanged<AcpRow> onViewRow;
+  final Future<void> Function(AcpRow row, AcpColumnDescriptor column)
+  onOpenReference;
   final bool mutationsEnabled;
 
   @override
@@ -595,6 +678,18 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
               if (column.reference == null) {
                 return cell;
               }
+              if (column.reference?.targetResourceKey != null &&
+                  row[column.key]?.toString().trim().isNotEmpty == true) {
+                return Semantics(
+                  label: '${column.label}: $value',
+                  button: true,
+                  excludeSemantics: true,
+                  child: TextButton(
+                    onPressed: () => onOpenReference(row, column),
+                    child: cell,
+                  ),
+                );
+              }
               return Semantics(
                 label: '${column.label}: $value',
                 excludeSemantics: true,
@@ -624,6 +719,9 @@ class _ResourceTable<T extends AcpAdminController> extends ConsumerWidget {
       isLoading: isBusy,
       hasActiveFilter:
           resourceState.searchTerm.trim().isNotEmpty ||
+          resourceState.filterValues.values.any(
+            (value) => value.trim().isNotEmpty,
+          ) ||
           resourceState.deletedView != AcpDeletedView.active,
       emptyState: AdminEmptyStateData(
         title: _emptyTitle(descriptor),
@@ -1374,7 +1472,7 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
       entitySet: descriptor.entitySet,
       actionName: action.name,
       initialValues: initialValues,
-      confirmMessage: action.confirmMessage,
+      confirmMessage: action.confirmationFor(scopeRow),
       confirmIcon: action.icon,
       onSubmit: (payload) async {
         final controller = ref.read(controllerProvider.notifier);
@@ -1398,17 +1496,18 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
       context: context,
       ref: ref,
       result: mutationResult!,
-      successMessage: action.successMessage ?? 'Action completed.',
+      successMessage: action.successMessageFor(mutationResult!.data),
       showResult: true,
     );
     return;
   }
 
-  if (action.confirmMessage != null) {
+  final confirmMessage = action.confirmationFor(scopeRow);
+  if (confirmMessage != null) {
     final confirmed = await showAppConfirmationDialog(
       context: context,
       title: action.label,
-      message: action.confirmMessage!,
+      message: confirmMessage,
       confirmLabel: action.label,
       icon: action.icon ?? Icons.play_circle_outline,
     );
@@ -1436,7 +1535,7 @@ Future<void> _runCollectionAction<T extends AcpAdminController>({
     context: context,
     ref: ref,
     result: result,
-    successMessage: action.successMessage ?? 'Action completed.',
+    successMessage: action.successMessageFor(result.data),
     showResult: true,
   );
 }
@@ -1504,7 +1603,7 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
       entitySet: descriptor.entitySet,
       actionName: action.name,
       initialValues: row,
-      confirmMessage: action.confirmMessage,
+      confirmMessage: action.confirmationFor(row),
       confirmIcon: action.icon,
       onSubmit: (payload) async {
         final controller = ref.read(controllerProvider.notifier);
@@ -1531,17 +1630,18 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
       context: context,
       ref: ref,
       result: mutationResult!,
-      successMessage: action.successMessage ?? 'Action completed.',
+      successMessage: action.successMessageFor(mutationResult!.data),
       showResult: true,
     );
     return;
   }
 
-  if (action.confirmMessage != null) {
+  final confirmMessage = action.confirmationFor(row);
+  if (confirmMessage != null) {
     final confirmed = await showAppConfirmationDialog(
       context: context,
       title: action.label,
-      message: action.confirmMessage!,
+      message: confirmMessage,
       confirmLabel: action.label,
       icon: action.icon ?? Icons.play_circle_outline,
     );
@@ -1570,7 +1670,7 @@ Future<void> _runEntityAction<T extends AcpAdminController>({
     context: context,
     ref: ref,
     result: result,
-    successMessage: action.successMessage ?? 'Action completed.',
+    successMessage: action.successMessageFor(result.data),
     showResult: true,
   );
 }

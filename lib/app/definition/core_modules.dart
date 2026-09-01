@@ -17,6 +17,7 @@ import 'package:mugen_ui/features/core_provisioning/presentation/providers/core_
 import 'package:mugen_ui/features/core_provisioning/presentation/widgets/core_provisioning_panels.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/widgets/human_handoff_panel.dart';
 import 'package:mugen_ui/features/knowledge_pack_admin/presentation/widgets/knowledge_pack_panel.dart';
+import 'package:mugen_ui/features/knowledge_pack_admin/presentation/providers/knowledge_pack_admin_providers.dart';
 import 'package:mugen_ui/features/orchestration_admin/presentation/widgets/channel_orchestration_panel.dart';
 import 'package:mugen_ui/features/portal/presentation/pages/portal_document_page.dart';
 import 'package:mugen_ui/features/portal/presentation/pages/portal_landing_page.dart';
@@ -261,7 +262,7 @@ final MugenUiModule _coreContextEngineModule = MugenUiModule(
 
 final MugenUiModule _coreKnowledgePackModule = MugenUiModule(
   id: 'core.knowledge_pack',
-  shellRoutes: const <ShellRouteDefinition>[
+  shellRoutes: <ShellRouteDefinition>[
     ShellRouteDefinition(
       id: CoreShellRouteIds.knowledgePacks,
       title: 'Knowledge Packs',
@@ -269,6 +270,7 @@ final MugenUiModule _coreKnowledgePackModule = MugenUiModule(
       section: 'Platform Configuration',
       group: 'Platform Capabilities',
       requiredRoles: <String>[knowledgePackConfiguratorRole],
+      availabilityProvider: knowledgePackShellAvailabilityProvider,
       builder: _buildKnowledgePackRoute,
     ),
   ],

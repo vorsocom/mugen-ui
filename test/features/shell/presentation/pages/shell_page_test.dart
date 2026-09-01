@@ -23,6 +23,7 @@ import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_te
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_transcript_item_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/repositories/human_handoff_repository.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/providers/human_handoff_providers.dart';
+import 'package:mugen_ui/features/knowledge_pack_admin/presentation/providers/knowledge_pack_admin_providers.dart';
 import 'package:mugen_ui/features/shell/presentation/pages/shell_page.dart';
 import 'package:mugen_ui/features/shell/presentation/providers/shell_providers.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
@@ -379,6 +380,9 @@ void main() {
           shellControllerProvider.overrideWith(() => shellController),
           authControllerProvider.overrideWith(() => authController),
           chatControllerProvider.overrideWith(() => chatController),
+          knowledgePackShellAvailabilityProvider.overrideWithValue(
+            const ShellRouteAvailability.available(),
+          ),
         ],
         child: const MaterialApp(home: ShellPage()),
       ),
@@ -475,6 +479,9 @@ void main() {
           shellControllerProvider.overrideWith(() => shellController),
           authControllerProvider.overrideWith(() => authController),
           chatControllerProvider.overrideWith(() => chatController),
+          knowledgePackShellAvailabilityProvider.overrideWithValue(
+            const ShellRouteAvailability.available(),
+          ),
           humanHandoffRepositoryProvider.overrideWithValue(
             _FakeHumanHandoffRepository(),
           ),

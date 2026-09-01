@@ -15,9 +15,11 @@ class AcpResourceState {
     required this.page,
     required this.pageSize,
     required this.searchTerm,
+    this.filterValues = const <String, String>{},
     required this.isLoading,
     required this.optionalScopeSelection,
     required this.deletedView,
+    this.isAvailable = true,
     this.tabCount,
     this.referenceWarning,
   });
@@ -27,9 +29,11 @@ class AcpResourceState {
   final int page;
   final int pageSize;
   final String searchTerm;
+  final Map<String, String> filterValues;
   final bool isLoading;
   final AcpOptionalScopeSelection optionalScopeSelection;
   final AcpDeletedView deletedView;
+  final bool isAvailable;
   final int? tabCount;
   final String? referenceWarning;
 
@@ -48,9 +52,11 @@ class AcpResourceState {
     int? page,
     int? pageSize,
     String? searchTerm,
+    Map<String, String>? filterValues,
     bool? isLoading,
     AcpOptionalScopeSelection? optionalScopeSelection,
     AcpDeletedView? deletedView,
+    bool? isAvailable,
     int? tabCount,
     bool clearTabCount = false,
     String? referenceWarning,
@@ -62,10 +68,12 @@ class AcpResourceState {
       page: page ?? this.page,
       pageSize: pageSize ?? this.pageSize,
       searchTerm: searchTerm ?? this.searchTerm,
+      filterValues: filterValues ?? this.filterValues,
       isLoading: isLoading ?? this.isLoading,
       optionalScopeSelection:
           optionalScopeSelection ?? this.optionalScopeSelection,
       deletedView: deletedView ?? this.deletedView,
+      isAvailable: isAvailable ?? this.isAvailable,
       tabCount: clearTabCount ? null : (tabCount ?? this.tabCount),
       referenceWarning: clearReferenceWarning
           ? null
@@ -159,9 +167,11 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
                  page: 1,
                  pageSize: descriptor.pageSize,
                  searchTerm: '',
+                 filterValues: const <String, String>{},
                  isLoading: false,
                  optionalScopeSelection: AcpOptionalScopeSelection.global,
                  deletedView: descriptor.deletedViews.first,
+                 isAvailable: !descriptor.optionalApiSurface,
                  tabCount: null,
                ),
            },
@@ -264,6 +274,9 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     if (resourceKey == state.activeResourceKey) {
       return;
     }
+    if (!resourceStateFor(resourceKey).isAvailable) {
+      return;
+    }
 
     state = state.copyWith(activeResourceKey: resourceKey, clearError: true);
     await _loadResource(descriptorForKey(resourceKey));
@@ -343,6 +356,32 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     );
   }
 
+  void setFilterValue(String key, String value) {
+    final descriptor = activeDescriptor;
+    if (!descriptor.filters.any((filter) => filter.key == key)) {
+      return;
+    }
+    final resourceState = resourceStateFor(descriptor.key);
+    final nextValues = <String, String>{...resourceState.filterValues};
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      nextValues.remove(key);
+    } else {
+      nextValues[key] = normalized;
+    }
+    _replaceResourceState(
+      descriptor.key,
+      resourceState.copyWith(filterValues: nextValues, page: 1),
+    );
+  }
+
+  Future<void> refreshResource(String resourceKey) async {
+    if (!_descriptorsByKey.containsKey(resourceKey)) {
+      return;
+    }
+    await _loadResource(descriptorForKey(resourceKey));
+  }
+
   Future<void> setDeletedView(AcpDeletedView value) async {
     final descriptor = activeDescriptor;
     if (!descriptor.deletedViews.contains(value)) {
@@ -400,6 +439,14 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
         enrichReferences: false,
       );
       if (result.isFailure) {
+        if (descriptor.optionalApiSurface) {
+          _replaceResourceState(
+            descriptor.key,
+            resourceStateFor(
+              descriptor.key,
+            ).copyWith(tabCount: 0, isAvailable: false),
+          );
+        }
         continue;
       }
 
@@ -407,7 +454,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
         descriptor.key,
         resourceStateFor(
           descriptor.key,
-        ).copyWith(tabCount: result.data?.total ?? 0),
+        ).copyWith(tabCount: result.data?.total ?? 0, isAvailable: true),
       );
     }
   }
@@ -679,14 +726,24 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       ),
       tenantId: tenantId,
       searchTerm: resourceState.searchTerm,
+      extraFilters: _exactFilters(
+        descriptor: descriptor,
+        values: resourceState.filterValues,
+      ),
       deletedView: resourceState.deletedView,
     );
 
     if (result.isFailure) {
       _replaceResourceState(
         descriptor.key,
-        resourceState.copyWith(isLoading: false),
+        resourceState.copyWith(
+          isLoading: false,
+          isAvailable: !descriptor.optionalApiSurface,
+        ),
       );
+      if (descriptor.optionalApiSurface) {
+        return;
+      }
       _applyFailure(
         result.failure!,
         fallback: 'Could not load ${descriptor.title.toLowerCase()}.',
@@ -703,10 +760,27 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
         page: page.page,
         pageSize: page.pageSize,
         isLoading: false,
+        isAvailable: true,
         referenceWarning: page.referenceWarning,
         clearReferenceWarning: page.referenceWarning == null,
       ),
     );
+  }
+
+  List<String> _exactFilters({
+    required AcpResourceDescriptor descriptor,
+    required Map<String, String> values,
+  }) {
+    return <String>[
+      for (final filter in descriptor.filters)
+        if (values[filter.key]?.trim().isNotEmpty == true)
+          switch (filter.literalType) {
+            AcpFilterLiteralType.guid =>
+              "${filter.key} eq guid'${values[filter.key]!.trim()}'",
+            AcpFilterLiteralType.string =>
+              "${filter.key} eq '${values[filter.key]!.trim().replaceAll("'", "''")}'",
+          },
+    ];
   }
 
   Future<Result<Object?>> _finishObjectMutation(

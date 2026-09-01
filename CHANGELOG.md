@@ -19,6 +19,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.16.0] - 2026-09-01
+
+### Added
+
+- Added Knowledge Pack projection status, staged publication monitoring,
+  reindex/retry controls, exact projection filters, and pack/version
+  searchability summaries for the active knowledge gateway.
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [0.15.5] - 2026-08-30
 
 ### Added

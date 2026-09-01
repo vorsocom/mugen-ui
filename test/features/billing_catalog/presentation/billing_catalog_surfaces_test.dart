@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
+import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/billing_catalog/application/billing_catalog_access_service.dart';
 import 'package:mugen_ui/features/billing_catalog/application/dto/billing_catalog_inputs.dart';
@@ -20,7 +21,9 @@ import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/billing_acp_admin_repository.dart';
+import 'package:mugen_ui/shared/presentation/acp_admin/acp_workspace_navigation.dart';
 
+import '../../../test_support/acp_workspace_target_controller.dart';
 import '../../../test_support/fake_acp_admin_repository.dart';
 
 void main() {
@@ -232,6 +235,38 @@ void main() {
     expect(find.text('Prices'), findsWidgets);
     expect(find.text('MONTHLY'), findsWidgets);
     expect(repository.fetchedRowIds, <String>['price-1']);
+  });
+
+  testWidgets('catalog consumes a scoped ACP workspace target', (tester) async {
+    final repository = _AdminRepository();
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          billingCatalogAdminRepositoryProvider.overrideWithValue(repository),
+          authControllerProvider.overrideWith(
+            () => _SurfaceAuthController(session: _adminSession),
+          ),
+          acpWorkspaceNavigationProvider.overrideWith(
+            () => FixedAcpWorkspaceNavigationController(
+              AcpWorkspaceTarget(
+                routeId: RouteIds.billingCatalog,
+                resourceKey: 'billing-prices',
+                rowId: 'price-1',
+                filterValues: const <String, String>{'Status': 'active'},
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(home: Scaffold(body: BillingCatalogPanel())),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Prices'), findsWidgets);
+    expect(find.text('MONTHLY'), findsWidgets);
   });
 }
 

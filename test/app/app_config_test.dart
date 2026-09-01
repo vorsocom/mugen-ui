@@ -210,6 +210,7 @@ void main() {
     expect(shellRouteIds, contains(RouteIds.channelOrchestration));
     expect(shellRouteIds, contains(RouteIds.contextEngine));
     expect(shellRouteIds, contains(RouteIds.knowledgePacks));
+    expect(shellRouteIds, contains(RouteIds.serviceProfiles));
     expect(shellRouteIds, contains(RouteIds.acpConsole));
     expect(shellRouteIds, contains(RouteIds.billingCatalog));
     expect(shellRouteIds, contains(RouteIds.billingOperations));
@@ -262,6 +263,7 @@ void main() {
       RouteIds.channelOrchestration,
       RouteIds.contextEngine,
       RouteIds.knowledgePacks,
+      RouteIds.serviceProfiles,
       RouteIds.runtimeControl,
       RouteIds.auditManagement,
       RouteIds.acpConsole,
@@ -283,6 +285,7 @@ void main() {
     );
     expect(drawerGroupFor(RouteIds.contextEngine), 'Platform Capabilities');
     expect(drawerGroupFor(RouteIds.knowledgePacks), 'Platform Capabilities');
+    expect(drawerGroupFor(RouteIds.serviceProfiles), 'Platform Capabilities');
     expect(drawerGroupFor(RouteIds.runtimeControl), 'Operations & Governance');
     expect(drawerGroupFor(RouteIds.governance), 'Operations & Governance');
     expect(drawerGroupFor(RouteIds.workflows), 'Operations & Governance');
@@ -610,6 +613,12 @@ void main() {
     expect(
       definition.shellRoutes
           .firstWhere((route) => route.id == RouteIds.knowledgePacks)
+          .builder(context),
+      isA<Padding>(),
+    );
+    expect(
+      definition.shellRoutes
+          .firstWhere((route) => route.id == RouteIds.serviceProfiles)
           .builder(context),
       isA<Padding>(),
     );

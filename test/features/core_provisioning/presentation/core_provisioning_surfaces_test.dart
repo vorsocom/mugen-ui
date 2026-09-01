@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/app/definition/app_definition.dart';
+import 'package:mugen_ui/app/routing/route_ids.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
 import 'package:mugen_ui/features/core_provisioning/application/billing_operations_resources.dart';
 import 'package:mugen_ui/features/core_provisioning/domain/entities/core_plugin_access.dart';
@@ -24,6 +25,9 @@ import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_admin_repository_impl.dart';
 import 'package:mugen_ui/shared/presentation/acp_admin/acp_admin_panel.dart';
+import 'package:mugen_ui/shared/presentation/acp_admin/acp_workspace_navigation.dart';
+
+import '../../../test_support/acp_workspace_target_controller.dart';
 
 void main() {
   test(
@@ -321,6 +325,42 @@ void main() {
     expect(find.text('Invoices'), findsWidgets);
     expect(find.text('invoice-1'), findsWidgets);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('billing operations consume a scoped ACP workspace target', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: <Override>[
+          coreProvisioningAdminRepositoryProvider.overrideWithValue(
+            _AdminRepository(),
+          ),
+          authControllerProvider.overrideWith(
+            () => _AuthController(session: _session),
+          ),
+          acpWorkspaceNavigationProvider.overrideWith(
+            () => FixedAcpWorkspaceNavigationController(
+              AcpWorkspaceTarget(
+                routeId: RouteIds.billingOperations,
+                resourceKey: 'billing-subscriptions',
+                tenantId: 'tenant-1',
+                rowId: 'subscription-1',
+                filterValues: const <String, String>{'Status': 'active'},
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: BillingOperationsPanel()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Subscriptions'), findsWidgets);
+    expect(find.text('subscription-1'), findsWidgets);
   });
 
   testWidgets(

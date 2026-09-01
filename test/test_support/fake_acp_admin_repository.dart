@@ -38,6 +38,9 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
   final List<int?> updateRowVersions = <int?>[];
   int fetchRowCalls = 0;
   int collectionActionCalls = 0;
+  int entityActionCallCount = 0;
+  final List<String> entityActionNames = <String>[];
+  final List<int?> entityActionRowVersions = <int?>[];
 
   @override
   Future<Result<List<AcpTenantOption>>> fetchTenants({int top = 200}) async {
@@ -151,6 +154,9 @@ class FakeAcpAdminRepository implements AcpAdminRepository {
     String? tenantId,
     int? rowVersion,
   }) async {
+    entityActionCallCount += 1;
+    entityActionNames.add(action.name);
+    entityActionRowVersions.add(rowVersion);
     return entityActionResult.isFailure
         ? Result<Object?>.failure(entityActionResult.failure!)
         : entityActionResult;

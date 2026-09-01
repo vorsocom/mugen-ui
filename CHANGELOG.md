@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added Knowledge Pack projection status, staged publication monitoring,
+  reindex/retry controls, exact projection filters, and pack/version
+  searchability summaries for the active knowledge gateway.
+
 ### Changed
 
 ### Deprecated

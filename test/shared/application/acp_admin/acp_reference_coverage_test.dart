@@ -376,6 +376,8 @@ void main() {
       'audit-biz-trace-events.TraceId',
       'work-items.TraceId',
       'key-refs.KeyId',
+      'knowledge-index-projections.TargetFingerprint',
+      'knowledge-index-projections.ContentChecksum',
     });
   });
 

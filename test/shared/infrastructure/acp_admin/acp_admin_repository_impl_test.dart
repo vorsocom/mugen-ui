@@ -1009,6 +1009,73 @@ void main() {
     }
   });
 
+  test(
+    'Knowledge Pack references fall back when navigation expansion is omitted',
+    () async {
+      final descriptor = knowledgePackAdminResources.singleWhere(
+        (resource) => resource.entitySet == 'KnowledgePacks',
+      );
+      const packId = '10000000-0000-4000-8000-000000000901';
+      const versionId = '20000000-0000-4000-8000-000000000901';
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              '@count': 1,
+              'value': <Map<String, Object?>>[
+                <String, Object?>{'Id': packId, 'CurrentVersionId': versionId},
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{'Id': packId},
+              ],
+            }),
+          ),
+          (_) => _response(
+            statusCode: 200,
+            body: jsonEncode(<String, Object?>{
+              'value': <Map<String, Object?>>[
+                <String, Object?>{
+                  'Id': versionId,
+                  'VersionNumber': 1,
+                  'Status': 'published',
+                },
+              ],
+            }),
+          ),
+        ],
+      );
+
+      final result = await fixture.repository.listRows(
+        descriptor: descriptor,
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: 'tenant-1',
+      );
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data?.referenceWarning, isNull);
+      expect(result.data?.items.single['CurrentVersion'], <String, dynamic>{
+        'Id': versionId,
+        'VersionNumber': 1,
+        'Status': 'published',
+      });
+      expect(fixture.client.requests, hasLength(3));
+      expect(
+        fixture.client.requests.last.path,
+        'core/acp/v1/tenants/tenant-1/KnowledgePackVersions',
+      );
+      expect(
+        fixture.client.requests.last.queryParameters[r'$filter'],
+        "Id in (guid'$versionId')",
+      );
+    },
+  );
+
   test('administration batch references use typed GUID filters', () async {
     final cases =
         <
@@ -1083,6 +1150,20 @@ void main() {
             resources: knowledgePackAdminResources,
             sourceEntitySet: 'KnowledgeApprovals',
             columnKey: 'ActorUserId',
+            targetEntitySet: 'Users',
+          ),
+          (
+            resources: buildKnowledgePackAdminResources(
+              serviceProfilesEnabled: true,
+            ),
+            sourceEntitySet: 'KnowledgeScopes',
+            columnKey: 'ServiceProfileId',
+            targetEntitySet: 'ServiceProfiles',
+          ),
+          (
+            resources: orchestrationAdminResources,
+            sourceEntitySet: 'RoutingRules',
+            columnKey: 'OwnerUserId',
             targetEntitySet: 'Users',
           ),
           (
@@ -1162,6 +1243,17 @@ void main() {
             '${batchCase.sourceEntitySet}.${batchCase.columnKey} '
             '-> ${batchCase.targetEntitySet}',
       );
+      if (batchCase.targetEntitySet == 'Users' ||
+          batchCase.targetEntitySet == 'ServiceProfiles' ||
+          batchCase.targetEntitySet == 'OpsCases') {
+        expect(
+          fixture.client.requests[1].queryParameters,
+          isNot(contains(r'$deleted')),
+          reason:
+              '${batchCase.sourceEntitySet}.${batchCase.columnKey} '
+              'must use the supported active collection view',
+        );
+      }
     }
   });
 

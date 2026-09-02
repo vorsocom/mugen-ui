@@ -38,7 +38,9 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
       searchTerm: searchTerm,
       extraFilters: extraFilters,
       deletedView: deletedView,
-      enrichReferences: enrichReferences,
+      enrichReferences:
+          enrichReferences &&
+          !_customReferenceEntitySets.contains(descriptor.entitySet),
     );
     if (result.isFailure || result.data!.items.isEmpty) {
       return result;
@@ -157,7 +159,6 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
         field: 'ServiceProfileId',
         ids: profileIds,
         tenantId: tenantId,
-        deletedView: AcpDeletedView.all,
       );
       if (subscriptionResult.isFailure) {
         productAvailable = false;
@@ -277,7 +278,6 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
       field: 'Id',
       ids: _fieldIds(page.items, 'ServiceProfileId'),
       tenantId: tenantId,
-      deletedView: AcpDeletedView.all,
     );
     final bindingResult = await _fetchByIds(
       entitySet: 'IngressBindings',
@@ -348,14 +348,12 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
       field: 'Id',
       ids: _fieldIds(page.items, 'ServiceProfileId'),
       tenantId: tenantId,
-      deletedView: AcpDeletedView.all,
     );
     final subscriptionResult = await _fetchByIds(
       entitySet: 'BillingSubscriptions',
       field: 'Id',
       ids: _fieldIds(page.items, 'BillingSubscriptionId'),
       tenantId: tenantId,
-      deletedView: AcpDeletedView.all,
       expansions: _billingSubscriptionExpansions,
     );
     final profiles = profileResult.isSuccess
@@ -416,7 +414,6 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
       field: 'Id',
       ids: _fieldIds(assignments, 'ServiceProfileId'),
       tenantId: tenantId,
-      deletedView: AcpDeletedView.all,
     );
     final profiles = profileResult.data == null
         ? <String, AcpRow>{}
@@ -465,7 +462,6 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
       field: 'BillingSubscriptionId',
       ids: subscriptionIds,
       tenantId: tenantId,
-      deletedView: AcpDeletedView.all,
       extraFilters: const <String>["Status eq 'active'"],
     );
     var activeAssignments = exactResult.data ?? <AcpRow>[];
@@ -473,7 +469,6 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
       final profileResult = await _fetchAll(
         descriptor: _descriptor('ServiceProfileSubscriptions'),
         tenantId: tenantId,
-        deletedView: AcpDeletedView.all,
         extraFilters: <String>[
           "ServiceProfileId eq guid'$selectedProfileId'",
           "Status eq 'active'",
@@ -491,7 +486,6 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
       field: 'Id',
       ids: _fieldIds(activeAssignments, 'ServiceProfileId'),
       tenantId: tenantId,
-      deletedView: AcpDeletedView.all,
     );
     final profiles = profileResult.data == null
         ? <String, AcpRow>{}
@@ -686,7 +680,6 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
     required String field,
     required Set<String> ids,
     required String? tenantId,
-    AcpDeletedView deletedView = AcpDeletedView.active,
     List<String> extraFilters = const <String>[],
     List<AcpExpandDescriptor> expansions = const <AcpExpandDescriptor>[],
   }) {
@@ -699,7 +692,6 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
     return _fetchAll(
       descriptor: _descriptor(entitySet, expansions: expansions),
       tenantId: tenantId,
-      deletedView: deletedView,
       extraFilters: <String>['($idFilter)', ...extraFilters],
     );
   }
@@ -708,7 +700,6 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
     required AcpResourceDescriptor descriptor,
     required String? tenantId,
     required List<String> extraFilters,
-    AcpDeletedView deletedView = AcpDeletedView.active,
   }) async {
     const pageSize = 500;
     final rows = <AcpRow>[];
@@ -719,7 +710,6 @@ class ServiceProfileAdminRepository implements AcpAdminRepository {
         pageRequest: PageRequest(page: page, pageSize: pageSize),
         tenantId: tenantId,
         extraFilters: extraFilters,
-        deletedView: deletedView,
       );
       if (result.isFailure) {
         return Result<List<AcpRow>>.failure(result.failure!);
@@ -867,6 +857,11 @@ const List<AcpExpandDescriptor> _billingSubscriptionExpansions =
 const Set<String> _globalEntitySets = <String>{
   'BillingPrices',
   'BillingProducts',
+};
+
+const Set<String> _customReferenceEntitySets = <String>{
+  'ServiceProfileIngressBindings',
+  'ServiceProfileSubscriptions',
 };
 
 AcpRowPage _copyPage(

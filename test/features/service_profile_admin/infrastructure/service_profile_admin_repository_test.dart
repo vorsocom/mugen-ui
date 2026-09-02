@@ -288,6 +288,56 @@ void main() {
     },
   );
 
+  test(
+    'relationship hydration uses supported active views without generic warnings',
+    () async {
+      delegate
+        ..rejectHistoricalEntitySets.addAll(<String>{
+          'ServiceProfiles',
+          'ServiceProfileSubscriptions',
+          'BillingSubscriptions',
+        })
+        ..emitGenericReferenceWarning = true;
+
+      final profiles = await repository.listRows(
+        descriptor: descriptors[0],
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: _tenant,
+      );
+      final ingress = await repository.listRows(
+        descriptor: descriptors[1],
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: _tenant,
+      );
+      final subscriptions = await repository.listRows(
+        descriptor: descriptors[2],
+        pageRequest: const PageRequest(page: 1, pageSize: 15),
+        tenantId: _tenant,
+      );
+
+      expect(profiles.data!.items.first['ActiveProductCount'], 1);
+      expect(
+        ingress.data!.items.first['ServiceProfileLabel'],
+        'Primary (primary)',
+      );
+      expect(
+        subscriptions.data!.items.first['ProductLabel'],
+        'Product One (product)',
+      );
+      expect(ingress.data!.referenceWarning, isNull);
+      expect(subscriptions.data!.referenceWarning, isNull);
+      expect(
+        delegate.requestedDeletedViews.entries
+            .where(
+              (entry) =>
+                  delegate.rejectHistoricalEntitySets.contains(entry.key),
+            )
+            .expand((entry) => entry.value),
+        everyElement(AcpDeletedView.active),
+      );
+    },
+  );
+
   test('fetch and mutations retain the ACP repository contract', () async {
     expect((await repository.fetchTenants(top: 25)).data, hasLength(2));
 
@@ -663,8 +713,12 @@ class _FixtureRepository extends FakeAcpAdminRepository {
   final Map<String, List<AcpRow>> rows = <String, List<AcpRow>>{};
   final Set<String> failEntitySets = <String>{};
   final Set<String> fetchFailures = <String>{};
+  final Set<String> rejectHistoricalEntitySets = <String>{};
   final List<String> requestedEntitySets = <String>[];
   final List<int> requestedPages = <int>[];
+  final Map<String, List<AcpDeletedView>> requestedDeletedViews =
+      <String, List<AcpDeletedView>>{};
+  bool emitGenericReferenceWarning = false;
   bool simulateMultiplePages = false;
 
   @override
@@ -679,9 +733,18 @@ class _FixtureRepository extends FakeAcpAdminRepository {
   }) async {
     requestedEntitySets.add(descriptor.entitySet);
     requestedPages.add(pageRequest.page);
+    requestedDeletedViews
+        .putIfAbsent(descriptor.entitySet, () => <AcpDeletedView>[])
+        .add(deletedView);
     if (failEntitySets.contains(descriptor.entitySet)) {
       return const Result<AcpRowPage>.failure(
         ApiFailure(503, 'related unavailable'),
+      );
+    }
+    if (deletedView != AcpDeletedView.active &&
+        rejectHistoricalEntitySets.contains(descriptor.entitySet)) {
+      return const Result<AcpRowPage>.failure(
+        ApiFailure(400, r'$deleted is not supported for this entity set.'),
       );
     }
     var matching = List<AcpRow>.from(
@@ -718,6 +781,15 @@ class _FixtureRepository extends FakeAcpAdminRepository {
         total: matching.length,
         page: pageRequest.page,
         pageSize: pageRequest.pageSize,
+        referenceWarning:
+            emitGenericReferenceWarning &&
+                enrichReferences &&
+                const <String>{
+                  'ServiceProfileIngressBindings',
+                  'ServiceProfileSubscriptions',
+                }.contains(descriptor.entitySet)
+            ? 'Some reference labels could not be resolved.'
+            : null,
       ),
     );
   }

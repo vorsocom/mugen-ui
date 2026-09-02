@@ -98,8 +98,8 @@ void main() {
               (call) => call.entitySet == 'BillingCurrencyDefinitions',
             )
             .deletedView,
-        AcpDeletedView.all,
-        reason: 'historical rows retain archived currency precision',
+        AcpDeletedView.active,
+        reason: 'currency definitions do not support archived collection views',
       );
       expect(
         delegate.calls
@@ -112,6 +112,13 @@ void main() {
             .firstWhere((call) => call.entitySet == 'BillingInvoices')
             .tenantId,
         'tenant-1',
+      );
+      expect(
+        delegate.calls
+            .firstWhere((call) => call.entitySet == 'BillingInvoices')
+            .deletedView,
+        AcpDeletedView.active,
+        reason: 'invoices do not support archived collection views',
       );
     },
   );

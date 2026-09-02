@@ -207,7 +207,6 @@ class BillingAcpAdminRepository implements AcpAdminRepository {
         pageSize: 500,
       ),
       pageRequest: const PageRequest(page: 1, pageSize: 500),
-      deletedView: AcpDeletedView.all,
     );
     if (currencies.isSuccess) {
       _minorUnitsById = <String, int>{};
@@ -271,7 +270,6 @@ class BillingAcpAdminRepository implements AcpAdminRepository {
       ),
       pageRequest: const PageRequest(page: 1, pageSize: 500),
       tenantId: tenantId,
-      deletedView: AcpDeletedView.all,
     );
     _tenantInvoices[tenantId] = invoices.isSuccess
         ? <String, AcpRow>{

@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed unsupported archived collection requests that prevented Service
+  Profile, Knowledge Pack, Channel Orchestration, and billing metadata
+  hydration, and added direct Knowledge Pack reference fallbacks when
+  navigation expansions are unavailable.
+
 ### Security
 
 ## [0.17.0] - 2026-09-01

@@ -575,7 +575,6 @@ const AcpColumnReferenceDescriptor _ownerUserDisplay =
         scopeMode: AcpScopeMode.none,
         selectFields: <String>['LoginEmail', 'Username'],
         literalType: AcpFilterLiteralType.guid,
-        deletedView: AcpDeletedView.all,
       ),
     );
 
@@ -595,7 +594,6 @@ const AcpColumnReferenceDescriptor _linkedCaseDisplay =
         scopeMode: AcpScopeMode.required,
         selectFields: <String>['CaseNumber', 'Title', 'Status'],
         literalType: AcpFilterLiteralType.guid,
-        deletedView: AcpDeletedView.all,
       ),
     );
 

@@ -522,7 +522,6 @@ AcpResourceDescriptor _knowledgeScopeWithServiceProfile(
             scopeMode: AcpScopeMode.required,
             selectFields: <String>['DisplayName', 'Key', 'Status'],
             literalType: AcpFilterLiteralType.guid,
-            deletedView: AcpDeletedView.all,
           ),
           unassignedLabel: 'All service profiles',
           targetRouteId: 'service-profiles',
@@ -646,6 +645,12 @@ const AcpColumnReferenceDescriptor _currentVersionDisplay =
       subtitleFields: <AcpReferenceFieldDescriptor>[
         AcpReferenceFieldDescriptor('Status'),
       ],
+      batchLookup: AcpBatchReferenceDescriptor(
+        entitySet: 'KnowledgePackVersions',
+        scopeMode: AcpScopeMode.required,
+        selectFields: <String>['VersionNumber', 'Status'],
+        literalType: AcpFilterLiteralType.guid,
+      ),
       targetResourceKey: 'knowledge-pack-versions',
     );
 
@@ -659,6 +664,12 @@ const AcpColumnReferenceDescriptor _knowledgePackDisplay =
       subtitleFields: <AcpReferenceFieldDescriptor>[
         AcpReferenceFieldDescriptor('Key'),
       ],
+      batchLookup: AcpBatchReferenceDescriptor(
+        entitySet: 'KnowledgePacks',
+        scopeMode: AcpScopeMode.required,
+        selectFields: <String>['Name', 'Key'],
+        literalType: AcpFilterLiteralType.guid,
+      ),
       targetResourceKey: 'knowledge-packs',
     );
 
@@ -674,6 +685,18 @@ AcpColumnReferenceDescriptor _knowledgeVersionDisplay(String navigationPath) {
       AcpReferenceFieldDescriptor('VersionNumber', prefix: 'v'),
       AcpReferenceFieldDescriptor('Status'),
     ],
+    batchLookup: const AcpBatchReferenceDescriptor(
+      entitySet: 'KnowledgePackVersions',
+      scopeMode: AcpScopeMode.required,
+      selectFields: <String>['VersionNumber', 'Status', 'KnowledgePackId'],
+      literalType: AcpFilterLiteralType.guid,
+      expansions: <AcpExpandDescriptor>[
+        AcpExpandDescriptor(
+          navigation: 'KnowledgePack',
+          selectFields: <String>['Name', 'Key'],
+        ),
+      ],
+    ),
     targetResourceKey: 'knowledge-pack-versions',
   );
 }
@@ -690,6 +713,18 @@ const AcpColumnReferenceDescriptor _entryRevisionDisplay =
         AcpReferenceFieldDescriptor('RevisionNumber', prefix: 'r'),
         AcpReferenceFieldDescriptor('Status'),
       ],
+      batchLookup: AcpBatchReferenceDescriptor(
+        entitySet: 'KnowledgeEntryRevisions',
+        scopeMode: AcpScopeMode.required,
+        selectFields: <String>['RevisionNumber', 'Status', 'KnowledgeEntryId'],
+        literalType: AcpFilterLiteralType.guid,
+        expansions: <AcpExpandDescriptor>[
+          AcpExpandDescriptor(
+            navigation: 'KnowledgeEntry',
+            selectFields: <String>['Title', 'EntryKey'],
+          ),
+        ],
+      ),
     );
 
 const AcpColumnReferenceDescriptor _actorUserDisplay =
@@ -704,7 +739,6 @@ const AcpColumnReferenceDescriptor _actorUserDisplay =
         scopeMode: AcpScopeMode.none,
         selectFields: <String>['LoginEmail', 'Username'],
         literalType: AcpFilterLiteralType.guid,
-        deletedView: AcpDeletedView.all,
       ),
     );
 

@@ -19,6 +19,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.17.1] - 2026-09-02
+
+### Added
+
+### Changed
+
+- Reordered Platform Capabilities navigation so Service Profiles follows
+  Billing Operations and Knowledge Packs follows Service Profiles.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed unsupported archived collection requests that prevented Service
+  Profile, Knowledge Pack, Channel Orchestration, and billing metadata
+  hydration, and added direct Knowledge Pack reference fallbacks when
+  navigation expansions are unavailable.
+
+### Security
+
 ## [0.17.0] - 2026-09-01
 
 ### Added

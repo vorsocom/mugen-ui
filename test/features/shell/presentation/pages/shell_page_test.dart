@@ -14,6 +14,7 @@ import 'package:mugen_ui/features/auth/presentation/widgets/reset_password_panel
 import 'package:mugen_ui/features/chat/domain/entities/chat_composition_mode.dart';
 import 'package:mugen_ui/features/chat/domain/entities/chat_message_entity.dart';
 import 'package:mugen_ui/features/chat/presentation/providers/chat_providers.dart';
+import 'package:mugen_ui/features/core_provisioning/presentation/providers/core_provisioning_providers.dart';
 import 'package:mugen_ui/features/human_handoff/application/dto/human_handoff_inputs.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_delivery_result_entity.dart';
 import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_event_entity.dart';
@@ -24,6 +25,7 @@ import 'package:mugen_ui/features/human_handoff/domain/entities/human_handoff_tr
 import 'package:mugen_ui/features/human_handoff/domain/repositories/human_handoff_repository.dart';
 import 'package:mugen_ui/features/human_handoff/presentation/providers/human_handoff_providers.dart';
 import 'package:mugen_ui/features/knowledge_pack_admin/presentation/providers/knowledge_pack_admin_providers.dart';
+import 'package:mugen_ui/features/service_profile_admin/presentation/providers/service_profile_admin_providers.dart';
 import 'package:mugen_ui/features/shell/presentation/pages/shell_page.dart';
 import 'package:mugen_ui/features/shell/presentation/providers/shell_providers.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
@@ -383,6 +385,12 @@ void main() {
           knowledgePackShellAvailabilityProvider.overrideWithValue(
             const ShellRouteAvailability.available(),
           ),
+          billingOperationsShellAvailabilityProvider.overrideWithValue(
+            const ShellRouteAvailability.available(),
+          ),
+          serviceProfileShellAvailabilityProvider.overrideWithValue(
+            const ShellRouteAvailability.available(),
+          ),
         ],
         child: const MaterialApp(home: ShellPage()),
       ),
@@ -414,6 +422,8 @@ void main() {
     expect(find.text('Runtime Control'), findsOneWidget);
     expect(find.text('Channel Orchestration'), findsOneWidget);
     expect(find.text('Context Engine'), findsOneWidget);
+    expect(find.text('Billing Operations'), findsOneWidget);
+    expect(find.text('Service Profiles'), findsOneWidget);
     expect(find.text('Knowledge Packs'), findsOneWidget);
     expect(find.text('ACP Console'), findsOneWidget);
 
@@ -430,6 +440,8 @@ void main() {
       lessThan(topOf('Operations & Governance')),
     );
     expect(topOf('Operations & Governance'), lessThan(topOf('Developer')));
+    expect(topOf('Billing Operations'), lessThan(topOf('Service Profiles')));
+    expect(topOf('Service Profiles'), lessThan(topOf('Knowledge Packs')));
     expect(topOf('Runtime Control'), lessThan(topOf('Audit Events')));
   });
 

@@ -25,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed fresh chat startup to open its event stream only after message acceptance,
   while preserving established conversations and replay across reloads.
+- Validate messaging ingress identifiers against active tenant-owned channel
+  and client profiles, restrict profile selection to matching active channels,
+  and cancel saves if the selected tenant or resource changes during validation.
 
 ### Security
 

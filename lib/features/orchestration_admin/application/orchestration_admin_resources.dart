@@ -1,5 +1,6 @@
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_standard_options.dart';
+import 'package:mugen_ui/features/orchestration_admin/application/ingress_binding_ownership.dart';
 
 final List<AcpResourceDescriptor>
 orchestrationAdminResources = <AcpResourceDescriptor>[
@@ -57,7 +58,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     scopeMode: AcpScopeMode.required,
     keyLiteralType: AcpFilterLiteralType.guid,
     description:
-        'Inbound identifier bindings used to resolve tenant and channel context.',
+        'Inbound identifiers resolve tenant and channel context. Messaging bindings require an active channel and its owned client identifier. Each channel and identifier can have only one active binding across all tenants.',
     columns: <AcpColumnDescriptor>[
       _column('ChannelKey', 'Channel'),
       _column('IdentifierType', 'Identifier Type'),
@@ -66,17 +67,17 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _column('IsActive', 'Active'),
     ],
     createFields: <AcpFieldDescriptor>[
-      _channelProfileId(),
+      _channelProfileId(ingressOwnership: true),
       _channelKey(required: true),
       _identifierType(required: true),
       _text('IdentifierValue', 'Identifier Value', required: true),
       _serviceRouteReference(),
     ],
     updateFields: <AcpFieldDescriptor>[
-      _channelProfileId(),
-      _channelKey(),
-      _identifierType(),
-      _text('IdentifierValue', 'Identifier Value'),
+      _channelProfileId(ingressOwnership: true),
+      _channelKey(required: true),
+      _identifierType(required: true),
+      _text('IdentifierValue', 'Identifier Value', required: true),
       _serviceRouteReference(),
       _bool('IsActive', 'Is Active'),
       _json('Attributes', 'Attributes'),
@@ -104,6 +105,7 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
     ],
     defaultOrderBy:
         'IsActive desc, ChannelKey asc, IdentifierType asc, IdentifierValue asc',
+    payloadValidator: validateIngressBindingFields,
     allowCreate: true,
     allowUpdate: true,
   ),
@@ -687,11 +689,16 @@ AcpFieldDescriptor _clientProfileId() {
   );
 }
 
-AcpFieldDescriptor _channelProfileId() {
-  return const AcpFieldDescriptor(
+AcpFieldDescriptor _channelProfileId({bool ingressOwnership = false}) {
+  return AcpFieldDescriptor(
     key: 'ChannelProfileId',
     label: 'Channel Profile ID',
-    hintText: 'Search channel profiles in this tenant',
+    requiredWhenEquals: ingressOwnership
+        ? const <String, List<String>>{'ChannelKey': ingressMessagingChannels}
+        : const <String, List<String>>{},
+    hintText: ingressOwnership
+        ? 'Select an active channel matching this binding. Its messaging client must own the identifier.'
+        : 'Search channel profiles in this tenant',
     reference: AcpFieldReferenceDescriptor(
       entitySet: 'ChannelProfiles',
       scopeMode: AcpScopeMode.required,
@@ -710,6 +717,12 @@ AcpFieldDescriptor _channelProfileId() {
         'Id',
       ],
       defaultOrderBy: 'IsActive desc, ChannelKey asc, ProfileKey asc',
+      extraFilters: ingressOwnership
+          ? const <String>['IsActive eq true']
+          : const <String>[],
+      filterFieldsFromForm: ingressOwnership
+          ? const <String, String>{'ChannelKey': 'ChannelKey'}
+          : const <String, String>{},
       copyFieldsFromSelection: <String, String>{'ChannelKey': 'ChannelKey'},
       retainHistoricalSelection: true,
     ),
@@ -891,14 +904,11 @@ AcpFieldDescriptor _identifierType({bool required = false}) {
     key: 'IdentifierType',
     label: 'Identifier Type',
     required: required,
-    hintText: 'Select the adapter identifier used for ingress routing',
-    options: const <String>[
-      'path_token',
-      'phone_number_id',
-      'recipient_user_id',
-      'account_number',
-      'tenant_slug',
-    ],
+    hintText:
+        'Messaging identifiers must match the selected channel\'s client profile',
+    options: ingressClientIdentifierFields.keys.toList(growable: false),
+    optionsBuilder: ingressIdentifierOptions,
+    allowCustomOption: true,
   );
 }
 

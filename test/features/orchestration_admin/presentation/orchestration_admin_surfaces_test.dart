@@ -198,7 +198,6 @@ void main() {
         'phone_number_id',
         'recipient_user_id',
         'account_number',
-        'tenant_slug',
       ]);
       expect(identifierTypeField.required, isTrue);
       expect(
@@ -318,14 +317,19 @@ void main() {
       find.byKey(const Key('acp-dynamic-field-ChannelKey')),
       'whatsapp',
     );
-    await tester.tap(find.byKey(const Key('acp-dynamic-field-IdentifierType')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('phone_number_id').last);
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-IdentifierType')),
+      'phone_number_id',
+    );
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('acp-dynamic-field-IdentifierValue')),
       '1234567890',
     );
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(repository.createPayloads, hasLength(1));
+    expect(find.text('Channel Profile ID is required.'), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('acp-reference-search-ChannelProfileId')),
       'whatsapp',
@@ -335,6 +339,11 @@ void main() {
 
     expect(repository.channelProfileTenantId, 'tenant-1');
     expect(repository.channelProfileSearchTerm, 'whatsapp');
+    expect(repository.channelProfileFilters, contains('IsActive eq true'));
+    expect(
+      repository.channelProfileFilters,
+      contains("ChannelKey eq 'whatsapp'"),
+    );
     expect(find.text('WhatsApp Channel (whatsapp / default)'), findsOneWidget);
 
     await tester.tap(
@@ -347,6 +356,22 @@ void main() {
     expect(
       find.byKey(const Key('acp-reference-selected-ChannelProfileId')),
       findsOneWidget,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-IdentifierValue')),
+      'unowned-number',
+    );
+    await tester.tap(_dialogButton(FilledButton, 'Create'));
+    await tester.pumpAndSettle();
+    expect(repository.createPayloads, hasLength(1));
+    expect(
+      find.textContaining('Identifier Value must match PhoneNumberId'),
+      findsWidgets,
+    );
+    await tester.enterText(
+      find.byKey(const Key('acp-dynamic-field-IdentifierValue')),
+      '1234567890',
     );
 
     await tester.tap(_dialogButton(FilledButton, 'Create'));
@@ -477,6 +502,24 @@ class _ClientProfileReferenceRepository extends FakeAcpAdminRepository {
   String? clientProfileSearchTerm;
   String? channelProfileTenantId;
   String? channelProfileSearchTerm;
+  List<String> channelProfileFilters = <String>[];
+
+  @override
+  Future<Result<AcpRow>> fetchRow({
+    required AcpResourceDescriptor descriptor,
+    required String rowId,
+    String? tenantId,
+  }) async {
+    return Result<AcpRow>.success(<String, dynamic>{
+      'Id': rowId,
+      'TenantId': tenantId,
+      'IsActive': true,
+      'ChannelKey': 'whatsapp',
+      'PlatformKey': 'whatsapp',
+      'ClientProfileId': 'client-profile-1',
+      'PhoneNumberId': '1234567890',
+    });
+  }
 
   @override
   Future<Result<AcpRowPage>> listRows({
@@ -492,6 +535,7 @@ class _ClientProfileReferenceRepository extends FakeAcpAdminRepository {
       if ((searchTerm ?? '').trim().isNotEmpty) {
         channelProfileTenantId = tenantId;
         channelProfileSearchTerm = searchTerm;
+        channelProfileFilters = extraFilters;
       }
       return Result<AcpRowPage>.success(
         AcpRowPage(

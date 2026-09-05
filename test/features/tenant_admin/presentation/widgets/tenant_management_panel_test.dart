@@ -283,6 +283,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Select a user.'), findsOneWidget);
 
+    await _searchMembershipUsers(tester, 'x' * 201);
+    expect(userRepository.lastUserQuery, isNull);
+    expect(find.text('Use 200 characters or fewer to search.'), findsOneWidget);
+
     await _searchMembershipUsers(tester, 'member');
     expect(userRepository.lastUserQuery?.pageRequest.page, 1);
     expect(userRepository.lastUserQuery?.pageRequest.pageSize, 20);

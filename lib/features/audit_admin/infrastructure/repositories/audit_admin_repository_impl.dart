@@ -2,6 +2,8 @@
 import 'dart:convert';
 
 import 'package:intl/intl.dart';
+import 'package:mugen_ui/shared/application/admin_search_limits.dart';
+import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_search_validation.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/features/audit_admin/application/dto/audit_admin_inputs.dart';
 import 'package:mugen_ui/features/audit_admin/domain/entities/audit_chain_verification_summary_entity.dart';
@@ -39,6 +41,11 @@ class AuditAdminRepositoryImpl implements AuditAdminRepository {
   Future<Result<PageResult<AuditEventEntity>>> fetchAuditEvents(
     AuditEventListQuery query,
   ) async {
+    final searchFailure = AdminSearchLimits.validate(query.searchTerm);
+    if (searchFailure != null) {
+      return Result<PageResult<AuditEventEntity>>.failure(searchFailure);
+    }
+
     final tenantResolution = _resolveScopeTenant(
       scopeMode: query.scopeMode,
       tenantId: query.tenantId,
@@ -83,6 +90,13 @@ class AuditAdminRepositoryImpl implements AuditAdminRepository {
       queryParameters[r'$filter'] = filters.join(' and ');
     }
 
+    final queryFailure = validateAcpSearchQuery(
+      searchTerm: query.searchTerm,
+      queryParameters: queryParameters,
+    );
+    if (queryFailure != null) {
+      return Result<PageResult<AuditEventEntity>>.failure(queryFailure);
+    }
     final response = await _sendRequest(
       AcpRequest(
         method: HttpMethod.get,

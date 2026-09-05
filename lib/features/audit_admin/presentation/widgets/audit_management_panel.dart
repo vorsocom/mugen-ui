@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:mugen_ui/shared/application/admin_search_limits.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/audit_admin/application/dto/audit_admin_inputs.dart';
 import 'package:mugen_ui/features/audit_admin/domain/entities/audit_event_entity.dart';
@@ -197,6 +198,10 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
           width: 320,
           child: TextFormField(
             key: const Key('audit-management-search-field'),
+            maxLength: AdminSearchLimits.maxLength,
+            maxLengthEnforcement: MaxLengthEnforcement.none,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            validator: (value) => AdminSearchLimits.validate(value)?.message,
             initialValue: state.searchTerm,
             decoration: appFormInputDecoration(
               labelText: 'Search',
@@ -206,6 +211,9 @@ class _AuditManagementPanelState extends ConsumerState<AuditManagementPanel> {
             ),
             onChanged: (value) {
               _searchDebounce?.cancel();
+              if (AdminSearchLimits.validate(value) != null) {
+                return;
+              }
               _searchDebounce = Timer(_searchDebounceDuration, () async {
                 controller.setSearchTerm(value.trim());
                 await controller.loadEvents();

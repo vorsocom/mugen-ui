@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:mugen_ui/shared/application/admin_search_limits.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_field_help.dart';
@@ -548,6 +549,10 @@ class _ToolbarRowState<T extends AcpAdminController>
             width: 320,
             child: TextFormField(
               key: ValueKey<String>('acp-admin-search-${descriptor.key}'),
+              maxLength: AdminSearchLimits.maxLength,
+              maxLengthEnforcement: MaxLengthEnforcement.none,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (value) => AdminSearchLimits.validate(value)?.message,
               initialValue: resourceState.searchTerm,
               decoration: appFormInputDecoration(
                 labelText: 'Search',
@@ -561,6 +566,9 @@ class _ToolbarRowState<T extends AcpAdminController>
               ),
               onChanged: (value) {
                 _searchDebounce?.cancel();
+                if (AdminSearchLimits.validate(value) != null) {
+                  return;
+                }
                 _searchDebounce = Timer(_acpAdminSearchDebounce, () async {
                   controller.setSearchTerm(value.trim());
                   await controller.loadActiveResource();
@@ -2438,6 +2446,10 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
           children: [
             TextFormField(
               key: Key('acp-reference-search-${widget.field.key}'),
+              maxLength: AdminSearchLimits.maxLength,
+              maxLengthEnforcement: MaxLengthEnforcement.none,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (value) => AdminSearchLimits.validate(value)?.message,
               controller: _searchController,
               decoration: appFormInputDecoration(
                 labelText: widget.field.label,
@@ -2552,6 +2564,9 @@ class _AcpReferenceFieldState extends State<_AcpReferenceField> {
 
   void _queueSearch(String value) {
     _searchDebounce?.cancel();
+    if (AdminSearchLimits.validate(value) != null) {
+      return;
+    }
     final term = value.trim();
     if (term.isEmpty) {
       setState(() {
@@ -2801,6 +2816,10 @@ class _AcpMultiReferenceFieldState extends State<_AcpMultiReferenceField> {
           children: [
             TextFormField(
               key: Key('acp-reference-search-${widget.field.key}'),
+              maxLength: AdminSearchLimits.maxLength,
+              maxLengthEnforcement: MaxLengthEnforcement.none,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (value) => AdminSearchLimits.validate(value)?.message,
               controller: _searchController,
               decoration: appFormInputDecoration(
                 labelText: widget.field.label,
@@ -2913,6 +2932,9 @@ class _AcpMultiReferenceFieldState extends State<_AcpMultiReferenceField> {
 
   void _queueSearch(String value) {
     _searchDebounce?.cancel();
+    if (AdminSearchLimits.validate(value) != null) {
+      return;
+    }
     final term = value.trim();
     if (term.length < 2) {
       setState(() {

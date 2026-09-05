@@ -3,6 +3,59 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/shared/presentation/forms/app_searchable_select_field.dart';
 
 void main() {
+  testWidgets(
+    'search input preserves oversized Unicode text and blocks its search',
+    (tester) async {
+      String? search;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppSearchableSelectField<String>(
+              fieldKey: const Key('bounded-search'),
+              optionKeyPrefix: 'bounded-option',
+              labelText: 'Tenant',
+              helpText: 'Choose a tenant.',
+              options: const [],
+              selectedOptionKey: null,
+              optionKey: (value) => value,
+              optionTitle: (value) => value,
+              optionSubtitle: (value) => value,
+              optionSearchText: (value) => value,
+              onSelected: (_) {},
+              onSearchChanged: (value) => search = value,
+            ),
+          ),
+        ),
+      );
+      expect(find.text('0/200'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('bounded-search')),
+        '😀' * 201,
+      );
+      await tester.pumpAndSettle();
+      expect(search, isNull);
+      expect(
+        tester
+            .widget<TextFormField>(find.byKey(const Key('bounded-search')))
+            .controller!
+            .text,
+        '😀' * 201,
+      );
+      expect(find.text('201/200'), findsOneWidget);
+      expect(
+        find.text('Use 200 characters or fewer to search.'),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.byKey(const Key('bounded-search')),
+        '😀' * 200,
+      );
+      await tester.pumpAndSettle();
+      expect(search, '😀' * 200);
+      expect(find.text('Use 200 characters or fewer to search.'), findsNothing);
+    },
+  );
+
   test('AppSearchableSelectField rejects blank field guidance', () {
     expect(
       () => AppSearchableSelectField<String>(

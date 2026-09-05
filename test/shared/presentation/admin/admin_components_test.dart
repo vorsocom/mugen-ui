@@ -64,6 +64,57 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('AdminEmptyState scrolls its actions into a short viewport', (
+    WidgetTester tester,
+  ) async {
+    final actions = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 460,
+              height: 120,
+              child: AdminEmptyState(
+                data: AdminEmptyStateData(
+                  title: 'No local users yet.',
+                  message:
+                      'Create a local user to grant access to operators who '
+                      'authenticate directly with this console.',
+                  primaryAction: FilledButton.icon(
+                    onPressed: () => actions.add('new'),
+                    icon: const Icon(Icons.person_add_outlined),
+                    label: const Text('New User'),
+                  ),
+                  secondaryAction: TextButton.icon(
+                    onPressed: () => actions.add('refresh'),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Refresh'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('New User').hitTestable(), findsNothing);
+    expect(find.text('Refresh').hitTestable(), findsNothing);
+
+    await tester.drag(find.byType(AdminEmptyState), const Offset(0, -180));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New User').hitTestable(), findsOneWidget);
+    expect(find.text('Refresh').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('New User'));
+    await tester.tap(find.text('Refresh'));
+
+    expect(actions, <String>['new', 'refresh']);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('AdminTabs hides overflow controls when every tab fits', (
     WidgetTester tester,
   ) async {

@@ -28,6 +28,28 @@ import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
   testWidgets(
+    'user search preserves oversized text without requesting results',
+    (tester) async {
+      final repository = _FakeUserAdminRepository();
+      await _pumpPanel(tester, repository);
+      await tester.pumpAndSettle();
+      final requestCount = repository.fetchUsersQueries.length;
+      await tester.enterText(
+        find.byKey(const Key('local-users-search-field')),
+        'x' * 201,
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(repository.fetchUsersQueries, hasLength(requestCount));
+      expect(find.text('201/200'), findsOneWidget);
+      expect(
+        find.text('Use 200 characters or fewer to search.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
     'LocalUserPanel renders fetched users and supports search + paging',
     (WidgetTester tester) async {
       final repository = _FakeUserAdminRepository();

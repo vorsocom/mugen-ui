@@ -130,6 +130,22 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                           'Select a tenant to manage domains, invitations, and memberships.',
                     ),
                   )
+                : !state.isSelectedTenantActive
+                ? const AdminEmptyState(
+                    data: AdminEmptyStateData(
+                      title: 'Tenant is inactive.',
+                      message:
+                          'Reactivate this tenant to manage domains, invitations, and memberships.',
+                    ),
+                  )
+                : state.isDetailAccessDenied
+                ? const AdminEmptyState(
+                    data: AdminEmptyStateData(
+                      title: 'Tenant details are unavailable.',
+                      message:
+                          'Your access to this tenant has changed. Reload the tenant options to check access again.',
+                    ),
+                  )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [

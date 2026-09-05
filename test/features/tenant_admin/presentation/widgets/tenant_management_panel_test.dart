@@ -35,6 +35,29 @@ import 'package:mugen_ui/shared/presentation/navigation/app_navigator.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 
 void main() {
+  testWidgets(
+    'denied details hide scoped actions and preserve tenant controls',
+    (tester) async {
+      final repository = _FakeTenantAdminRepository();
+      await _pumpPanel(tester, repository);
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(TenantManagementPanel)),
+      );
+      repository.denyDetails = true;
+      await container
+          .read(tenantAdminControllerProvider.notifier)
+          .loadSelectedTenantDetails();
+      await tester.pumpAndSettle();
+      expect(find.text('Tenant details are unavailable.'), findsOneWidget);
+      expect(find.text('Domains'), findsNothing);
+      expect(find.text('Invitations'), findsNothing);
+      expect(find.text('Memberships'), findsNothing);
+      expect(find.byTooltip('Edit tenant'), findsOneWidget);
+      expect(find.byTooltip('Deactivate tenant'), findsOneWidget);
+    },
+  );
+
   testWidgets('TenantManagementPanel uses one remote-search tenant selector', (
     WidgetTester tester,
   ) async {
@@ -92,6 +115,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('Deactivate tenant'), findsNothing);
     expect(find.byTooltip('Reactivate tenant'), findsOneWidget);
+    expect(find.text('Tenant is inactive.'), findsOneWidget);
+    expect(find.text('Domains'), findsNothing);
+    expect(find.text('Invitations'), findsNothing);
+    expect(find.text('Memberships'), findsNothing);
+    expect(find.text('tenant1.example.com'), findsNothing);
   });
 
   testWidgets('TenantManagementPanel renders load errors as copyable alerts', (
@@ -421,7 +449,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(
-        find.byKey(const Key('tenant-management-tenant-option-t-2')),
+        find.byKey(const Key('tenant-management-tenant-option-t-3')),
       );
       await tester.pump();
       expect(find.byType(LinearProgressIndicator), findsOneWidget);
@@ -874,6 +902,7 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
 
   bool mutationShouldSucceed = true;
   bool fetchTenantsShouldFail = false;
+  bool denyDetails = false;
   bool returnEmptyDetails = false;
   Duration? fetchTenantsDelay;
   Duration? fetchDetailsDelay;
@@ -953,6 +982,11 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
   }) async {
     if (fetchDetailsDelay != null) {
       await Future<void>.delayed(fetchDetailsDelay!);
+    }
+    if (denyDetails) {
+      return const Result<List<TenantDomainEntity>>.failure(
+        ApiFailure(403, 'Denied.'),
+      );
     }
     if (returnEmptyDetails) {
       return const Result<List<TenantDomainEntity>>.success(

@@ -184,6 +184,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
   final List<AcpResourceDescriptor> descriptors;
   final Map<String, AcpResourceDescriptor> _descriptorsByKey;
   final void Function() onSessionExpired;
+  int _tenantOptionsGeneration = 0;
+  final Map<String, int> _scopeGenerations = <String, int>{};
 
   bool get hasTenantScopedResources {
     return descriptors.any(
@@ -229,8 +231,12 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       return;
     }
 
+    final generation = ++_tenantOptionsGeneration;
     state = state.copyWith(isLoadingTenants: true, clearError: true);
     final tenantsResult = await repository.fetchTenants();
+    if (generation != _tenantOptionsGeneration) {
+      return;
+    }
     if (tenantsResult.isFailure) {
       state = state.copyWith(isLoadingTenants: false);
       _applyFailure(
@@ -242,12 +248,18 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     }
 
     final tenants = tenantsResult.data ?? const <AcpTenantOption>[];
+    final selectedTenantId = _resolveSelectedTenantId(
+      availableTenants: tenants,
+      previousSelectedTenantId: state.selectedTenantId,
+    );
+    final resourceStates = selectedTenantId == state.selectedTenantId
+        ? state.resourceStates
+        : _clearedTenantResourceStates();
     state = state.copyWith(
       tenants: tenants,
-      selectedTenantId: _resolveSelectedTenantId(
-        availableTenants: tenants,
-        previousSelectedTenantId: state.selectedTenantId,
-      ),
+      selectedTenantId: selectedTenantId,
+      clearSelectedTenant: selectedTenantId == null,
+      resourceStates: resourceStates,
       isLoadingTenants: false,
       clearError: true,
     );
@@ -257,7 +269,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
   }
 
   Future<void> refresh() async {
-    if (hasTenantScopedResources && state.tenants.isEmpty) {
+    if (hasTenantScopedResources) {
       await loadInitialData();
       return;
     }
@@ -287,28 +299,9 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       return;
     }
 
-    final clearedStates = <String, AcpResourceState>{...state.resourceStates};
-    for (final descriptor in descriptors) {
-      final resourceState = resourceStateFor(descriptor.key);
-      final usesTenant =
-          descriptor.scopeMode == AcpScopeMode.required ||
-          (descriptor.scopeMode == AcpScopeMode.optional &&
-              resourceState.optionalScopeSelection ==
-                  AcpOptionalScopeSelection.tenant);
-      if (!usesTenant) {
-        continue;
-      }
-      clearedStates[descriptor.key] = resourceState.copyWith(
-        rows: const <AcpRow>[],
-        total: 0,
-        page: 1,
-        tabCount: 0,
-        clearReferenceWarning: true,
-      );
-    }
     state = state.copyWith(
       selectedTenantId: tenantId,
-      resourceStates: clearedStates,
+      resourceStates: _clearedTenantResourceStates(),
       clearError: true,
     );
     if (activeDescriptor.scopeMode == AcpScopeMode.none) {
@@ -326,6 +319,32 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
     await refreshResourceCounts();
   }
 
+  Map<String, AcpResourceState> _clearedTenantResourceStates() {
+    final clearedStates = <String, AcpResourceState>{...state.resourceStates};
+    for (final descriptor in descriptors) {
+      final resourceState = resourceStateFor(descriptor.key);
+      final usesTenant =
+          descriptor.scopeMode == AcpScopeMode.required ||
+          (descriptor.scopeMode == AcpScopeMode.optional &&
+              resourceState.optionalScopeSelection ==
+                  AcpOptionalScopeSelection.tenant);
+      if (!usesTenant) {
+        continue;
+      }
+      _scopeGenerations[descriptor.key] =
+          (_scopeGenerations[descriptor.key] ?? 0) + 1;
+      clearedStates[descriptor.key] = resourceState.copyWith(
+        rows: const <AcpRow>[],
+        total: 0,
+        page: 1,
+        tabCount: 0,
+        isLoading: false,
+        clearReferenceWarning: true,
+      );
+    }
+    return clearedStates;
+  }
+
   Future<void> setOptionalScopeSelection(
     AcpOptionalScopeSelection selection,
   ) async {
@@ -339,6 +358,8 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       return;
     }
 
+    _scopeGenerations[descriptor.key] =
+        (_scopeGenerations[descriptor.key] ?? 0) + 1;
     _replaceResourceState(
       descriptor.key,
       resourceState.copyWith(optionalScopeSelection: selection, page: 1),
@@ -420,6 +441,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
 
   Future<void> refreshResourceCounts() async {
     for (final descriptor in descriptors) {
+      final generation = _scopeGenerations[descriptor.key] ?? 0;
       final resourceState = resourceStateFor(descriptor.key);
       final tenantId = _tenantIdFor(descriptor);
       if (descriptor.scopeMode == AcpScopeMode.required &&
@@ -438,6 +460,9 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
         deletedView: resourceState.deletedView,
         enrichReferences: false,
       );
+      if (generation != (_scopeGenerations[descriptor.key] ?? 0)) {
+        return;
+      }
       if (result.isFailure) {
         if (descriptor.optionalApiSurface) {
           _replaceResourceState(
@@ -692,6 +717,7 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
   }
 
   Future<void> _loadResource(AcpResourceDescriptor descriptor) async {
+    final generation = _scopeGenerations[descriptor.key] ?? 0;
     final resourceState = resourceStateFor(descriptor.key);
     _replaceResourceState(
       descriptor.key,
@@ -733,6 +759,9 @@ class AcpAdminController extends StateNotifier<AcpAdminState> {
       deletedView: resourceState.deletedView,
     );
 
+    if (generation != (_scopeGenerations[descriptor.key] ?? 0)) {
+      return;
+    }
     if (result.isFailure) {
       _replaceResourceState(
         descriptor.key,

@@ -39,6 +39,188 @@ void main() {
     expect(repository.eventStreamQueries, hasLength(2));
   });
 
+  test(
+    'late handoff data and failures cannot repopulate an ineligible tenant',
+    () async {
+      for (final failure in [false, true]) {
+        final repository = _FakeHumanHandoffRepository();
+        final container = _buildContainer(repository);
+        addTearDown(container.dispose);
+        final controller = container.read(
+          humanHandoffControllerProvider.notifier,
+        );
+        await controller.loadInitialData();
+        final options = Completer<Result<HumanHandoffFilterOptionsEntity>>();
+        final sessions =
+            Completer<Result<PageResult<HumanHandoffSessionEntity>>>();
+        final transcript =
+            Completer<Result<HumanHandoffTranscriptResultEntity>>();
+        repository.nextOptionsResponse = options;
+        repository.nextSessionsResponse = sessions;
+        repository.nextTranscriptResponse = transcript;
+        final pending = Future.wait([
+          controller.loadFilterOptions(),
+          controller.loadSessions(),
+          controller.loadTranscript(),
+        ]);
+        repository.tenants = const [];
+        await controller.loadTenants();
+        options.complete(
+          failure
+              ? const Result.failure(ApiFailure(403, 'Old tenant denied.'))
+              : const Result.success(
+                  HumanHandoffFilterOptionsEntity(
+                    owners: [
+                      HumanHandoffReferenceOptionEntity(
+                        id: 'old-owner',
+                        title: 'Private old owner',
+                      ),
+                    ],
+                    serviceRoutes: [],
+                  ),
+                ),
+        );
+        sessions.complete(
+          failure
+              ? const Result.failure(ApiFailure(403, 'Old tenant denied.'))
+              : const Result.success(
+                  PageResult(
+                    items: [_activeSession],
+                    total: 1,
+                    page: 1,
+                    pageSize: 15,
+                  ),
+                ),
+        );
+        transcript.complete(
+          failure
+              ? const Result.failure(ApiFailure(403, 'Old tenant denied.'))
+              : const Result.success(_privateTranscript),
+        );
+        await pending;
+        expect(controller.state.selectedTenantId, isNull);
+        expect(controller.state.ownerOptions, isEmpty);
+        expect(controller.state.serviceRouteOptions, isEmpty);
+        expect(controller.state.sessions, isEmpty);
+        expect(controller.state.transcript, isEmpty);
+        expect(controller.state.errorMessage, isNull);
+        expect(controller.state.isLoadingFilterOptions, isFalse);
+        expect(controller.state.isLoadingSessions, isFalse);
+        expect(controller.state.isLoadingTranscript, isFalse);
+      }
+    },
+  );
+
+  test('tenant selection discards old transcripts and reply drafts', () async {
+    final repository = _FakeHumanHandoffRepository();
+    final container = _buildContainer(repository);
+    addTearDown(container.dispose);
+    final controller = container.read(humanHandoffControllerProvider.notifier);
+    await controller.loadInitialData();
+    controller.updateDraft('Reply intended for the original tenant.');
+    final transcript = Completer<Result<HumanHandoffTranscriptResultEntity>>();
+    repository.nextTranscriptResponse = transcript;
+    final oldLoad = controller.loadTranscript();
+    await controller.selectTenant('tenant-2');
+    final currentTranscript = controller.state.transcript;
+    transcript.complete(const Result.success(_privateTranscript));
+    await oldLoad;
+    expect(controller.state.transcript, currentTranscript);
+    expect(controller.state.draftText, isEmpty);
+    expect(controller.state.pendingReplyMessageId, isNull);
+  });
+
+  test(
+    'removing the selected session invalidates its pending transcript',
+    () async {
+      final repository = _FakeHumanHandoffRepository();
+      final container = _buildContainer(repository);
+      addTearDown(container.dispose);
+      final controller = container.read(
+        humanHandoffControllerProvider.notifier,
+      );
+      await controller.loadInitialData();
+      final transcript =
+          Completer<Result<HumanHandoffTranscriptResultEntity>>();
+      repository.nextTranscriptResponse = transcript;
+      final oldLoad = controller.loadTranscript();
+      repository.nextSessionsResponse = Completer()
+        ..complete(
+          const Result.success(
+            PageResult(items: [], total: 0, page: 1, pageSize: 15),
+          ),
+        );
+      await controller.loadSessions();
+      transcript.complete(const Result.success(_privateTranscript));
+      await oldLoad;
+      expect(controller.state.selectedSessionId, isNull);
+      expect(controller.state.transcript, isEmpty);
+      expect(controller.state.isLoadingTranscript, isFalse);
+    },
+  );
+
+  test(
+    'an old tenant list cannot undo the latest eligibility result',
+    () async {
+      final repository = _FakeHumanHandoffRepository();
+      final container = _buildContainer(repository);
+      addTearDown(container.dispose);
+      final controller = container.read(
+        humanHandoffControllerProvider.notifier,
+      );
+      await controller.loadInitialData();
+      final originalTenants = repository.tenants;
+      final tenants = Completer<Result<List<HumanHandoffTenantOptionEntity>>>();
+      repository.nextTenantsResponse = tenants;
+      final oldLoad = controller.loadTenants();
+      repository.tenants = const [];
+      await controller.loadTenants();
+      tenants.complete(Result.success(originalTenants));
+      await oldLoad;
+      expect(controller.state.selectedTenantId, isNull);
+      expect(controller.state.tenants, isEmpty);
+    },
+  );
+
+  test(
+    'refresh replaces an unavailable tenant and clears its conversation state',
+    () async {
+      final repository = _FakeHumanHandoffRepository();
+      final container = _buildContainer(repository);
+      addTearDown(container.dispose);
+      final controller = container.read(
+        humanHandoffControllerProvider.notifier,
+      );
+      await controller.loadInitialData();
+      controller.updateDraft('Private reply for tenant one.');
+      repository.tenants = const [
+        HumanHandoffTenantOptionEntity(id: 'tenant-2', name: 'Tenant Two'),
+      ];
+      await controller.loadTenants();
+      expect(controller.state.selectedTenantId, 'tenant-2');
+      expect(controller.state.sessions, isEmpty);
+      expect(controller.state.transcript, isEmpty);
+      expect(controller.state.selectedSessionId, isNull);
+      expect(controller.state.latestTranscriptSequenceNo, isNull);
+      expect(controller.state.draftText, isEmpty);
+      expect(controller.state.ownerOptions, isEmpty);
+      expect(controller.state.serviceRouteOptions, isEmpty);
+      expect(controller.state.liveStatus, HumanHandoffLiveStatus.offline);
+
+      await controller.refresh();
+      expect(repository.sessionQueries.last.tenantId, 'tenant-2');
+      expect(repository.eventStreamQueries.last.tenantId, 'tenant-2');
+      expect(controller.state.sessions, isNotEmpty);
+
+      repository.tenants = const [];
+      await controller.refresh();
+      expect(controller.state.selectedTenantId, isNull);
+      expect(controller.state.sessions, isEmpty);
+      expect(controller.state.transcript, isEmpty);
+      expect(controller.state.liveStatus, HumanHandoffLiveStatus.offline);
+    },
+  );
+
   test('loadInitialData selects tenant, sessions, and transcript', () async {
     final repository = _FakeHumanHandoffRepository();
     final container = _buildContainer(repository);
@@ -224,6 +406,11 @@ ProviderContainer _buildContainer(_FakeHumanHandoffRepository repository) {
 }
 
 class _FakeHumanHandoffRepository implements HumanHandoffRepository {
+  Completer<Result<HumanHandoffFilterOptionsEntity>>? nextOptionsResponse;
+  Completer<Result<PageResult<HumanHandoffSessionEntity>>>?
+  nextSessionsResponse;
+  Completer<Result<HumanHandoffTranscriptResultEntity>>? nextTranscriptResponse;
+  Completer<Result<List<HumanHandoffTenantOptionEntity>>>? nextTenantsResponse;
   _FakeHumanHandoffRepository({
     Queue<HumanHandoffDeliveryResultEntity>? deliveryResults,
   }) : deliveryResults =
@@ -237,6 +424,9 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
              ],
            );
 
+  List<HumanHandoffTenantOptionEntity> tenants = const [
+    HumanHandoffTenantOptionEntity(id: 'tenant-1', name: 'Tenant One'),
+  ];
   final Queue<HumanHandoffDeliveryResultEntity> deliveryResults;
   final StreamController<Result<HumanHandoffEventEntity>> eventController =
       StreamController<Result<HumanHandoffEventEntity>>.broadcast();
@@ -254,11 +444,12 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
   Future<Result<List<HumanHandoffTenantOptionEntity>>> fetchTenants({
     int top = 200,
   }) async {
-    return const Result<List<HumanHandoffTenantOptionEntity>>.success(
-      <HumanHandoffTenantOptionEntity>[
-        HumanHandoffTenantOptionEntity(id: 'tenant-1', name: 'Tenant One'),
-      ],
-    );
+    final pending = nextTenantsResponse;
+    nextTenantsResponse = null;
+    if (pending != null) {
+      return pending.future;
+    }
+    return Result<List<HumanHandoffTenantOptionEntity>>.success(tenants);
   }
 
   @override
@@ -266,6 +457,11 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
     required String tenantId,
     int top = 200,
   }) async {
+    final pending = nextOptionsResponse;
+    nextOptionsResponse = null;
+    if (pending != null) {
+      return pending.future;
+    }
     return const Result<HumanHandoffFilterOptionsEntity>.success(
       HumanHandoffFilterOptionsEntity(
         owners: <HumanHandoffReferenceOptionEntity>[
@@ -286,6 +482,11 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
     HumanHandoffSessionListQuery query,
   ) async {
     sessionQueries.add(query);
+    final pending = nextSessionsResponse;
+    nextSessionsResponse = null;
+    if (pending != null) {
+      return pending.future;
+    }
     return Result<PageResult<HumanHandoffSessionEntity>>.success(
       PageResult<HumanHandoffSessionEntity>(
         items: <HumanHandoffSessionEntity>[_activeSession],
@@ -301,6 +502,11 @@ class _FakeHumanHandoffRepository implements HumanHandoffRepository {
     HumanHandoffTranscriptQuery query,
   ) async {
     transcriptQueries.add(query);
+    final pending = nextTranscriptResponse;
+    nextTranscriptResponse = null;
+    if (pending != null) {
+      return pending.future;
+    }
     final items = query.afterSequenceNo == null
         ? const <HumanHandoffTranscriptItemEntity>[
             HumanHandoffTranscriptItemEntity(
@@ -385,4 +591,18 @@ const HumanHandoffSessionEntity _activeSession = HumanHandoffSessionEntity(
   status: 'active',
   roomId: 'room-1',
   senderId: 'sender-1',
+);
+
+const _privateTranscript = HumanHandoffTranscriptResultEntity(
+  items: [
+    HumanHandoffTranscriptItemEntity(
+      sequenceNo: 999,
+      role: 'user',
+      content: 'Private old tenant conversation.',
+      source: 'human_handoff_user_turn',
+    ),
+  ],
+  count: 1,
+  latestSequenceNo: 999,
+  hasMore: false,
 );

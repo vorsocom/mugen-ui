@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_controller.dart';
@@ -45,6 +47,36 @@ void main() {
     ),
   ];
 
+  test(
+    'refresh replaces inactive selection and clears old tenant resources',
+    () async {
+      final repository = _FakeAcpAdminRepository();
+      final controller = AcpAdminController(
+        repository: repository,
+        descriptors: descriptors,
+        onSessionExpired: () {},
+      );
+      addTearDown(controller.dispose);
+      await controller.loadInitialData();
+      await controller.selectResource('context-profiles');
+      expect(controller.state.activeResourceState.rows, isNotEmpty);
+      repository.fetchTenantsResult =
+          const Result<List<AcpTenantOption>>.success([
+            AcpTenantOption(id: 'tenant-1', name: 'Tenant One'),
+          ]);
+      await controller.refresh();
+      expect(controller.state.selectedTenantId, 'tenant-1');
+      expect(repository.activeListCalls.last.tenantId, 'tenant-1');
+
+      repository.fetchTenantsResult =
+          const Result<List<AcpTenantOption>>.success([]);
+      await controller.refresh();
+      expect(controller.state.selectedTenantId, isNull);
+      expect(controller.state.activeResourceState.rows, isEmpty);
+      expect(controller.state.activeResourceState.total, 0);
+    },
+  );
+
   test('non-tenant descriptors load without fetching tenants', () async {
     final repository = _FakeAcpAdminRepository();
     final controller = AcpAdminController(
@@ -65,6 +97,142 @@ void main() {
     expect(controller.resourceStateFor('system-flags').tabCount, 40);
     expect(controller.activeDescriptor.entitySet, 'SystemFlags');
     expect(controller.usesTenantScope(controller.activeDescriptor), isFalse);
+  });
+
+  test(
+    'global-only refresh reloads rows and counts without fetching tenants',
+    () async {
+      final repository = _FakeAcpAdminRepository();
+      final controller = AcpAdminController(
+        repository: repository,
+        descriptors: <AcpResourceDescriptor>[descriptors[1]],
+        onSessionExpired: () {},
+      );
+      addTearDown(controller.dispose);
+      await controller.loadInitialData();
+      expect(controller.state.activeResourceState.tabCount, 40);
+
+      const refreshedPage = AcpRowPage(
+        items: <AcpRow>[
+          <String, Object?>{'Id': 'new-global-flag', 'RowVersion': 2},
+        ],
+        total: 41,
+        page: 1,
+        pageSize: 15,
+      );
+      repository.nextListResponse = Completer<Result<AcpRowPage>>()
+        ..complete(const Result<AcpRowPage>.success(refreshedPage));
+      repository.listRowsResult = const Result<AcpRowPage>.success(
+        refreshedPage,
+      );
+      repository.listCalls.clear();
+
+      await controller.refresh();
+
+      expect(controller.state.activeResourceState.rows, refreshedPage.items);
+      expect(controller.state.activeResourceState.total, 41);
+      expect(controller.state.activeResourceState.tabCount, 41);
+      expect(repository.activeListCalls.single.entitySet, 'SystemFlags');
+      expect(repository.activeListCalls.single.tenantId, isNull);
+      expect(repository.activeListCalls.single.enrichReferences, isTrue);
+      expect(repository.countListCalls.single.entitySet, 'SystemFlags');
+      expect(repository.countListCalls.single.tenantId, isNull);
+      expect(repository.countListCalls.single.enrichReferences, isFalse);
+      expect(repository.fetchTenantsCalls, 0);
+      expect(controller.state.selectedTenantId, isNull);
+    },
+  );
+
+  test(
+    'old tenant rows and failures cannot replace a new or cleared selection',
+    () async {
+      for (final removeTenants in [false, true]) {
+        for (final failure in [false, true]) {
+          final repository = _FakeAcpAdminRepository();
+          final controller = AcpAdminController(
+            repository: repository,
+            descriptors: [descriptors[2]],
+            onSessionExpired: () {},
+          );
+          addTearDown(controller.dispose);
+          await controller.loadInitialData();
+          final pending = Completer<Result<AcpRowPage>>();
+          repository.nextListResponse = pending;
+          final oldLoad = controller.loadActiveResource();
+          if (removeTenants) {
+            repository.fetchTenantsResult = const Result.success([]);
+            await controller.refresh();
+          } else {
+            await controller.selectTenant('tenant-1');
+          }
+          final current = controller.state.activeResourceState;
+          final error = controller.errorMessage;
+          pending.complete(
+            failure
+                ? const Result.failure(ApiFailure(403, 'Old tenant denied.'))
+                : const Result.success(
+                    AcpRowPage(
+                      items: [
+                        {'Id': 'private-old-row'},
+                      ],
+                      total: 99,
+                      page: 1,
+                      pageSize: 15,
+                    ),
+                  ),
+          );
+          await oldLoad;
+          expect(controller.state.activeResourceState.rows, current.rows);
+          expect(controller.state.activeResourceState.total, current.total);
+          expect(controller.state.activeResourceState.isLoading, isFalse);
+          expect(controller.errorMessage, error);
+        }
+      }
+    },
+  );
+
+  test('old tenant counts cannot restore a replaced tenant count', () async {
+    final repository = _FakeAcpAdminRepository();
+    final controller = AcpAdminController(
+      repository: repository,
+      descriptors: [descriptors[2]],
+      onSessionExpired: () {},
+    );
+    addTearDown(controller.dispose);
+    await controller.loadInitialData();
+    final pending = Completer<Result<AcpRowPage>>();
+    repository.nextListResponse = pending;
+    final oldCounts = controller.refreshResourceCounts();
+    await controller.selectTenant('tenant-1');
+    pending.complete(
+      const Result.success(
+        AcpRowPage(items: [], total: 999, page: 1, pageSize: 1),
+      ),
+    );
+    await oldCounts;
+    expect(controller.state.activeResourceState.tabCount, 40);
+  });
+
+  test('old eligibility results cannot restore a removed tenant', () async {
+    final repository = _FakeAcpAdminRepository();
+    final controller = AcpAdminController(
+      repository: repository,
+      descriptors: [descriptors[2]],
+      onSessionExpired: () {},
+    );
+    addTearDown(controller.dispose);
+    await controller.loadInitialData();
+    final previous = repository.fetchTenantsResult;
+    final pending = Completer<Result<List<AcpTenantOption>>>();
+    repository.nextTenantResponse = pending;
+    final oldRefresh = controller.refresh();
+    repository.fetchTenantsResult = const Result.success([]);
+    await controller.refresh();
+    pending.complete(previous);
+    await oldRefresh;
+    expect(controller.state.selectedTenantId, isNull);
+    expect(controller.state.tenants, isEmpty);
+    expect(controller.state.activeResourceState.rows, isEmpty);
   });
 
   test(
@@ -908,6 +1076,8 @@ class _EntityActionCall {
 }
 
 class _FakeAcpAdminRepository implements AcpAdminRepository {
+  Completer<Result<AcpRowPage>>? nextListResponse;
+  Completer<Result<List<AcpTenantOption>>>? nextTenantResponse;
   Result<List<AcpTenantOption>> fetchTenantsResult =
       const Result<List<AcpTenantOption>>.success(<AcpTenantOption>[
         AcpTenantOption(id: 'tenant-1', name: 'Tenant One', slug: 'tenant-one'),
@@ -968,6 +1138,11 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
   @override
   Future<Result<List<AcpTenantOption>>> fetchTenants({int top = 200}) async {
     fetchTenantsCalls += 1;
+    final pending = nextTenantResponse;
+    nextTenantResponse = null;
+    if (pending != null) {
+      return pending.future;
+    }
     return fetchTenantsResult;
   }
 
@@ -993,6 +1168,12 @@ class _FakeAcpAdminRepository implements AcpAdminRepository {
         extraFilters: extraFilters,
       ),
     );
+
+    final pending = nextListResponse;
+    nextListResponse = null;
+    if (pending != null) {
+      return pending.future;
+    }
 
     if (listRowsResult.isFailure) {
       return Result<AcpRowPage>.failure(listRowsResult.failure!);

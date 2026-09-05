@@ -49,6 +49,10 @@ void main() {
     expect(result.data!.single.label, 'Tenant One (tenant-one)');
     expect(fixture.client.requests.single.path, 'core/acp/v1/Tenants');
     expect(fixture.client.requests.single.queryParameters[r'$top'], 50);
+    expect(
+      fixture.client.requests.single.queryParameters[r'$filter'],
+      "Status eq 'active'",
+    );
   });
 
   test('fetchFilterOptions maps tenant members and service routes', () async {

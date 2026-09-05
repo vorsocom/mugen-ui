@@ -19,6 +19,26 @@ import 'package:mugen_ui/shared/domain/result.dart';
 import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 
 void main() {
+  test('denied live access stops retries until an explicit refresh', () async {
+    final repository = _FakeHumanHandoffRepository();
+    final container = _buildContainer(repository);
+    addTearDown(container.dispose);
+    final notifier = container.read(humanHandoffControllerProvider.notifier);
+    await notifier.loadInitialData();
+    repository.eventController.add(
+      const Result<HumanHandoffEventEntity>.failure(
+        ApiFailure(403, 'Forbidden'),
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 5300));
+    final state = container.read(humanHandoffControllerProvider);
+    expect(state.liveStatus, HumanHandoffLiveStatus.unavailable);
+    expect(state.liveErrorMessage, contains('Access to live handoff updates'));
+    expect(repository.eventStreamQueries, hasLength(1));
+    await notifier.refresh();
+    expect(repository.eventStreamQueries, hasLength(2));
+  });
+
   test('loadInitialData selects tenant, sessions, and transcript', () async {
     final repository = _FakeHumanHandoffRepository();
     final container = _buildContainer(repository);

@@ -631,6 +631,83 @@ void main() {
   );
 
   test(
+    'ingress deactivation PATCH excludes legacy fields and retains RowVersion',
+    () async {
+      final descriptor = orchestrationAdminResources.firstWhere(
+        (resource) => resource.entitySet == 'IngressBindings',
+      );
+      final action = descriptor.entityActions.single;
+      final fixture = _RepositoryFixture(
+        handlers: <_AuthHandler>[(_) => _response(statusCode: 204, body: '')],
+      );
+
+      final result = await fixture.repository.runEntityAction(
+        descriptor: descriptor,
+        action: action,
+        rowId: 'binding-1',
+        tenantId: 'tenant-1',
+        rowVersion: 7,
+        values: const <String, dynamic>{
+          'ChannelProfileId': 'invalid-profile',
+          'ChannelKey': 'whatsapp',
+          'IdentifierType': 'tenant_slug',
+          'IdentifierValue': 'unowned-identifier',
+          'IsActive': true,
+          'Attributes': <String, dynamic>{'legacy': true},
+          'RowVersion': 1,
+        },
+      );
+
+      expect(result.isSuccess, isTrue);
+      final request = fixture.client.requests.single;
+      expect(request.method, HttpMethod.patch);
+      expect(
+        request.path,
+        'core/acp/v1/tenants/tenant-1/IngressBindings/binding-1',
+      );
+      expect(request.body, <String, dynamic>{
+        'IsActive': false,
+        'RowVersion': 7,
+      });
+      expect(action.patchValues, <String, dynamic>{'IsActive': false});
+    },
+  );
+
+  test('ingress deactivation requires tenant and current RowVersion', () async {
+    final descriptor = orchestrationAdminResources.firstWhere(
+      (resource) => resource.entitySet == 'IngressBindings',
+    );
+    final action = descriptor.entityActions.single;
+    final fixture = _RepositoryFixture();
+
+    for (final rowVersion in <int?>[null, -1]) {
+      final result = await fixture.repository.runEntityAction(
+        descriptor: descriptor,
+        action: action,
+        rowId: 'binding-1',
+        tenantId: 'tenant-1',
+        rowVersion: rowVersion,
+        values: const <String, dynamic>{},
+      );
+      expect(result.failure, isA<ValidationFailure>());
+      expect(
+        result.failure?.message,
+        'RowVersion is required for this action.',
+      );
+    }
+
+    final missingTenant = await fixture.repository.runEntityAction(
+      descriptor: descriptor,
+      action: action,
+      rowId: 'binding-1',
+      rowVersion: 7,
+      values: const <String, dynamic>{},
+    );
+    expect(missingTenant.failure, isA<ValidationFailure>());
+    expect(fixture.client.requests, isEmpty);
+  });
+
+  test(
     'send maps session expiry, unauthorized, API, and network failures',
     () async {
       final sessionFixture = _RepositoryFixture(

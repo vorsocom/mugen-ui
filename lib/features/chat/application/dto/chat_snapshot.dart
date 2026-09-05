@@ -5,9 +5,11 @@ class ChatSnapshot {
     required this.conversationId,
     required this.messages,
     this.lastEventId,
+    this.conversationEstablished = false,
   });
 
   final String conversationId;
+  final bool conversationEstablished;
   final String? lastEventId;
   final List<ChatMessageEntity> messages;
 
@@ -24,9 +26,21 @@ class ChatSnapshot {
       }
     }
 
+    final lastEventId = _readNullableString(json['last_event_id']);
+    final established = json['conversation_established'];
     return ChatSnapshot(
       conversationId: json['conversation_id']?.toString() ?? '',
-      lastEventId: _readNullableString(json['last_event_id']),
+      lastEventId: lastEventId,
+      conversationEstablished: established is bool
+          ? established
+          : lastEventId != null ||
+                messages.any(
+                  (message) =>
+                      message.jobId != null ||
+                      message.eventId != null ||
+                      message.status == ChatMessageStatus.accepted ||
+                      message.status == ChatMessageStatus.delivered,
+                ),
       messages: messages,
     );
   }
@@ -34,6 +48,7 @@ class ChatSnapshot {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'conversation_id': conversationId,
+      'conversation_established': conversationEstablished,
       if (lastEventId != null) 'last_event_id': lastEventId,
       'messages': messages
           .map((message) => message.toJson())

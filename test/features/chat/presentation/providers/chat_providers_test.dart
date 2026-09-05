@@ -27,6 +27,141 @@ import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 
 void main() {
   test(
+    'fresh chat waits for accepted first send before opening events',
+    () async {
+      final storage = _InMemoryChatLocalStorage();
+      final repository = _FakeChatRepository();
+      repository.pendingSendTextCompleter =
+          Completer<Result<ChatSendAcceptedEntity>>();
+      final container = _buildContainer(
+        repository: repository,
+        storage: storage,
+        establishedConversation: false,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(chatControllerProvider.notifier);
+      notifier.ensureStreaming();
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.streamCalls, isEmpty);
+      expect(container.read(chatControllerProvider).errorMessage, isNull);
+
+      expect(await notifier.sendMessage(''), isFalse);
+      expect(repository.streamCalls, isEmpty);
+      final send = notifier.sendMessage('hello');
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      expect(repository.streamCalls, isEmpty);
+      final pendingSnapshot =
+          jsonDecode(storage.getItem('mugen_ui.chat.single.user-1.v1')!)
+              as Map<String, dynamic>;
+      expect(pendingSnapshot['conversation_established'], isFalse);
+
+      repository.pendingSendTextCompleter!.complete(
+        repository.sendTextResponse,
+      );
+      expect(await send, isTrue);
+      expect(repository.streamCalls, hasLength(1));
+      expect(
+        repository.streamCalls.single.conversationId,
+        container.read(chatControllerProvider).conversationId,
+      );
+
+      notifier.clearTranscript();
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      final restoredRepository = _FakeChatRepository();
+      final restored = _buildContainer(
+        repository: restoredRepository,
+        storage: storage,
+        establishedConversation: false,
+      );
+      addTearDown(restored.dispose);
+      expect(restored.read(chatControllerProvider).messages, isEmpty);
+      await Future<void>.delayed(Duration.zero);
+      expect(restoredRepository.streamCalls, hasLength(1));
+      expect(
+        restoredRepository.streamCalls.single.conversationId,
+        repository.streamCalls.single.conversationId,
+      );
+    },
+  );
+
+  test(
+    'failed first send stays unestablished until a successful retry',
+    () async {
+      final repository = _FakeChatRepository();
+      final accepted = repository.sendTextResponse;
+      repository.sendTextResponse =
+          const Result<ChatSendAcceptedEntity>.failure(
+            NetworkFailure('offline'),
+          );
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+        establishedConversation: false,
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(chatControllerProvider.notifier);
+      expect(await notifier.sendMessage('hello'), isFalse);
+      notifier.ensureStreaming();
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.streamCalls, isEmpty);
+      repository.sendTextResponse = accepted;
+      expect(await notifier.sendMessage('try again'), isTrue);
+      expect(repository.streamCalls, hasLength(1));
+    },
+  );
+
+  test('first attachment send opens events after acceptance', () async {
+    final repository = _FakeChatRepository();
+    final container = _buildContainer(
+      repository: repository,
+      storage: _InMemoryChatLocalStorage(),
+      establishedConversation: false,
+      filePicker: _FixedChatFilePicker(<ChatPickedFile>[
+        ChatPickedFile(
+          filename: 'note.txt',
+          mimeType: 'text/plain',
+          bytes: Uint8List.fromList(<int>[65]),
+        ),
+      ]),
+    );
+    addTearDown(container.dispose);
+    final notifier = container.read(chatControllerProvider.notifier);
+    await notifier.attachFromPicker();
+    expect(repository.streamCalls, isEmpty);
+    expect(await notifier.sendMessage('attachment'), isTrue);
+    expect(repository.streamCalls, hasLength(1));
+  });
+
+  test('legacy unsent snapshots do not open a missing conversation', () async {
+    final storage = _InMemoryChatLocalStorage();
+    storage.setItem(
+      'mugen_ui.chat.single.user-1.v1',
+      jsonEncode({
+        'conversation_id': 'conv-unsent',
+        'messages': [
+          {
+            'id': 'draft',
+            'role': 'user',
+            'type': 'text',
+            'status': 'failed',
+            'text': 'failed first send',
+            'created_at': DateTime.utc(2026).toIso8601String(),
+          },
+        ],
+      }),
+    );
+    final repository = _FakeChatRepository();
+    final container = _buildContainer(repository: repository, storage: storage);
+    addTearDown(container.dispose);
+    expect(
+      container.read(chatControllerProvider).conversationId,
+      'conv-unsent',
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(repository.streamCalls, isEmpty);
+  });
+
+  test(
     'controller restores snapshot and starts stream with saved lastEventId',
     () async {
       final storage = _InMemoryChatLocalStorage();
@@ -2735,7 +2870,21 @@ ProviderContainer _buildContainer({
   _FakeAuthRepository? authRepository,
   ChatFilePicker? filePicker,
   MediaObjectUrlPlatform? mediaPlatform,
+  bool establishedConversation = true,
 }) {
+  // Stream tests use an existing server conversation unless testing first send.
+  if (establishedConversation &&
+      storage is _InMemoryChatLocalStorage &&
+      storage.getItem('mugen_ui.chat.single.user-1.v1') == null) {
+    storage.setItem(
+      'mugen_ui.chat.single.user-1.v1',
+      jsonEncode(<String, dynamic>{
+        'conversation_id': 'conv-established',
+        'conversation_established': true,
+        'messages': <Object>[],
+      }),
+    );
+  }
   final overrides = <Override>[
     authRepositoryProvider.overrideWithValue(
       authRepository ??

@@ -336,6 +336,7 @@ class ChatController extends _$ChatController {
   bool _disposeRegistered = false;
   bool _authListenerRegistered = false;
   bool _eventLoopRunning = false;
+  bool _conversationEstablished = false;
   bool _disposed = false;
   int _sessionGeneration = 0;
   String _snapshotStorageKey = '';
@@ -605,6 +606,7 @@ class ChatController extends _$ChatController {
     }
 
     final accepted = result.data!;
+    _conversationEstablished = true;
     state = state.copyWith(
       isSending: false,
       messages: _updateMessageByClientId(clientMessageId, (message) {
@@ -619,6 +621,7 @@ class ChatController extends _$ChatController {
         return message.copyWith(status: nextStatus, jobId: accepted.jobId);
       }),
     );
+    ensureStreaming();
     _scheduleSnapshotPersist();
     return true;
   }
@@ -761,7 +764,7 @@ class ChatController extends _$ChatController {
   }
 
   void _startEventLoop() {
-    if (_eventLoopRunning || _disposed) {
+    if (_eventLoopRunning || _disposed || !_conversationEstablished) {
       return;
     }
 
@@ -1521,6 +1524,9 @@ class ChatController extends _$ChatController {
   }
 
   ChatControllerState _buildInitialState(ChatSnapshot? snapshot) {
+    _conversationEstablished =
+        (snapshot?.conversationId.trim().isNotEmpty ?? false) &&
+        snapshot!.conversationEstablished;
     final conversationId = (snapshot?.conversationId.trim().isNotEmpty ?? false)
         ? snapshot!.conversationId
         : _newConversationId();
@@ -1579,6 +1585,7 @@ class ChatController extends _$ChatController {
     while (true) {
       final snapshot = ChatSnapshot(
         conversationId: state.conversationId,
+        conversationEstablished: _conversationEstablished,
         lastEventId: state.lastEventId,
         messages: messages,
       );

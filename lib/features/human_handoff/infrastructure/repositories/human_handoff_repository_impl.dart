@@ -46,6 +46,7 @@ class HumanHandoffRepositoryImpl implements HumanHandoffRepository {
         queryParameters: <String, dynamic>{
           r'$top': top,
           r'$orderby': 'Name asc',
+          r'$filter': "Status eq 'active'",
         },
       ),
     );

@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validate messaging ingress identifiers against active tenant-owned channel
   and client profiles, restrict profile selection to matching active channels,
   and cancel saves if the selected tenant or resource changes during validation.
+- Ignore late tenant-scoped rows, counts and handoff responses after tenant
+  eligibility or selection changes, and clear tenant details on access denial.
+
+- Keep inactive tenant detail actions unavailable, clear revoked tenant data, and refresh active tenant selections in administration and human handoff workspaces.
 
 ### Security
 

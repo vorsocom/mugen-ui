@@ -29,6 +29,7 @@ class TenantAdminState {
     required this.isLoadingTenants,
     required this.isLoadingDetails,
     this.selectedTenantId,
+    this.isDetailAccessDenied = false,
     this.errorMessage,
   });
 
@@ -44,6 +45,7 @@ class TenantAdminState {
   final bool isLoadingTenants;
   final bool isLoadingDetails;
   final String? selectedTenantId;
+  final bool isDetailAccessDenied;
   final String? errorMessage;
 
   int get pages {
@@ -68,6 +70,10 @@ class TenantAdminState {
     return null;
   }
 
+  bool get isSelectedTenantActive =>
+      selectedTenant?.status.toLowerCase() == 'active' &&
+      selectedTenant?.deleted == false;
+
   TenantAdminState copyWith({
     List<TenantEntity>? tenants,
     List<TenantDomainEntity>? domains,
@@ -82,6 +88,7 @@ class TenantAdminState {
     bool? isLoadingDetails,
     String? selectedTenantId,
     bool clearSelectedTenant = false,
+    bool? isDetailAccessDenied,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -100,6 +107,7 @@ class TenantAdminState {
       selectedTenantId: clearSelectedTenant
           ? null
           : (selectedTenantId ?? this.selectedTenantId),
+      isDetailAccessDenied: isDetailAccessDenied ?? this.isDetailAccessDenied,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
@@ -138,6 +146,7 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
 
   final Ref ref;
   int _tenantLoadGeneration = 0;
+  int _tenantDetailsLoadGeneration = 0;
 
   Future<void> loadTenants({
     bool append = false,
@@ -206,7 +215,7 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
       return;
     }
 
-    if (reloadDetails) {
+    if (reloadDetails || !state.isSelectedTenantActive) {
       await loadSelectedTenantDetails();
     }
   }
@@ -239,16 +248,25 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
 
   Future<void> refreshTenantOptions() async {
     state = state.copyWith(searchTerm: '', page: 1);
-    await loadTenants(reloadDetails: false);
+    await loadTenants(
+      reloadDetails:
+          state.isDetailAccessDenied || !state.isSelectedTenantActive,
+    );
   }
 
   Future<void> loadSelectedTenantDetails() async {
+    final generation = ++_tenantDetailsLoadGeneration;
     final tenantId = state.selectedTenantId;
-    if (tenantId == null || tenantId.isEmpty) {
+    if (tenantId == null || tenantId.isEmpty || !state.isSelectedTenantActive) {
+      _clearTenantDetails();
       return;
     }
 
-    state = state.copyWith(isLoadingDetails: true, clearError: true);
+    state = state.copyWith(
+      isLoadingDetails: true,
+      isDetailAccessDenied: false,
+      clearError: true,
+    );
     final repository = ref.read(tenantAdminRepositoryProvider);
     final domains = await repository.fetchTenantDomains(tenantId: tenantId);
     final invitations = await repository.fetchTenantInvitations(
@@ -258,8 +276,21 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
       tenantId: tenantId,
     );
 
+    if (generation != _tenantDetailsLoadGeneration) {
+      return;
+    }
+
+    final failures = <Failure?>[
+      domains.failure,
+      invitations.failure,
+      memberships.failure,
+    ].whereType<Failure>().toList(growable: false);
     final firstFailure =
-        domains.failure ?? invitations.failure ?? memberships.failure;
+        failures
+            .whereType<ApiFailure>()
+            .where((failure) => failure.statusCode == 403)
+            .firstOrNull ??
+        failures.firstOrNull;
 
     if (firstFailure != null) {
       _applyFailure(firstFailure, fallback: 'Could not load tenant details.');
@@ -281,7 +312,8 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
       return;
     }
 
-    state = state.copyWith(selectedTenantId: tenantId);
+    _clearTenantDetails();
+    state = state.copyWith(selectedTenantId: tenantId, clearError: true);
     await loadSelectedTenantDetails();
   }
 
@@ -502,7 +534,21 @@ class TenantAdminController extends StateNotifier<TenantAdminState> {
     return false;
   }
 
+  void _clearTenantDetails({bool accessDenied = false}) {
+    state = state.copyWith(
+      domains: const <TenantDomainEntity>[],
+      invitations: const <TenantInvitationEntity>[],
+      memberships: const <TenantMembershipEntity>[],
+      isLoadingDetails: false,
+      isDetailAccessDenied: accessDenied,
+    );
+  }
+
   void _applyFailure(Failure failure, {required String fallback}) {
+    if (failure is ApiFailure && failure.statusCode == 403) {
+      _tenantDetailsLoadGeneration += 1;
+      _clearTenantDetails(accessDenied: true);
+    }
     if (failure is SessionExpiredFailure) {
       ref.read(authControllerProvider.notifier).refreshSession();
     }

@@ -32,6 +32,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         queryParameters: <String, dynamic>{
           r'$top': top,
           r'$orderby': 'Name asc',
+          r'$filter': "Status eq 'active'",
         },
       ),
     );

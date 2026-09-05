@@ -163,6 +163,10 @@ void main() {
     );
     expect(fixture.client.requests.single.queryParameters[r'$top'], 50);
     expect(
+      fixture.client.requests.single.queryParameters[r'$filter'],
+      "Status eq 'active'",
+    );
+    expect(
       fixture.client.requests.single.queryParameters[r'$orderby'],
       'Name asc',
     );

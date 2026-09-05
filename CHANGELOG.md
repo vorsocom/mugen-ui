@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.17.2] - 2026-09-05
+
+### Added
+
 - Added an ingress binding deactivation action that updates only its active
   state, so legacy bindings with invalid ownership can be disabled.
 

@@ -805,6 +805,17 @@ class ChatController extends _$ChatController {
               return;
             }
 
+            if (failure is ApiFailure && failure.statusCode == 403) {
+              state = state.copyWith(
+                isConnected: false,
+                isConnecting: false,
+                clearActiveThinkingKeys: true,
+                errorMessage:
+                    'Access to this conversation is no longer available. Refresh to check your access.',
+              );
+              return;
+            }
+
             if (failure is ApiFailure && failure.statusCode == 404) {
               // Conversation becomes available only after first message is sent.
             } else {

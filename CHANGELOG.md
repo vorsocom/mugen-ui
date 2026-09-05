@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Stopped automatic chat and human-handoff event reconnections after access is
+  denied, with clear access-loss messages and explicit retry support.
+
 - Fixed fresh chat startup to open its event stream only after message acceptance,
   while preserving established conversations and replay across reloads.
 

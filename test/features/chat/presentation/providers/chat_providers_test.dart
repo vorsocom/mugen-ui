@@ -27,6 +27,47 @@ import 'package:mugen_ui/shared/domain/value_objects/auth_session.dart';
 
 void main() {
   test(
+    'revoked conversation stops reconnecting and clears thinking state',
+    () async {
+      final repository = _FakeChatRepository();
+      final container = _buildContainer(
+        repository: repository,
+        storage: _InMemoryChatLocalStorage(),
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(chatControllerProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.success(
+          ChatSseEventEntity(
+            id: '1',
+            event: 'thinking',
+            data: <String, dynamic>{'state': 'start', 'job_id': 'job-1'},
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        container.read(chatControllerProvider).isAssistantThinking,
+        isTrue,
+      );
+      repository.streamControllers.first.add(
+        const Result<ChatSseEventEntity>.failure(ApiFailure(403, 'Forbidden')),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 1300));
+      final state = container.read(chatControllerProvider);
+      expect(repository.streamCalls, hasLength(1));
+      expect(state.isConnecting, isFalse);
+      expect(state.isConnected, isFalse);
+      expect(state.activeThinkingKeys, isEmpty);
+      expect(state.errorMessage, contains('Access to this conversation'));
+      notifier.ensureStreaming();
+      await Future<void>.delayed(Duration.zero);
+      expect(repository.streamCalls, hasLength(2));
+    },
+  );
+
+  test(
     'fresh chat waits for accepted first send before opening events',
     () async {
       final storage = _InMemoryChatLocalStorage();

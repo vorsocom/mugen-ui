@@ -280,6 +280,10 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
 
   Future<void> refresh() async {
     await Future.wait(<Future<void>>[loadFilterOptions(), loadSessions()]);
+    if (state.liveStatus == HumanHandoffLiveStatus.unavailable &&
+        state.errorMessage == null) {
+      _startEventStream();
+    }
   }
 
   Future<void> loadFilterOptions() async {
@@ -851,6 +855,7 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
     if (subscription != null) {
       unawaited(subscription.cancel());
     }
+    final accessDenied = failure is ApiFailure && failure.statusCode == 403;
     _consecutiveEventFailures += 1;
     final isUnavailable =
         _requiresImmediateLiveIssue(failure) ||
@@ -859,10 +864,17 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       liveStatus: isUnavailable
           ? HumanHandoffLiveStatus.unavailable
           : HumanHandoffLiveStatus.reconnecting,
-      liveErrorMessage: failure.message.trim().isEmpty
+      liveErrorMessage: accessDenied
+          ? 'Access to live handoff updates is no longer available. Refresh to check your access.'
+          : failure.message.trim().isEmpty
           ? 'Live handoff updates disconnected.'
           : failure.message,
     );
+    if (accessDenied) {
+      _eventReconnectTimer?.cancel();
+      _eventReconnectTimer = null;
+      return;
+    }
     _scheduleEventReconnect();
   }
 

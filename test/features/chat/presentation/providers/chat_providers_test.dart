@@ -65,6 +65,20 @@ void main() {
         container.read(chatControllerProvider).conversationId,
       );
 
+      final immediateRepository = _FakeChatRepository();
+      final immediateRestore = _buildContainer(
+        repository: immediateRepository,
+        storage: storage,
+        establishedConversation: false,
+      );
+      addTearDown(immediateRestore.dispose);
+      expect(
+        immediateRestore.read(chatControllerProvider).messages.single.status,
+        ChatMessageStatus.accepted,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(immediateRepository.streamCalls, hasLength(1));
+
       notifier.clearTranscript();
       await Future<void>.delayed(const Duration(milliseconds: 400));
       final restoredRepository = _FakeChatRepository();

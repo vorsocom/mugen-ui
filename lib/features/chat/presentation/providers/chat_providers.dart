@@ -621,8 +621,8 @@ class ChatController extends _$ChatController {
         return message.copyWith(status: nextStatus, jobId: accepted.jobId);
       }),
     );
+    _persistSnapshot();
     ensureStreaming();
-    _scheduleSnapshotPersist();
     return true;
   }
 

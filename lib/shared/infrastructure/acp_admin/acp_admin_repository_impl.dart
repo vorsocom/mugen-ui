@@ -314,19 +314,28 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     String? tenantId,
     int? rowVersion,
   }) async {
-    final path = AcpPathBuilder.entityActionPath(
-      endpoints: appConfig.api.endpoints,
-      entitySet: descriptor.entitySet,
-      entityId: rowId,
-      action: action.name,
-      scopeMode: descriptor.scopeMode,
-      tenantId: tenantId,
-    );
+    final isPatch = action.patchValues != null;
+    final path = isPatch
+        ? AcpPathBuilder.entityPath(
+            endpoints: appConfig.api.endpoints,
+            entitySet: descriptor.entitySet,
+            entityId: rowId,
+            scopeMode: descriptor.scopeMode,
+            tenantId: tenantId,
+          )
+        : AcpPathBuilder.entityActionPath(
+            endpoints: appConfig.api.endpoints,
+            entitySet: descriptor.entitySet,
+            entityId: rowId,
+            action: action.name,
+            scopeMode: descriptor.scopeMode,
+            tenantId: tenantId,
+          );
     if (path.isFailure) {
       return Result<Object?>.failure(path.failure!);
     }
 
-    final body = <String, dynamic>{...values};
+    final body = <String, dynamic>{...(action.patchValues ?? values)};
     if (action.includeRowVersion) {
       if (rowVersion == null || rowVersion < 0) {
         return const Result<Object?>.failure(
@@ -337,7 +346,11 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     }
 
     return _sendForObject(
-      AcpRequest(method: HttpMethod.post, path: path.data!, body: body),
+      AcpRequest(
+        method: isPatch ? HttpMethod.patch : HttpMethod.post,
+        path: path.data!,
+        body: body,
+      ),
     );
   }
 

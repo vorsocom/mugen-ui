@@ -81,6 +81,21 @@ orchestrationAdminResources = <AcpResourceDescriptor>[
       _bool('IsActive', 'Is Active'),
       _json('Attributes', 'Attributes'),
     ],
+    entityActions: const <AcpActionDescriptor>[
+      AcpActionDescriptor(
+        name: 'deactivate',
+        label: 'Deactivate',
+        target: AcpActionTarget.entity,
+        confirmMessage:
+            'Deactivate this ingress binding? It will stop routing inbound messages.',
+        includeRowVersion: true,
+        visibleWhenEquals: <String, List<Object>>{
+          'IsActive': <Object>[true],
+        },
+        patchValues: <String, dynamic>{'IsActive': false},
+        successMessage: 'Ingress binding deactivated.',
+      ),
+    ],
     searchFields: const <String>[
       'ChannelKey',
       'IdentifierType',

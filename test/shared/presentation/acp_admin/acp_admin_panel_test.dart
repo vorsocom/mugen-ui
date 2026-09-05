@@ -1389,6 +1389,99 @@ void main() {
     expect(find.byTooltip('More actions'), findsNothing);
   });
 
+  testWidgets(
+    'detail navigation uses the configured source field and tenant exact filter',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      final repository = _DetailNavigationAcpAdminRepository(
+        sourceField: 'ExternalKey',
+        targetFilterKey: 'ChannelKey',
+      );
+
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'channels',
+            title: 'Channels',
+            entitySet: 'Channels',
+            scopeMode: AcpScopeMode.required,
+            columns: const <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Name', label: 'Name'),
+            ],
+            detailSections: <AcpDetailSectionDescriptor>[
+              AcpDetailSectionDescriptor(
+                title: 'Routing details',
+                fields: <AcpDetailFieldDescriptor>[
+                  AcpDetailFieldDescriptor(
+                    key: repository.sourceField,
+                    label: 'External routing key',
+                  ),
+                ],
+                links: <AcpNavigationDescriptor>[
+                  AcpNavigationDescriptor(
+                    label: 'Open matching sessions',
+                    targetResourceKey: 'sessions',
+                    sourceField: repository.sourceField,
+                    targetFilterKey: repository.targetFilterKey,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          AcpResourceDescriptor(
+            key: 'sessions',
+            title: 'Sessions',
+            entitySet: 'Sessions',
+            scopeMode: AcpScopeMode.required,
+            columns: const <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Name', label: 'Name'),
+            ],
+            filters: <AcpFilterDescriptor>[
+              AcpFilterDescriptor(
+                key: repository.targetFilterKey,
+                label: 'Channel routing key',
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-tenant-selector')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('acp-admin-tenant-option-tenant-1')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('View row'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Routing details'), findsOneWidget);
+      expect(find.text('External routing key'), findsOneWidget);
+      expect(find.text("  channel's-external-key  "), findsOneWidget);
+      expect(find.text('Open matching sessions'), findsOneWidget);
+
+      repository.sessionRequests.clear();
+      await tester.tap(
+        find.byKey(const Key('acp-detail-link-channels-sessions')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Routing details'), findsNothing);
+      expect(find.text('Channel routing key'), findsOneWidget);
+      expect(find.text('Matching session'), findsOneWidget);
+      expect(repository.fetchRowCalls, 0);
+      expect(repository.sessionRequests.last.tenantId, 'tenant-1');
+      expect(repository.sessionRequests.last.filters, <String>[
+        "ChannelKey eq 'channel''s-external-key'",
+      ]);
+    },
+  );
+
   testWidgets('row detail dialog copies object ID to the clipboard', (
     WidgetTester tester,
   ) async {
@@ -1719,6 +1812,51 @@ AcpResourceDescriptor _jsonResourceDescriptor() {
     ],
     allowCreate: true,
   );
+}
+
+class _DetailNavigationAcpAdminRepository extends FakeAcpAdminRepository {
+  _DetailNavigationAcpAdminRepository({
+    required this.sourceField,
+    required this.targetFilterKey,
+  });
+
+  final String sourceField;
+  final String targetFilterKey;
+  final List<({String? tenantId, List<String> filters})> sessionRequests = [];
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    final isSession = descriptor.entitySet == 'Sessions';
+    if (isSession) {
+      sessionRequests.add((
+        tenantId: tenantId,
+        filters: List<String>.of(extraFilters),
+      ));
+    }
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: <AcpRow>[
+          <String, Object?>{
+            'Id': isSession ? 'session-1' : 'channel-1',
+            'TenantId': tenantId,
+            'Name': isSession ? 'Matching session' : 'Primary channel',
+            sourceField: "  channel's-external-key  ",
+          },
+        ],
+        total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
 }
 
 class _TenantRowAcpAdminRepository extends FakeAcpAdminRepository {

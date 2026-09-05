@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:mugen_ui/shared/application/admin_search_limits.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/update_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/user_registration_input.dart';
@@ -143,6 +145,11 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
               width: 320,
               child: TextFormField(
                 key: const Key('local-users-search-field'),
+                maxLength: AdminSearchLimits.maxLength,
+                maxLengthEnforcement: MaxLengthEnforcement.none,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                validator: (value) =>
+                    AdminSearchLimits.validate(value)?.message,
                 initialValue: state.searchTerm,
                 decoration: const InputDecoration(
                   hintText: 'Search users...',
@@ -150,6 +157,9 @@ class _LocalUserPanelState extends ConsumerState<LocalUserPanel> {
                 ),
                 onChanged: (value) {
                   _searchDebounce?.cancel();
+                  if (AdminSearchLimits.validate(value) != null) {
+                    return;
+                  }
                   _searchDebounce = Timer(_searchDebounceDuration, () async {
                     final term = value.trim();
                     controller.setSearchTerm(term);

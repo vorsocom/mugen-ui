@@ -32,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   eligibility or selection changes, and clear tenant details on access denial.
 
 - Keep inactive tenant detail actions unavailable, clear revoked tenant data, and refresh active tenant selections in administration and human handoff workspaces.
+- Limit administration searches to 200 characters and explain when a search
+  needs to be shortened before submitting it; keep empty-state actions
+  reachable when search controls leave limited vertical space.
 
 ### Security
 

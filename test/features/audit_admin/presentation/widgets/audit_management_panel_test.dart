@@ -51,6 +51,15 @@ void main() {
     await tester.tap(find.byTooltip('Next page'));
     await tester.pumpAndSettle();
     expect(repository.lastQuery?.pageRequest.page, 2);
+    final previousQuery = repository.lastQuery;
+    await tester.enterText(
+      find.byKey(const Key('audit-management-search-field')),
+      'x' * 201,
+    );
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(repository.lastQuery, same(previousQuery));
+    expect(find.text('Use 200 characters or fewer to search.'), findsOneWidget);
 
     await tester.enterText(
       find.byKey(const Key('audit-management-search-field')),

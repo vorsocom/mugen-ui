@@ -17,6 +17,95 @@ import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import '../../../test_support/fake_acp_admin_repository.dart';
 
 void main() {
+  testWidgets(
+    'list and reference searches preserve invalid text without dispatching',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _SearchRecordingRepository();
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: const [
+          AcpResourceDescriptor(
+            key: 'bounded',
+            title: 'Bounded',
+            entitySet: 'Bounded',
+            scopeMode: AcpScopeMode.none,
+            columns: [],
+            searchFields: ['Name'],
+            allowCreate: true,
+            createFields: [
+              AcpFieldDescriptor(
+                key: 'SingleId',
+                label: 'Single',
+                reference: AcpFieldReferenceDescriptor(
+                  entitySet: 'Options',
+                  scopeMode: AcpScopeMode.none,
+                  title: 'Options',
+                  searchFields: ['Name'],
+                ),
+              ),
+              AcpFieldDescriptor(
+                key: 'MultipleIds',
+                label: 'Multiple',
+                kind: AcpFieldKind.stringList,
+                reference: AcpFieldReferenceDescriptor(
+                  entitySet: 'Options',
+                  scopeMode: AcpScopeMode.none,
+                  title: 'Options',
+                  searchFields: ['Name'],
+                  multiSelect: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+      final initialCalls = repository.searches.length;
+      await tester.enterText(
+        find.byKey(const Key('acp-admin-search-bounded')),
+        'x' * 201,
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(repository.searches, hasLength(initialCalls));
+      expect(
+        find.text('Use 200 characters or fewer to search.'),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.byKey(const Key('acp-admin-search-bounded')),
+        '',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      final referenceCalls = repository.searches.length;
+      for (final key in ['SingleId', 'MultipleIds']) {
+        await tester.enterText(
+          find.byKey(Key('acp-reference-search-$key')),
+          'x' * 201,
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        expect(repository.searches, hasLength(referenceCalls));
+      }
+      expect(
+        find.text('Use 200 characters or fewer to search.'),
+        findsNWidgets(2),
+      );
+      await tester.enterText(
+        find.byKey(const Key('acp-reference-search-SingleId')),
+        'x' * 200,
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(repository.searches.last, 'x' * 200);
+    },
+  );
+
   testWidgets('New Row dialog shrink-wraps short ACP forms', (
     WidgetTester tester,
   ) async {
@@ -2181,4 +2270,30 @@ Future<FakeAcpAdminRepository> _pumpPanel(
   );
   await tester.pumpAndSettle();
   return fakeRepository;
+}
+
+class _SearchRecordingRepository extends FakeAcpAdminRepository {
+  final searches = <String?>[];
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const [],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) {
+    searches.add(searchTerm);
+    return super.listRows(
+      descriptor: descriptor,
+      pageRequest: pageRequest,
+      tenantId: tenantId,
+      searchTerm: searchTerm,
+      extraFilters: extraFilters,
+      deletedView: deletedView,
+      enrichReferences: enrichReferences,
+    );
+  }
 }

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:mugen_ui/shared/application/admin_search_limits.dart';
+import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_search_validation.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/features/billing_catalog/application/dto/billing_catalog_inputs.dart';
 import 'package:mugen_ui/features/billing_catalog/domain/entities/billing_catalog_entities.dart';
@@ -209,6 +211,11 @@ class BillingCatalogRepositoryImpl implements BillingCatalogRepository {
     required String orderBy,
     required List<String> searchFields,
   }) async {
+    final searchFailure = AdminSearchLimits.validate(query.searchTerm);
+    if (searchFailure != null) {
+      return Result<_RawPage>.failure(searchFailure);
+    }
+
     final filters = <String>[];
     final productId = query.productId?.trim();
     if (productId != null && productId.isNotEmpty) {
@@ -230,6 +237,13 @@ class BillingCatalogRepositoryImpl implements BillingCatalogRepository {
       r'$deleted': query.lifecycleView.name,
       if (filters.isNotEmpty) r'$filter': filters.join(' and '),
     };
+    final queryFailure = validateAcpSearchQuery(
+      searchTerm: query.searchTerm,
+      queryParameters: queryParameters,
+    );
+    if (queryFailure != null) {
+      return Result<_RawPage>.failure(queryFailure);
+    }
     final response = await _send(
       AcpRequest(
         method: HttpMethod.get,

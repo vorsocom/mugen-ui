@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:mugen_ui/shared/application/admin_search_limits.dart';
+import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_search_validation.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_admin_models.dart';
 import 'package:mugen_ui/shared/application/acp_admin/acp_reference_display.dart';
@@ -32,6 +34,7 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
         queryParameters: <String, dynamic>{
           r'$top': top,
           r'$orderby': 'Name asc',
+          r'$filter': "Status eq 'active'",
         },
       ),
     );
@@ -77,6 +80,11 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     AcpDeletedView deletedView = AcpDeletedView.active,
     bool enrichReferences = true,
   }) async {
+    final searchFailure = AdminSearchLimits.validate(searchTerm);
+    if (searchFailure != null) {
+      return Result<AcpRowPage>.failure(searchFailure);
+    }
+
     final path = AcpPathBuilder.collectionPath(
       endpoints: appConfig.api.endpoints,
       entitySet: descriptor.entitySet,
@@ -87,18 +95,26 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
       return Result<AcpRowPage>.failure(path.failure!);
     }
 
+    final queryParameters = AcpQueryBuilder.buildListQuery(
+      pageRequest: pageRequest,
+      orderBy: descriptor.defaultOrderBy,
+      searchTerm: searchTerm,
+      searchFields: descriptor.searchFields,
+      extraFilters: extraFilters,
+      deletedView: deletedView,
+    );
+    final queryFailure = validateAcpSearchQuery(
+      searchTerm: searchTerm,
+      queryParameters: queryParameters,
+    );
+    if (queryFailure != null) {
+      return Result<AcpRowPage>.failure(queryFailure);
+    }
     final response = await _send(
       AcpRequest(
         method: HttpMethod.get,
         path: path.data!,
-        queryParameters: AcpQueryBuilder.buildListQuery(
-          pageRequest: pageRequest,
-          orderBy: descriptor.defaultOrderBy,
-          searchTerm: searchTerm,
-          searchFields: descriptor.searchFields,
-          extraFilters: extraFilters,
-          deletedView: deletedView,
-        ),
+        queryParameters: queryParameters,
       ),
     );
     if (response.isFailure) {
@@ -314,19 +330,28 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     String? tenantId,
     int? rowVersion,
   }) async {
-    final path = AcpPathBuilder.entityActionPath(
-      endpoints: appConfig.api.endpoints,
-      entitySet: descriptor.entitySet,
-      entityId: rowId,
-      action: action.name,
-      scopeMode: descriptor.scopeMode,
-      tenantId: tenantId,
-    );
+    final isPatch = action.patchValues != null;
+    final path = isPatch
+        ? AcpPathBuilder.entityPath(
+            endpoints: appConfig.api.endpoints,
+            entitySet: descriptor.entitySet,
+            entityId: rowId,
+            scopeMode: descriptor.scopeMode,
+            tenantId: tenantId,
+          )
+        : AcpPathBuilder.entityActionPath(
+            endpoints: appConfig.api.endpoints,
+            entitySet: descriptor.entitySet,
+            entityId: rowId,
+            action: action.name,
+            scopeMode: descriptor.scopeMode,
+            tenantId: tenantId,
+          );
     if (path.isFailure) {
       return Result<Object?>.failure(path.failure!);
     }
 
-    final body = <String, dynamic>{...values};
+    final body = <String, dynamic>{...(action.patchValues ?? values)};
     if (action.includeRowVersion) {
       if (rowVersion == null || rowVersion < 0) {
         return const Result<Object?>.failure(
@@ -337,7 +362,11 @@ class AcpAdminRepositoryImpl implements AcpAdminRepository {
     }
 
     return _sendForObject(
-      AcpRequest(method: HttpMethod.post, path: path.data!, body: body),
+      AcpRequest(
+        method: isPatch ? HttpMethod.patch : HttpMethod.post,
+        path: path.data!,
+        body: body,
+      ),
     );
   }
 

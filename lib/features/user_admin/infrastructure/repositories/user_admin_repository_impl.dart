@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:intl/intl.dart';
+import 'package:mugen_ui/shared/application/admin_search_limits.dart';
+import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_search_validation.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/delete_user_input.dart';
 import 'package:mugen_ui/features/user_admin/application/dto/edit_user_roles_input.dart';
@@ -43,6 +45,11 @@ class UserAdminRepositoryImpl implements UserAdminRepository {
 
   @override
   Future<Result<PageResult<UserEntity>>> fetchUsers(UserListQuery query) async {
+    final searchFailure = AdminSearchLimits.validate(query.searchTerm);
+    if (searchFailure != null) {
+      return Result<PageResult<UserEntity>>.failure(searchFailure);
+    }
+
     try {
       final queryParameters = <String, dynamic>{
         r'$count': true,
@@ -74,6 +81,13 @@ class UserAdminRepositoryImpl implements UserAdminRepository {
         queryParameters[r'$filter'] = filterParts.join(' and ');
       }
 
+      final queryFailure = validateAcpSearchQuery(
+        searchTerm: query.searchTerm,
+        queryParameters: queryParameters,
+      );
+      if (queryFailure != null) {
+        return Result<PageResult<UserEntity>>.failure(queryFailure);
+      }
       final response = await authenticatedHttpClient.send(
         AcpRequest(
           method: HttpMethod.get,

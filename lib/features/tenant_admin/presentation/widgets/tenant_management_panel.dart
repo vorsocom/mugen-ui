@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:mugen_ui/shared/application/admin_search_limits.dart';
 import 'package:mugen_ui/app/providers.dart';
 import 'package:mugen_ui/features/tenant_admin/application/dto/tenant_admin_inputs.dart';
 import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_domain_entity.dart';
@@ -128,6 +130,22 @@ class _TenantManagementPanelState extends ConsumerState<TenantManagementPanel> {
                       title: 'No tenant selected.',
                       message:
                           'Select a tenant to manage domains, invitations, and memberships.',
+                    ),
+                  )
+                : !state.isSelectedTenantActive
+                ? const AdminEmptyState(
+                    data: AdminEmptyStateData(
+                      title: 'Tenant is inactive.',
+                      message:
+                          'Reactivate this tenant to manage domains, invitations, and memberships.',
+                    ),
+                  )
+                : state.isDetailAccessDenied
+                ? const AdminEmptyState(
+                    data: AdminEmptyStateData(
+                      title: 'Tenant details are unavailable.',
+                      message:
+                          'Your access to this tenant has changed. Reload the tenant options to check access again.',
                     ),
                   )
                 : Column(
@@ -1129,6 +1147,10 @@ class _TenantMembershipDialogState
           children: [
             TextFormField(
               key: const Key('tenant-membership-user-search-field'),
+              maxLength: AdminSearchLimits.maxLength,
+              maxLengthEnforcement: MaxLengthEnforcement.none,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: (value) => AdminSearchLimits.validate(value)?.message,
               controller: _userSearchController,
               decoration: appFormInputDecoration(
                 labelText: 'User',
@@ -1258,6 +1280,9 @@ class _TenantMembershipDialogState
 
   void _queueUserSearch(String value) {
     _searchDebounce?.cancel();
+    if (AdminSearchLimits.validate(value) != null) {
+      return;
+    }
     final term = value.trim();
     if (term.isEmpty) {
       setState(() {

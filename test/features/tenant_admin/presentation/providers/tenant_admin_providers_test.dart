@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mugen_ui/features/auth/presentation/providers/auth_providers.dart';
@@ -14,6 +16,124 @@ import 'package:mugen_ui/shared/domain/failure.dart';
 import 'package:mugen_ui/shared/domain/result.dart';
 
 void main() {
+  test('a later detail denial overrides an earlier network failure', () async {
+    final repository = _FakeTenantAdminRepository();
+    final container = ProviderContainer(
+      overrides: [tenantAdminRepositoryProvider.overrideWithValue(repository)],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(tenantAdminControllerProvider.notifier);
+    await controller.loadTenants();
+    expect(controller.state.memberships, isNotEmpty);
+    repository.fetchDomainsResult = const Result.failure(
+      NetworkFailure('Network interrupted.'),
+    );
+    repository.fetchMembershipsResult = const Result.failure(
+      ApiFailure(403, 'Membership access revoked.'),
+    );
+    await controller.loadSelectedTenantDetails();
+    expect(controller.state.isDetailAccessDenied, isTrue);
+    expect(controller.state.errorMessage, 'Membership access revoked.');
+    expect(controller.state.domains, isEmpty);
+    expect(controller.state.invitations, isEmpty);
+    expect(controller.state.memberships, isEmpty);
+  });
+
+  test('inactive tenants clear details and skip scoped requests', () async {
+    final repository = _FakeTenantAdminRepository();
+    final container = ProviderContainer(
+      overrides: <Override>[
+        tenantAdminRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(tenantAdminControllerProvider.notifier);
+    await controller.loadTenants();
+    expect(controller.state.isSelectedTenantActive, isTrue);
+    expect(controller.state.domains, isNotEmpty);
+
+    await controller.selectTenant('t-2');
+    expect(controller.state.isSelectedTenantActive, isFalse);
+    expect(controller.state.domains, isEmpty);
+    expect(controller.state.invitations, isEmpty);
+    expect(controller.state.memberships, isEmpty);
+    expect(repository.fetchDomainsCallCount, 1);
+    expect(repository.fetchInvitationsCallCount, 1);
+    expect(repository.fetchMembershipsCallCount, 1);
+    expect(controller.state.errorMessage, isNull);
+
+    await controller.refreshTenantOptions();
+    expect(repository.fetchDomainsCallCount, 1);
+    await controller.selectTenant('t-1');
+    expect(controller.state.domains, isNotEmpty);
+  });
+
+  test(
+    'denied tenant details clear stale data and allow access recheck',
+    () async {
+      final repository = _FakeTenantAdminRepository();
+      final container = ProviderContainer(
+        overrides: <Override>[
+          tenantAdminRepositoryProvider.overrideWithValue(repository),
+        ],
+      );
+      addTearDown(container.dispose);
+      final controller = container.read(tenantAdminControllerProvider.notifier);
+      await controller.loadTenants();
+      repository.fetchDomainsResult =
+          const Result<List<TenantDomainEntity>>.failure(
+            ApiFailure(403, 'Tenant access revoked.'),
+          );
+      await controller.loadSelectedTenantDetails();
+      expect(controller.state.isDetailAccessDenied, isTrue);
+      expect(controller.state.domains, isEmpty);
+      expect(controller.state.invitations, isEmpty);
+      expect(controller.state.memberships, isEmpty);
+      expect(controller.state.errorMessage, 'Tenant access revoked.');
+
+      repository.fetchDomainsResult = null;
+      await controller.refreshTenantOptions();
+      expect(controller.state.isDetailAccessDenied, isFalse);
+      expect(controller.state.domains, isNotEmpty);
+
+      repository.mutationResult = const Result<void>.failure(
+        ApiFailure(403, 'Denied.'),
+      );
+      await controller.removeMembership(
+        const TenantMembershipActionInput(
+          tenantId: 't-1',
+          membershipId: 'm-1',
+          rowVersion: 1,
+        ),
+      );
+      expect(controller.state.isDetailAccessDenied, isTrue);
+      expect(controller.state.memberships, isEmpty);
+    },
+  );
+
+  test('a late detail response cannot repopulate an inactive tenant', () async {
+    final repository = _FakeTenantAdminRepository();
+    final container = ProviderContainer(
+      overrides: <Override>[
+        tenantAdminRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+    final controller = container.read(tenantAdminControllerProvider.notifier);
+    await controller.loadTenants();
+    repository.domainsCompleter = Completer<Result<List<TenantDomainEntity>>>();
+    final loading = controller.loadSelectedTenantDetails();
+    await controller.selectTenant('t-2');
+    repository.domainsCompleter!.complete(
+      Result<List<TenantDomainEntity>>.success(repository._domains),
+    );
+    await loading;
+    expect(controller.state.selectedTenantId, 't-2');
+    expect(controller.state.domains, isEmpty);
+    expect(controller.state.invitations, isEmpty);
+    expect(controller.state.memberships, isEmpty);
+  });
+
   test(
     'tenantAdminRepository provider builds default repository implementation',
     () {
@@ -529,6 +649,8 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
   TenantListQuery? lastTenantQuery;
 
   Result<List<TenantDomainEntity>>? fetchDomainsResult;
+  Result<List<TenantMembershipEntity>>? fetchMembershipsResult;
+  Completer<Result<List<TenantDomainEntity>>>? domainsCompleter;
 
   @override
   Future<Result<void>> createTenant(CreateTenantInput input) async {
@@ -571,6 +693,9 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
     int top = 100,
   }) async {
     fetchDomainsCallCount += 1;
+    if (domainsCompleter != null) {
+      return domainsCompleter!.future;
+    }
     return fetchDomainsResult ??
         Result<List<TenantDomainEntity>>.success(_domains);
   }
@@ -590,7 +715,8 @@ class _FakeTenantAdminRepository implements TenantAdminRepository {
     int top = 100,
   }) async {
     fetchMembershipsCallCount += 1;
-    return Result<List<TenantMembershipEntity>>.success(_memberships);
+    return fetchMembershipsResult ??
+        Result<List<TenantMembershipEntity>>.success(_memberships);
   }
 
   @override

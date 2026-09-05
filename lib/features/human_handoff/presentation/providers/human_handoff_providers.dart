@@ -262,6 +262,10 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
   final Ref ref;
   int _messageCounter = 0;
   int _eventStreamGeneration = 0;
+  int _tenantOptionsGeneration = 0;
+  int _filterOptionsGeneration = 0;
+  int _sessionsGeneration = 0;
+  int _transcriptGeneration = 0;
   int _consecutiveEventFailures = 0;
   StreamSubscription<Result<HumanHandoffEventEntity>>? _eventSubscription;
   Timer? _eventReconnectTimer;
@@ -279,10 +283,15 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
   }
 
   Future<void> refresh() async {
+    await loadTenants();
     await Future.wait(<Future<void>>[loadFilterOptions(), loadSessions()]);
+    if (state.errorMessage == null) {
+      _startEventStream();
+    }
   }
 
   Future<void> loadFilterOptions() async {
+    final generation = ++_filterOptionsGeneration;
     final tenantId = state.selectedTenantId;
     if (tenantId == null || tenantId.isEmpty) {
       state = state.copyWith(
@@ -297,6 +306,9 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
     final result = await ref
         .read(humanHandoffRepositoryProvider)
         .fetchFilterOptions(tenantId: tenantId);
+    if (generation != _filterOptionsGeneration) {
+      return;
+    }
     if (result.isFailure) {
       state = state.copyWith(
         ownerOptions: const <HumanHandoffReferenceOptionEntity>[],
@@ -317,10 +329,14 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
   }
 
   Future<void> loadTenants() async {
+    final generation = ++_tenantOptionsGeneration;
     state = state.copyWith(isLoadingTenants: true, clearError: true);
     final result = await ref
         .read(humanHandoffRepositoryProvider)
         .fetchTenants();
+    if (generation != _tenantOptionsGeneration) {
+      return;
+    }
     if (result.isFailure) {
       _applyFailure(result.failure!, fallback: 'Could not load tenants.');
       state = state.copyWith(isLoadingTenants: false);
@@ -333,28 +349,52 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       selectedTenantId = tenants.isEmpty ? null : tenants.first.id;
     }
 
+    final selectionChanged = selectedTenantId != state.selectedTenantId;
+    final clearTenantData = tenants.isEmpty || selectionChanged;
+    if (clearTenantData) {
+      _invalidateTenantLoads();
+    }
     state = state.copyWith(
       tenants: tenants,
       selectedTenantId: selectedTenantId,
       isLoadingTenants: false,
-      sessions: tenants.isEmpty
+      isLoadingSessions: clearTenantData ? false : state.isLoadingSessions,
+      isLoadingTranscript: clearTenantData ? false : state.isLoadingTranscript,
+      isLoadingFilterOptions: clearTenantData
+          ? false
+          : state.isLoadingFilterOptions,
+      sessions: clearTenantData
           ? const <HumanHandoffSessionEntity>[]
           : state.sessions,
-      transcript: tenants.isEmpty
+      transcript: clearTenantData
           ? const <HumanHandoffTranscriptItemEntity>[]
           : state.transcript,
-      hasMoreTranscript: tenants.isEmpty ? false : state.hasMoreTranscript,
+      hasMoreTranscript: clearTenantData ? false : state.hasMoreTranscript,
+      total: clearTenantData ? 0 : state.total,
+      page: clearTenantData ? 1 : state.page,
+      ownerFilter: clearTenantData ? '' : state.ownerFilter,
+      serviceRouteFilter: clearTenantData ? '' : state.serviceRouteFilter,
+      draftText: clearTenantData ? '' : state.draftText,
+      clearPendingReplyMessage: clearTenantData,
+      clearLastDeliveryError: clearTenantData,
+      ownerOptions: clearTenantData
+          ? const <HumanHandoffReferenceOptionEntity>[]
+          : state.ownerOptions,
+      serviceRouteOptions: clearTenantData
+          ? const <HumanHandoffReferenceOptionEntity>[]
+          : state.serviceRouteOptions,
       clearSelectedTenant: tenants.isEmpty,
-      clearSelectedSession: tenants.isEmpty,
-      clearLatestTranscriptSequence: tenants.isEmpty,
+      clearSelectedSession: clearTenantData,
+      clearLatestTranscriptSequence: clearTenantData,
       clearError: true,
     );
-    if (tenants.isEmpty) {
+    if (clearTenantData) {
       _stopEventStream();
     }
   }
 
   Future<void> loadSessions({bool refreshTranscript = true}) async {
+    final generation = ++_sessionsGeneration;
     final tenantId = state.selectedTenantId;
     if (tenantId == null || tenantId.isEmpty) {
       state = state.copyWith(
@@ -385,6 +425,9 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
             ownerUserId: state.ownerFilter,
           ),
         );
+    if (generation != _sessionsGeneration) {
+      return;
+    }
     if (result.isFailure) {
       _applyFailure(
         result.failure!,
@@ -403,6 +446,10 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
     if (!page.items.any((session) => session.id == selectedSessionId)) {
       selectedSessionId = page.items.isEmpty ? null : page.items.first.id;
     }
+    final selectionChanged = selectedSessionId != state.selectedSessionId;
+    if (selectionChanged) {
+      _transcriptGeneration += 1;
+    }
 
     state = state.copyWith(
       sessions: page.items,
@@ -412,14 +459,16 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       pageSize: page.pageSize,
       selectedSessionId: selectedSessionId,
       isLoadingSessions: false,
-      transcript: selectedSessionId == null
+      isLoadingTranscript: selectionChanged ? false : state.isLoadingTranscript,
+      transcript: selectionChanged || selectedSessionId == null
           ? const <HumanHandoffTranscriptItemEntity>[]
           : state.transcript,
-      hasMoreTranscript: selectedSessionId == null
+      hasMoreTranscript: selectionChanged || selectedSessionId == null
           ? false
           : state.hasMoreTranscript,
       clearSelectedSession: selectedSessionId == null,
-      clearLatestTranscriptSequence: selectedSessionId == null,
+      clearLatestTranscriptSequence:
+          selectionChanged || selectedSessionId == null,
       clearError: true,
     );
 
@@ -429,6 +478,7 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
   }
 
   Future<void> loadTranscript({bool incremental = false}) async {
+    final generation = ++_transcriptGeneration;
     final tenantId = state.selectedTenantId;
     final sessionId = state.selectedSessionId;
     if (tenantId == null ||
@@ -456,6 +506,9 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
             afterSequenceNo: afterSequenceNo,
           ),
         );
+    if (generation != _transcriptGeneration) {
+      return;
+    }
     if (result.isFailure) {
       _applyFailure(result.failure!, fallback: 'Could not load transcript.');
       state = state.copyWith(isLoadingTranscript: false);
@@ -493,6 +546,7 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
         normalized == state.selectedTenantId) {
       return;
     }
+    _invalidateTenantLoads();
     _stopEventStream();
     state = state.copyWith(
       selectedTenantId: normalized,
@@ -503,12 +557,23 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       serviceRouteOptions: const <HumanHandoffReferenceOptionEntity>[],
       ownerFilter: '',
       serviceRouteFilter: '',
+      draftText: '',
+      clearPendingReplyMessage: true,
+      isLoadingSessions: false,
+      isLoadingTranscript: false,
+      isLoadingFilterOptions: false,
       clearSelectedSession: true,
       clearLastDeliveryError: true,
       clearLatestTranscriptSequence: true,
     );
     await Future.wait(<Future<void>>[loadFilterOptions(), loadSessions()]);
     _startEventStream();
+  }
+
+  void _invalidateTenantLoads() {
+    _filterOptionsGeneration += 1;
+    _sessionsGeneration += 1;
+    _transcriptGeneration += 1;
   }
 
   List<HumanHandoffReferenceOptionEntity> _mergeServiceRouteOptions(
@@ -851,6 +916,7 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
     if (subscription != null) {
       unawaited(subscription.cancel());
     }
+    final accessDenied = failure is ApiFailure && failure.statusCode == 403;
     _consecutiveEventFailures += 1;
     final isUnavailable =
         _requiresImmediateLiveIssue(failure) ||
@@ -859,10 +925,17 @@ class HumanHandoffController extends StateNotifier<HumanHandoffState> {
       liveStatus: isUnavailable
           ? HumanHandoffLiveStatus.unavailable
           : HumanHandoffLiveStatus.reconnecting,
-      liveErrorMessage: failure.message.trim().isEmpty
+      liveErrorMessage: accessDenied
+          ? 'Access to live handoff updates is no longer available. Refresh to check your access.'
+          : failure.message.trim().isEmpty
           ? 'Live handoff updates disconnected.'
           : failure.message,
     );
+    if (accessDenied) {
+      _eventReconnectTimer?.cancel();
+      _eventReconnectTimer = null;
+      return;
+    }
     _scheduleEventReconnect();
   }
 

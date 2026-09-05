@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import 'package:mugen_ui/shared/application/admin_search_limits.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import 'package:mugen_ui/shared/presentation/theme/app_ui_palette.dart';
 
@@ -125,6 +127,14 @@ class _AppSearchableSelectFieldState<T>
           builder: (context, menuController, child) {
             return TextFormField(
               key: widget.fieldKey,
+              maxLength: widget.onSearchChanged == null
+                  ? null
+                  : AdminSearchLimits.maxLength,
+              maxLengthEnforcement: MaxLengthEnforcement.none,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              validator: widget.onSearchChanged == null
+                  ? null
+                  : (value) => AdminSearchLimits.validate(value)?.message,
               controller: _controller,
               enabled: enabled,
               decoration: appFormInputDecoration(
@@ -289,6 +299,10 @@ class _AppSearchableSelectFieldState<T>
   }
 
   void _filterOptions() {
+    if (widget.onSearchChanged != null &&
+        AdminSearchLimits.validate(_controller.text) != null) {
+      return;
+    }
     setState(() {
       _showAllResults = false;
     });

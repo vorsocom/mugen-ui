@@ -19,6 +19,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+## [0.17.2] - 2026-09-05
+
+### Added
+
+- Added an ingress binding deactivation action that updates only its active
+  state, so legacy bindings with invalid ownership can be disabled.
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Stopped automatic chat and human-handoff event reconnections after access is
+  denied, with clear access-loss messages and explicit retry support.
+
+- Fixed fresh chat startup to open its event stream only after message acceptance,
+  while preserving established conversations and replay across reloads.
+- Validate messaging ingress identifiers against active tenant-owned channel
+  and client profiles, restrict profile selection to matching active channels,
+  and cancel saves if the selected tenant or resource changes during validation.
+- Ignore late tenant-scoped rows, counts and handoff responses after tenant
+  eligibility or selection changes, and clear tenant details on access denial.
+
+- Keep inactive tenant detail actions unavailable, clear revoked tenant data, and refresh active tenant selections in administration and human handoff workspaces.
+- Limit administration searches to 200 characters and explain when a search
+  needs to be shortened before submitting it; keep empty-state actions
+  reachable when search controls leave limited vertical space.
+
+### Security
+
 ## [0.17.1] - 2026-09-02
 
 ### Added

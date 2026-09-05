@@ -17,6 +17,95 @@ import 'package:mugen_ui/shared/presentation/theme/app_form_style.dart';
 import '../../../test_support/fake_acp_admin_repository.dart';
 
 void main() {
+  testWidgets(
+    'list and reference searches preserve invalid text without dispatching',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final repository = _SearchRecordingRepository();
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: const [
+          AcpResourceDescriptor(
+            key: 'bounded',
+            title: 'Bounded',
+            entitySet: 'Bounded',
+            scopeMode: AcpScopeMode.none,
+            columns: [],
+            searchFields: ['Name'],
+            allowCreate: true,
+            createFields: [
+              AcpFieldDescriptor(
+                key: 'SingleId',
+                label: 'Single',
+                reference: AcpFieldReferenceDescriptor(
+                  entitySet: 'Options',
+                  scopeMode: AcpScopeMode.none,
+                  title: 'Options',
+                  searchFields: ['Name'],
+                ),
+              ),
+              AcpFieldDescriptor(
+                key: 'MultipleIds',
+                label: 'Multiple',
+                kind: AcpFieldKind.stringList,
+                reference: AcpFieldReferenceDescriptor(
+                  entitySet: 'Options',
+                  scopeMode: AcpScopeMode.none,
+                  title: 'Options',
+                  searchFields: ['Name'],
+                  multiSelect: true,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+      final initialCalls = repository.searches.length;
+      await tester.enterText(
+        find.byKey(const Key('acp-admin-search-bounded')),
+        'x' * 201,
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(repository.searches, hasLength(initialCalls));
+      expect(
+        find.text('Use 200 characters or fewer to search.'),
+        findsOneWidget,
+      );
+      await tester.enterText(
+        find.byKey(const Key('acp-admin-search-bounded')),
+        '',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('acp-admin-create-button')));
+      await tester.pumpAndSettle();
+      final referenceCalls = repository.searches.length;
+      for (final key in ['SingleId', 'MultipleIds']) {
+        await tester.enterText(
+          find.byKey(Key('acp-reference-search-$key')),
+          'x' * 201,
+        );
+        await tester.pump(const Duration(milliseconds: 350));
+        await tester.pumpAndSettle();
+        expect(repository.searches, hasLength(referenceCalls));
+      }
+      expect(
+        find.text('Use 200 characters or fewer to search.'),
+        findsNWidgets(2),
+      );
+      await tester.enterText(
+        find.byKey(const Key('acp-reference-search-SingleId')),
+        'x' * 200,
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(repository.searches.last, 'x' * 200);
+    },
+  );
+
   testWidgets('New Row dialog shrink-wraps short ACP forms', (
     WidgetTester tester,
   ) async {
@@ -1389,6 +1478,99 @@ void main() {
     expect(find.byTooltip('More actions'), findsNothing);
   });
 
+  testWidgets(
+    'detail navigation uses the configured source field and tenant exact filter',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() async {
+        await tester.binding.setSurfaceSize(null);
+      });
+      final repository = _DetailNavigationAcpAdminRepository(
+        sourceField: 'ExternalKey',
+        targetFilterKey: 'ChannelKey',
+      );
+
+      await _pumpPanel(
+        tester,
+        repository: repository,
+        descriptors: <AcpResourceDescriptor>[
+          AcpResourceDescriptor(
+            key: 'channels',
+            title: 'Channels',
+            entitySet: 'Channels',
+            scopeMode: AcpScopeMode.required,
+            columns: const <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Name', label: 'Name'),
+            ],
+            detailSections: <AcpDetailSectionDescriptor>[
+              AcpDetailSectionDescriptor(
+                title: 'Routing details',
+                fields: <AcpDetailFieldDescriptor>[
+                  AcpDetailFieldDescriptor(
+                    key: repository.sourceField,
+                    label: 'External routing key',
+                  ),
+                ],
+                links: <AcpNavigationDescriptor>[
+                  AcpNavigationDescriptor(
+                    label: 'Open matching sessions',
+                    targetResourceKey: 'sessions',
+                    sourceField: repository.sourceField,
+                    targetFilterKey: repository.targetFilterKey,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          AcpResourceDescriptor(
+            key: 'sessions',
+            title: 'Sessions',
+            entitySet: 'Sessions',
+            scopeMode: AcpScopeMode.required,
+            columns: const <AcpColumnDescriptor>[
+              AcpColumnDescriptor(key: 'Name', label: 'Name'),
+            ],
+            filters: <AcpFilterDescriptor>[
+              AcpFilterDescriptor(
+                key: repository.targetFilterKey,
+                label: 'Channel routing key',
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('acp-admin-tenant-selector')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('acp-admin-tenant-option-tenant-1')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('View row'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Routing details'), findsOneWidget);
+      expect(find.text('External routing key'), findsOneWidget);
+      expect(find.text("  channel's-external-key  "), findsOneWidget);
+      expect(find.text('Open matching sessions'), findsOneWidget);
+
+      repository.sessionRequests.clear();
+      await tester.tap(
+        find.byKey(const Key('acp-detail-link-channels-sessions')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Routing details'), findsNothing);
+      expect(find.text('Channel routing key'), findsOneWidget);
+      expect(find.text('Matching session'), findsOneWidget);
+      expect(repository.fetchRowCalls, 0);
+      expect(repository.sessionRequests.last.tenantId, 'tenant-1');
+      expect(repository.sessionRequests.last.filters, <String>[
+        "ChannelKey eq 'channel''s-external-key'",
+      ]);
+    },
+  );
+
   testWidgets('row detail dialog copies object ID to the clipboard', (
     WidgetTester tester,
   ) async {
@@ -1721,6 +1903,51 @@ AcpResourceDescriptor _jsonResourceDescriptor() {
   );
 }
 
+class _DetailNavigationAcpAdminRepository extends FakeAcpAdminRepository {
+  _DetailNavigationAcpAdminRepository({
+    required this.sourceField,
+    required this.targetFilterKey,
+  });
+
+  final String sourceField;
+  final String targetFilterKey;
+  final List<({String? tenantId, List<String> filters})> sessionRequests = [];
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const <String>[],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) async {
+    final isSession = descriptor.entitySet == 'Sessions';
+    if (isSession) {
+      sessionRequests.add((
+        tenantId: tenantId,
+        filters: List<String>.of(extraFilters),
+      ));
+    }
+    return Result<AcpRowPage>.success(
+      AcpRowPage(
+        items: <AcpRow>[
+          <String, Object?>{
+            'Id': isSession ? 'session-1' : 'channel-1',
+            'TenantId': tenantId,
+            'Name': isSession ? 'Matching session' : 'Primary channel',
+            sourceField: "  channel's-external-key  ",
+          },
+        ],
+        total: 1,
+        page: pageRequest.page,
+        pageSize: pageRequest.pageSize,
+      ),
+    );
+  }
+}
+
 class _TenantRowAcpAdminRepository extends FakeAcpAdminRepository {
   String? updateTenantId;
   Map<String, dynamic>? updateValues;
@@ -2043,4 +2270,30 @@ Future<FakeAcpAdminRepository> _pumpPanel(
   );
   await tester.pumpAndSettle();
   return fakeRepository;
+}
+
+class _SearchRecordingRepository extends FakeAcpAdminRepository {
+  final searches = <String?>[];
+
+  @override
+  Future<Result<AcpRowPage>> listRows({
+    required AcpResourceDescriptor descriptor,
+    required PageRequest pageRequest,
+    String? tenantId,
+    String? searchTerm,
+    List<String> extraFilters = const [],
+    AcpDeletedView deletedView = AcpDeletedView.active,
+    bool enrichReferences = true,
+  }) {
+    searches.add(searchTerm);
+    return super.listRows(
+      descriptor: descriptor,
+      pageRequest: pageRequest,
+      tenantId: tenantId,
+      searchTerm: searchTerm,
+      extraFilters: extraFilters,
+      deletedView: deletedView,
+      enrichReferences: enrichReferences,
+    );
+  }
 }

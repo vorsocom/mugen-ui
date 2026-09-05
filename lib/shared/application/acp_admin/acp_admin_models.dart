@@ -358,6 +358,7 @@ class AcpActionDescriptor {
     this.visibleWhenEquals = const <String, List<Object>>{},
     this.refreshResourceKeys = const <String>[],
     this.payloadValidator,
+    this.patchValues,
   });
 
   final String name;
@@ -377,6 +378,9 @@ class AcpActionDescriptor {
   final Map<String, List<Object>> visibleWhenEquals;
   final List<String> refreshResourceKeys;
   final AcpPayloadValidator? payloadValidator;
+
+  /// Fixed fields for an entity PATCH instead of an ACP action request.
+  final Map<String, dynamic>? patchValues;
 
   bool isVisibleFor(AcpRow row) => acpRowMatches(row, visibleWhenEquals);
 

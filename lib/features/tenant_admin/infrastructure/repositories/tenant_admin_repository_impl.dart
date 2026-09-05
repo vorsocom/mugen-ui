@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:intl/intl.dart';
+import 'package:mugen_ui/shared/application/admin_search_limits.dart';
+import 'package:mugen_ui/shared/infrastructure/acp_admin/acp_search_validation.dart';
 import 'package:mugen_ui/app/config/app_config.dart';
 import 'package:mugen_ui/features/tenant_admin/application/dto/tenant_admin_inputs.dart';
 import 'package:mugen_ui/features/tenant_admin/domain/entities/tenant_domain_entity.dart';
@@ -37,6 +39,11 @@ class TenantAdminRepositoryImpl implements TenantAdminRepository {
   Future<Result<PageResult<TenantEntity>>> fetchTenants(
     TenantListQuery query,
   ) async {
+    final searchFailure = AdminSearchLimits.validate(query.searchTerm);
+    if (searchFailure != null) {
+      return Result<PageResult<TenantEntity>>.failure(searchFailure);
+    }
+
     final queryParameters = <String, dynamic>{
       r'$count': true,
       r'$orderby': 'CreatedAt desc',
@@ -54,6 +61,13 @@ class TenantAdminRepositoryImpl implements TenantAdminRepository {
           "contains(Name,'$escaped') or contains(Slug,'$escaped')";
     }
 
+    final queryFailure = validateAcpSearchQuery(
+      searchTerm: query.searchTerm,
+      queryParameters: queryParameters,
+    );
+    if (queryFailure != null) {
+      return Result<PageResult<TenantEntity>>.failure(queryFailure);
+    }
     final response = await _sendRequest(
       AcpRequest(
         method: HttpMethod.get,

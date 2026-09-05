@@ -468,47 +468,49 @@ class AdminEmptyState extends StatelessWidget {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.inbox_outlined,
-                size: 24,
-                color: AppUiPalette.textSecondary,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                data.title,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppUiPalette.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                data.message,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.inbox_outlined,
+                  size: 24,
                   color: AppUiPalette.textSecondary,
-                  height: 1.3,
                 ),
-              ),
-              if (data.primaryAction != null || data.secondaryAction != null)
-                const SizedBox(height: 10),
-              if (data.primaryAction != null || data.secondaryAction != null)
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    if (data.primaryAction != null) data.primaryAction!,
-                    if (data.secondaryAction != null) data.secondaryAction!,
-                  ],
+                const SizedBox(height: 8),
+                Text(
+                  data.title,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppUiPalette.textPrimary,
+                  ),
                 ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  data.message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppUiPalette.textSecondary,
+                    height: 1.3,
+                  ),
+                ),
+                if (data.primaryAction != null || data.secondaryAction != null)
+                  const SizedBox(height: 10),
+                if (data.primaryAction != null || data.secondaryAction != null)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      if (data.primaryAction != null) data.primaryAction!,
+                      if (data.secondaryAction != null) data.secondaryAction!,
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ),
